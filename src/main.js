@@ -205,8 +205,11 @@ function setAuthView(view, message = '', tone = 'notice') {
 function enterApp(account, awardLogin = false) {
   currentAccount = account;
   state = tickState(account.treeState ?? createInitialState());
+  let loginRewarded = false;
   if (awardLogin) {
+    const airBeforeLogin = state.air;
     state = applyActivity(state, 'access');
+    loginRewarded = state.air > airBeforeLogin;
   }
   elements.currentUserName.textContent = account.name;
   elements.userAvatar.textContent = account.name.trim().charAt(0).toLocaleUpperCase('id-ID');
@@ -216,7 +219,9 @@ function enterApp(account, awardLogin = false) {
   render();
   navigateToPage(pageFromLocationHash(), false);
   if (awardLogin) {
-    showToast('Login valid: +1 Air masuk Storage. Gunakan Air pada pohon untuk menambah progres.');
+    showToast(loginRewarded
+      ? 'Login valid: +1 Air masuk Storage. Gunakan Air pada pohon untuk menambah progres.'
+      : 'Login valid. Reward +1 Air hari ini sudah diterima; tidak ada Air tambahan.');
   }
 }
 

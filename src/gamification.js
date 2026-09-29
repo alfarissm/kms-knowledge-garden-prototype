@@ -23,6 +23,24 @@ const ACTIVITY_REWARDS = {
 };
 const SHARING_TYPES = new Set(['video', 'article', 'document', 'podcast', 'link']);
 
+function getLocalDayKey(timestamp) {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getLastAccessRewardDay(history) {
+  const lastReward = history.find((entry) => (
+    entry?.type === 'activity'
+    && entry?.title === ACTIVITY_REWARDS.access.label
+    && Number(entry?.airDelta) > 0
+    && Number.isFinite(entry?.at)
+  ));
+  return lastReward ? getLocalDayKey(lastReward.at) : null;
+}
+
 function cloneState(state) {
   const clonedState = structuredClone(state);
   const now = Date.now();
@@ -63,6 +81,9 @@ function cloneState(state) {
     ? clonedState.sharingSubmissions
     : [];
   clonedState.history = Array.isArray(clonedState.history) ? clonedState.history : [];
+  clonedState.lastAccessRewardDay = /^\d{4}-\d{2}-\d{2}$/.test(clonedState.lastAccessRewardDay ?? '')
+    ? clonedState.lastAccessRewardDay
+    : getLastAccessRewardDay(clonedState.history);
   return clonedState;
 }
 
@@ -102,6 +123,7 @@ export function createInitialState(now = Date.now()) {
     growthFertilizerUnits: 0,
     clockMs: now,
     wallClockSyncedAt: now,
+    lastAccessRewardDay: null,
     lastValidActivityAt: now,
     lastCareAt: null,
     lastDecayResetAt: now,
@@ -500,6 +522,24 @@ export function applyActivity(currentState, type, options = {}) {
 
   if (!ACTIVITY_REWARDS[type]) {
     throw new Error(`Jenis aktivitas tidak dikenal: ${type}`);
+  }
+
+  if (type === 'access') {
+    const today = getLocalDayKey(state.clockMs);
+    if (state.lastAccessRewardDay === today) {
+      recordActivity(state, {
+        at: state.clockMs,
+        type: 'activity',
+        title: ACTIVITY_REWARDS.access.label,
+        detail: 'Reward +1 Air harian sudah diterima hari ini; tidak ada Air tambahan.',
+        status: 'activity',
+      });
+    } else {
+      addReward(state, ACTIVITY_REWARDS.access, state.clockMs, ACTIVITY_REWARDS.access.label);
+      state.lastAccessRewardDay = today;
+    }
+    recordValidActivity(state);
+    return state;
   }
 
   addReward(state, ACTIVITY_REWARDS[type], state.clockMs, ACTIVITY_REWARDS[type].label);

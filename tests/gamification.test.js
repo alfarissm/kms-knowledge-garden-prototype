@@ -58,6 +58,29 @@ describe('gamification prototype logic', () => {
     expect(afterLearning.state.history[0].detail).toContain('+1 Pupuk masuk Storage');
   });
 
+  it('awards +1 Air for the first valid Login per local calendar day only', () => {
+    const firstLoginAt = new Date(2026, 8, 29, 8, 0).getTime();
+    const nextDayAt = new Date(2026, 8, 30, 0, 1).getTime();
+    const start = createInitialState(firstLoginAt);
+    const firstLogin = applyActivity(start, 'access', { wallNow: firstLoginAt });
+
+    expect(firstLogin.air).toBe(start.air + 1);
+    expect(firstLogin.lastAccessRewardDay).toBe('2026-09-29');
+
+    const legacyState = structuredClone(firstLogin);
+    delete legacyState.lastAccessRewardDay;
+    const repeatLogin = applyActivity(legacyState, 'access', { wallNow: firstLoginAt + (60 * 60 * 1000) });
+
+    expect(repeatLogin.air).toBe(firstLogin.air);
+    expect(repeatLogin.history[0].detail).toContain('sudah diterima hari ini');
+    expect(repeatLogin.lastValidActivityAt).toBe(repeatLogin.clockMs);
+    expect(repeatLogin.lastDecayResetAt).toBe(repeatLogin.clockMs);
+
+    const nextDayLogin = applyActivity(repeatLogin, 'access', { wallNow: nextDayAt });
+    expect(nextDayLogin.air).toBe(repeatLogin.air + 1);
+    expect(nextDayLogin.lastAccessRewardDay).toBe('2026-09-30');
+  });
+
   it('awards Sharing only after a submitted material is validated', () => {
     const start = createInitialState(1_000);
     const material = {
