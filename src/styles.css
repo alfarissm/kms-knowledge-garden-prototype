@@ -1959,9 +1959,9 @@ body.is-mobile-menu-open { overflow: hidden; }
 .tree-scene.is-advanced-stage .scene-ground { animation: meadow-shimmer 4.8s ease-in-out infinite; }
 .tree-scene.is-advanced-stage .scene-sun { animation: mature-sun-glimmer 5.6s ease-in-out infinite; }
 
-.tree-scene { background: linear-gradient(180deg, #4db6ce 0%, #58bfd1 72%, #9bd5d9 100%); }
-.tree-card.is-thirsty .tree-scene { background: linear-gradient(180deg, #c6c18b 0%, #d9d49c 72%, #e1dca8 100%); }
-.tree-card.is-dead .tree-scene { background: linear-gradient(180deg, #bd9780 0%, #c7a18b 72%, #d0aa92 100%); }
+.tree-scene { background: linear-gradient(180deg, #4db6ce 0%, #58bfd1 58%, rgba(88, 191, 209, 0) 82%); }
+.tree-card.is-thirsty .tree-scene { background: linear-gradient(180deg, #c6c18b 0%, #d9d49c 58%, rgba(217, 212, 156, 0) 82%); }
+.tree-card.is-dead .tree-scene { background: linear-gradient(180deg, #bd9780 0%, #c7a18b 58%, rgba(199, 161, 139, 0) 82%); }
 .tree-scene .scene-ground {
   z-index: 1;
   right: 0;
