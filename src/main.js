@@ -273,9 +273,9 @@ function formatDate(timestamp, options = {}) {
 
 function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const palettes = {
-    healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', branch: '#84391f' },
-    thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', branch: '#916441' },
-    dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', branch: '#805c49' },
+    healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', trunkLight: '#c16b35', branch: '#84391f' },
+    thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', trunkLight: '#bd9366', branch: '#916441' },
+    dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', trunkLight: '#a57e5c', branch: '#805c49' },
   };
   const colors = palettes[condition];
   const growthEntryClass = animateGrowth ? ' tree-entering' : '';
@@ -297,15 +297,44 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   }
 
   const canopy = canopyByLevel[level] ?? canopyByLevel[2];
-  const branches = [
-    level >= 5 ? `<path d="M200 211c-16-9-26-25-42-42-12-12-23-17-37-17" fill="none" stroke="${colors.branch}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>` : '',
-    level >= 6 ? `<path d="M202 204c18-11 28-27 43-43 12-12 24-16 38-14" fill="none" stroke="${colors.branch}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>` : '',
-    level >= 7 ? `<path d="M195 224c-16-5-28-16-42-29m53-9c15-9 25-21 36-34" fill="none" stroke="${colors.branch}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>` : '',
-  ].join('');
-
-  const trunk = `<path d="M194 294c5-40 0-75 8-111 5-24 5-43 1-61" fill="none" stroke="${colors.trunk}" stroke-width="${level >= 4 ? 19 : 14}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const trunkPath = 'M200 294 C194 266 193 238 198 211 C204 181 207 149 200 118';
+  const trunk = `<path d="${trunkPath}" fill="none" stroke="${colors.branch}" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/><path d="${trunkPath}" fill="none" stroke="${colors.trunk}" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/><path d="M199 286 C195 257 197 234 201 211 C206 182 207 154 202 132" fill="none" stroke="${colors.trunkLight}" stroke-width="4" stroke-linecap="round" opacity=".78"/>`;
+  const branchPaths = [
+    ...(level >= 5 ? ['M198 242 C182 228 177 211 161 194 C147 178 137 163 120 156'] : []),
+    ...(level >= 6 ? ['M202 232 C220 216 224 198 240 181 C254 166 265 156 282 151'] : []),
+    ...(level >= 7 ? [
+      'M184 221 C169 211 159 197 148 181',
+      'M216 214 C231 202 241 188 252 173',
+      'M198 184 C187 167 187 150 190 135',
+      'M205 183 C216 166 216 149 212 135',
+    ] : []),
+  ];
+  const branches = branchPaths.map((path, index) => {
+    const width = index < 2 ? 13 : 8;
+    return `<g class="tree-branch"><path d="${path}" fill="none" stroke="${colors.branch}" stroke-width="${width + 4}" stroke-linecap="round" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="${colors.trunk}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+  }).join('');
   const visibleCanopy = condition === 'dead' ? canopy.filter((_, index) => index % 4 !== 3) : canopy;
-  const canopyMarkup = visibleCanopy.map(([cx, cy, radius], index) => `<circle class="leaf-cluster cluster-${index % 3}" cx="${cx}" cy="${cy}" r="${radius}" fill="${index % 3 === 0 ? colors.leaf : (index % 3 === 1 ? colors.leafDark : colors.leafLight)}"/>`).join('');
+  const canopyCenter = [200, 154];
+  const canopyDistance = ([cx, cy]) => Math.hypot(cx - canopyCenter[0], cy - canopyCenter[1]);
+  const farthestCanopyLeaf = Math.max(...visibleCanopy.map(canopyDistance), 1);
+  const canopyMarkup = [...visibleCanopy]
+    .sort((a, b) => canopyDistance(b) - canopyDistance(a))
+    .map(([cx, cy, radius], index) => {
+      const distanceRatio = canopyDistance([cx, cy]) / farthestCanopyLeaf;
+      const fill = distanceRatio < .55 ? colors.leafDark : distanceRatio < .82 ? colors.leaf : colors.leafLight;
+      return `<circle class="leaf-cluster cluster-${index % 3}" cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}"/>`;
+    }).join('');
+  const makeLeafTip = (x, y, angle, scale = 1) => `<g class="tree-terminal-leaves" transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})"><path d="M0 0C-7-17-25-20-36-9c4 15 20 22 36 9Z" fill="${colors.leafLight}"/><path d="M0 0C8-19 25-24 37-13 32 4 14 9 0 0Z" fill="${colors.leaf}"/><path d="M-2 0c-12 8-13 23-1 34C12 25 12 8-2 0Z" fill="${colors.leafLight}"/><path d="M-29-9C-18-5-9-2-1 0M30-13C18-7 9-3 1 0M-3 29C-2 17-1 8-1 1" fill="none" stroke="${colors.leafDark}" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></g>`;
+  const terminalLeaves = [
+    ...(level >= 5 ? [makeLeafTip(119, 155, -18, .9)] : []),
+    ...(level >= 6 ? [makeLeafTip(282, 150, 18, .9)] : []),
+    ...(level >= 7 ? [
+      makeLeafTip(148, 181, -42, .72),
+      makeLeafTip(252, 173, 42, .72),
+      makeLeafTip(190, 135, -68, .68),
+      makeLeafTip(212, 135, 68, .68),
+    ] : []),
+  ].join('');
   const fruitPositions = [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
   const visibleFruit = Math.min(fruitCount, MAX_VISIBLE_FRUIT);
@@ -315,7 +344,7 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     : '';
   const fruitCounter = fruitCount > MAX_VISIBLE_FRUIT ? `<text x="286" y="149" class="extra-fruit-label">+${fruitCount - MAX_VISIBLE_FRUIT}</text>` : '';
 
-  return `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Pohon Level ${level}, kondisi ${condition}, ${fruitCount} Buah di pohon">${branches}${trunk}<g class="canopy">${canopyMarkup}</g>${fruitMarkup}${fallingLeaves}${fruitCounter}</svg>`;
+  return `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Pohon Level ${level}, kondisi ${condition}, ${fruitCount} Buah di pohon"><g class="canopy">${canopyMarkup}</g>${trunk}${branches}${terminalLeaves}${fruitMarkup}${fallingLeaves}${fruitCounter}</svg>`;
 }
 
 function renderStageTrack() {
