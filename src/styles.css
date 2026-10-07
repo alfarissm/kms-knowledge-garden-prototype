@@ -1967,28 +1967,18 @@ body.is-mobile-menu-open { overflow: hidden; }
   right: 0;
   bottom: 0;
   left: 0;
-  height: 60px;
+  height: 175px;
   border-radius: 0;
-  background: #86c342;
-  opacity: 1;
-}
-.tree-scene .scene-ground::before {
-  position: absolute;
-  right: 14%;
-  bottom: calc(100% - 1px);
-  left: 14%;
-  height: 115px;
   background: #4ba747;
-  clip-path: ellipse(65% 100% at 50% 100%);
-  content: '';
+  opacity: 1;
 }
 .tree-scene .tree-progress-hud {
   padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, .82);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .84);
-  box-shadow: 0 5px 16px rgba(34, 79, 78, .13);
-  backdrop-filter: blur(7px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 @keyframes rain-shower {
