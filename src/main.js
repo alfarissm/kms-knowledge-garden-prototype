@@ -302,10 +302,6 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const branchPaths = [
     ...(level >= 5 ? ['M198 220 C179 219 162 214 144 212 C129 210 117 210 105 211'] : []),
     ...(level >= 6 ? ['M202 220 C221 219 238 214 256 212 C271 210 283 210 295 211'] : []),
-    ...(level >= 7 ? [
-      'M199 181 C182 180 168 176 153 174 C141 172 132 172 122 173',
-      'M201 181 C218 180 232 176 247 174 C259 172 268 172 278 173',
-    ] : []),
   ];
   const branches = branchPaths.map((path, index) => {
     const width = index < 2 ? 13 : 8;
@@ -326,11 +322,7 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const terminalLeaves = [
     ...(level >= 5 ? [makeLeafTip(105, 211, 0, .95)] : []),
     ...(level >= 6 ? [makeLeafTip(295, 211, 180, .95)] : []),
-    ...(level >= 7 ? [
-      makeLeafTip(122, 173, 0, .72),
-      makeLeafTip(278, 173, 180, .72),
-      makeLeafTip(200, 118, -90, .82),
-    ] : []),
+    ...(level >= 7 ? [makeLeafTip(200, 118, -90, .82)] : []),
   ].join('');
   const fruitPositions = [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
