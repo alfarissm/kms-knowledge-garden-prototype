@@ -112,7 +112,7 @@ const elements = {
   toastRegion: document.querySelector('#toastRegion'),
 };
 
-const STAGE_SHORT_NAMES = ['Tanah', 'Bibit', 'Daun', 'Berbuah', 'Besar', 'Maksimum'];
+const STAGE_SHORT_NAMES = ['Tanah', 'Bibit', 'Daun', 'Berbuah', 'Besar', 'Kiri', 'Kanan', 'Penuh'];
 const CONDITION_LABELS = {
   healthy: { title: 'Healthy', detail: 'Air dan Pupuk tersedia', className: 'is-healthy' },
   thirsty: { title: 'Thirsty · Menguning', detail: 'Air habis · pohon perlu dipulihkan', className: 'is-thirsty' },
@@ -273,7 +273,7 @@ function formatDate(timestamp, options = {}) {
 
 function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const palettes = {
-    healthy: { leaf: '#69b978', leafDark: '#38895b', leafLight: '#93d18d', trunk: '#9b7049', branch: '#916441' },
+    healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', branch: '#84391f' },
     thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', branch: '#916441' },
     dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', branch: '#805c49' },
   };
@@ -282,30 +282,28 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const canopyByLevel = {
     2: [[200, 168, 28], [174, 187, 24], [226, 188, 23]],
     3: [[200, 145, 31], [169, 163, 27], [231, 162, 27], [183, 188, 27], [218, 190, 27], [151, 183, 19], [249, 183, 19]],
-    4: [[200, 132, 34], [165, 151, 30], [235, 150, 30], [181, 173, 30], [219, 174, 30], [145, 178, 23], [255, 178, 23], [185, 205, 24], [218, 205, 24], [130, 202, 17], [270, 202, 17]],
-    5: [[200, 118, 36], [162, 137, 32], [238, 136, 32], [180, 161, 33], [220, 162, 33], [143, 170, 26], [257, 170, 26], [180, 190, 29], [220, 191, 29], [126, 198, 20], [274, 198, 20], [160, 218, 23], [240, 218, 23], [198, 222, 27]],
+    4: [[200, 139, 32], [176, 157, 27], [224, 157, 27], [187, 183, 25], [213, 183, 25], [200, 203, 22]],
+    5: [[200, 136, 32], [176, 154, 27], [224, 154, 27], [187, 180, 25], [213, 180, 25], [200, 200, 22], [150, 158, 27], [137, 184, 22]],
+    6: [[200, 136, 32], [176, 154, 27], [224, 154, 27], [187, 180, 25], [213, 180, 25], [200, 200, 22], [150, 158, 27], [137, 184, 22], [250, 158, 27], [263, 184, 22]],
+    7: [[200, 101, 43], [158, 108, 40], [242, 108, 40], [122, 137, 39], [278, 137, 39], [96, 174, 40], [304, 174, 40], [137, 170, 42], [263, 170, 42], [165, 204, 38], [235, 204, 38], [200, 214, 40], [164, 145, 38], [236, 145, 38], [200, 166, 41], [130, 204, 27], [270, 204, 27]],
   };
 
   if (level === 0) {
-    return `<svg class="tree-svg stage-0 ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Level 0, tanah kosong"><ellipse cx="200" cy="294" rx="97" ry="17" fill="#8ab781" opacity=".22"/><path d="M104 291c16-28 43-42 96-42s80 14 96 42c-20 15-53 22-96 22s-76-7-96-22Z" fill="#a77b58"/><path d="M123 288c23-17 48-25 77-25s54 8 77 25c-22 10-48 15-77 15s-55-5-77-15Z" fill="#bd9165"/><path d="M162 288c8-3 15-4 23-4m34 0c8 0 15 1 23 4" stroke="#d5ad79" stroke-width="3" stroke-linecap="round" opacity=".8"/></svg>`;
+    return `<svg class="tree-svg stage-0 ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Level 0, tanah kosong"></svg>`;
   }
 
   if (level === 1) {
-    return `<svg class="tree-svg stage-1 ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Level 1, bibit"><ellipse cx="200" cy="294" rx="90" ry="16" fill="#8ab781" opacity=".22"/><path d="M200 293c1-25 0-45 2-73" fill="none" stroke="${colors.trunk}" stroke-width="9" stroke-linecap="round"/><path class="seed-leaf" d="M201 244c-18-1-29-12-35-28 21 0 34 10 35 28Zm1-8c11-21 27-27 43-27-5 20-20 29-43 27Z" fill="${colors.leaf}"/><path d="M112 291c21-19 50-27 88-27s67 8 88 27c-25 12-55 18-88 18s-63-6-88-18Z" fill="#93bf78"/><path d="M140 289c16-7 35-10 60-10s44 3 60 10" stroke="#c2d798" stroke-width="4" stroke-linecap="round"/></svg>`;
+    return `<svg class="tree-svg stage-1 ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Level 1, bibit"><path d="M200 293c1-25 0-45 2-73" fill="none" stroke="${colors.trunk}" stroke-width="9" stroke-linecap="round"/><path class="seed-leaf" d="M201 244c-18-1-29-12-35-28 21 0 34 10 35 28Zm1-8c11-21 27-27 43-27-5 20-20 29-43 27Z" fill="${colors.leaf}"/></svg>`;
   }
 
   const canopy = canopyByLevel[level] ?? canopyByLevel[2];
-  const branchCount = level + 1;
-  const branches = Array.from({ length: branchCount }, (_, index) => {
-    const y = 246 - (index * 25);
-    const length = 27 + (level * 3) - (index * 2);
-    const side = index % 2 === 0 ? -1 : 1;
-    const startX = 200 + (side * 4);
-    const endX = 200 + (side * length);
-    return `<path d="M${startX} ${y + 17} Q${200 + (side * 9)} ${y + 3} ${endX} ${y}" fill="none" stroke="${colors.branch}" stroke-width="${Math.max(4, 8 - index)}" stroke-linecap="round"/>`;
-  }).join('');
+  const branches = [
+    level >= 5 ? `<path d="M200 211c-16-9-26-25-42-42-12-12-23-17-37-17" fill="none" stroke="${colors.branch}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>` : '',
+    level >= 6 ? `<path d="M202 204c18-11 28-27 43-43 12-12 24-16 38-14" fill="none" stroke="${colors.branch}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>` : '',
+    level >= 7 ? `<path d="M195 224c-16-5-28-16-42-29m53-9c15-9 25-21 36-34" fill="none" stroke="${colors.branch}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>` : '',
+  ].join('');
 
-  const trunk = `<path d="M194 294c5-40 0-75 8-111 5-24 5-43 1-61m-4 83c-13-18-24-33-40-47m44 24c15-18 30-29 45-40m-50 76c-18-15-34-23-51-29m49 10c16-13 30-19 45-23" fill="none" stroke="${colors.trunk}" stroke-width="${level >= 4 ? 17 : 14}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const trunk = `<path d="M194 294c5-40 0-75 8-111 5-24 5-43 1-61" fill="none" stroke="${colors.trunk}" stroke-width="${level >= 4 ? 19 : 14}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const visibleCanopy = condition === 'dead' ? canopy.filter((_, index) => index % 4 !== 3) : canopy;
   const canopyMarkup = visibleCanopy.map(([cx, cy, radius], index) => `<circle class="leaf-cluster cluster-${index % 3}" cx="${cx}" cy="${cy}" r="${radius}" fill="${index % 3 === 0 ? colors.leaf : (index % 3 === 1 ? colors.leafDark : colors.leafLight)}"/>`).join('');
   const fruitPositions = [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
@@ -317,7 +315,7 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     : '';
   const fruitCounter = fruitCount > MAX_VISIBLE_FRUIT ? `<text x="286" y="149" class="extra-fruit-label">+${fruitCount - MAX_VISIBLE_FRUIT}</text>` : '';
 
-  return `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Pohon Level ${level}, kondisi ${condition}, ${fruitCount} Buah di pohon"><ellipse cx="200" cy="294" rx="96" ry="17" fill="#8ab781" opacity=".22"/><path d="M110 291c25-19 53-27 90-27s65 8 90 27c-24 13-54 19-90 19s-66-6-90-19Z" fill="#94bf7b"/><path d="M131 290c19-8 42-12 69-12s50 4 69 12" fill="none" stroke="#c6d99b" stroke-width="4" stroke-linecap="round"/>${branches}${trunk}<g class="canopy">${canopyMarkup}</g>${fruitMarkup}${fallingLeaves}${fruitCounter}</svg>`;
+  return `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 400 340" role="img" aria-label="Pohon Level ${level}, kondisi ${condition}, ${fruitCount} Buah di pohon">${branches}${trunk}<g class="canopy">${canopyMarkup}</g>${fruitMarkup}${fallingLeaves}${fruitCounter}</svg>`;
 }
 
 function renderStageTrack() {
@@ -326,6 +324,8 @@ function renderStageTrack() {
   STAGES.forEach((stageName, index) => {
     const stage = document.createElement('div');
     stage.className = `stage-step${index < state.level ? ' is-reached' : ''}${index === state.level ? ' is-current' : ''}`;
+    stage.setAttribute('aria-label', `Level ${index}: ${stageName}${index === state.level ? ', level saat ini' : ''}`);
+    stage.title = `Level ${index} · ${stageName}`;
     stage.innerHTML = `<span class="stage-marker">${index < state.level ? '✓' : index}</span><span class="stage-name">${STAGE_SHORT_NAMES[index]}</span>`;
     elements.stageTrack.append(stage);
   });
@@ -709,7 +709,7 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
   elements.treeCanvas.setAttribute('aria-label', `Pohon Level ${state.level}, ${STAGES[state.level]}, ${state.fruitsOnTree} Buah di pohon, kondisi ${conditionInfo.title}`);
   elements.treePanel.classList.remove('is-healthy', 'is-thirsty', 'is-dead');
   elements.treePanel.classList.add(sceneClass);
-  elements.treeScene.classList.toggle('is-advanced-stage', state.level >= 4 && condition === 'healthy');
+  elements.treeScene.classList.toggle('is-advanced-stage', state.level >= 7 && condition === 'healthy');
   elements.condition.className = `scene-condition ${sceneClass}`;
   elements.conditionLabel.textContent = conditionInfo.title;
   elements.levelValue.textContent = String(state.level);

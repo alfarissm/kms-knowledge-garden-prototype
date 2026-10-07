@@ -125,7 +125,7 @@
                 <div class="scene-sun"></div><div class="scene-cloud cloud-a"></div><div class="scene-cloud cloud-b"></div>
                 <div class="scene-glow"></div>
                 <div class="stage-sparkles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="level-badge scene-level-badge"><span>LEVEL</span><strong id="levelValue">0</strong><small>/ 5</small></div>
+                <div class="level-badge scene-level-badge"><span>LEVEL</span><strong id="levelValue">0</strong><small>/ 7</small></div>
                 <div class="resource-hud" aria-label="Resource pohon">
                   <button class="storage-launcher" id="storageButton" type="button" aria-label="Buka Storage" title="Buka Storage" aria-haspopup="dialog" aria-controls="storageDialog">
                     <svg class="icon"><use href="#icon-storage" /></svg>
@@ -187,7 +187,9 @@
                 <div class="level-key-item" role="listitem" aria-label="Level 2: 3 Air, 2 Pupuk"><strong>L2</strong><span><svg class="icon"><use href="#icon-water" /></svg>3</span><span><svg class="icon"><use href="#icon-sprout" /></svg>2</span></div>
                 <div class="level-key-item" role="listitem" aria-label="Level 3: 9 Air, 6 Pupuk"><strong>L3</strong><span><svg class="icon"><use href="#icon-water" /></svg>9</span><span><svg class="icon"><use href="#icon-sprout" /></svg>6</span></div>
                 <div class="level-key-item" role="listitem" aria-label="Level 4: 27 Air, 18 Pupuk"><strong>L4</strong><span><svg class="icon"><use href="#icon-water" /></svg>27</span><span><svg class="icon"><use href="#icon-sprout" /></svg>18</span></div>
-                <div class="level-key-item" role="listitem" aria-label="Level 5: 101 Air, 54 Pupuk"><strong>L5</strong><span><svg class="icon"><use href="#icon-water" /></svg>101</span><span><svg class="icon"><use href="#icon-sprout" /></svg>54</span></div>
+                <div class="level-key-item" role="listitem" aria-label="Level 5, cabang kiri: 52 Air, 30 Pupuk"><strong>L5</strong><span><svg class="icon"><use href="#icon-water" /></svg>52</span><span><svg class="icon"><use href="#icon-sprout" /></svg>30</span></div>
+                <div class="level-key-item" role="listitem" aria-label="Level 6, cabang kanan: 77 Air, 42 Pupuk"><strong>L6</strong><span><svg class="icon"><use href="#icon-water" /></svg>77</span><span><svg class="icon"><use href="#icon-sprout" /></svg>42</span></div>
+                <div class="level-key-item" role="listitem" aria-label="Level 7, pohon penuh: 101 Air, 54 Pupuk"><strong>L7</strong><span><svg class="icon"><use href="#icon-water" /></svg>101</span><span><svg class="icon"><use href="#icon-sprout" /></svg>54</span></div>
               </div>
             </details>
           </article>
@@ -212,7 +214,7 @@
 
           <details class="assumption-details">
             <summary>Aturan gamifikasi prototype</summary>
-            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, dan L5 101/54. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Pindahkan Buah satu per satu dengan tombol klik atau drag-and-drop ke pohon sehat Level 3+; Buah di pohon otomatis kembali ke Storage jika kondisinya memburuk.</p>
+            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, L5 52/30, L6 77/42, dan L7 101/54. Kenaikan dari L4 ke L7 dibagi menjadi +25/+12, +25/+12, lalu +24/+12. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Pindahkan Buah satu per satu dengan tombol klik atau drag-and-drop ke pohon sehat Level 3+; Buah di pohon otomatis kembali ke Storage jika kondisinya memburuk.</p>
           </details>
           </section>
 

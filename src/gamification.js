@@ -1,11 +1,14 @@
 export const DAY_MS = 24 * 60 * 60 * 1000;
+const LEVEL_SYSTEM_VERSION = 2;
 
 export const LEVELS = [
   { level: 1, name: 'Bibit', air: 1, fertilizerUnits: 2 },
   { level: 2, name: 'Pertumbuhan daun', air: 3, fertilizerUnits: 4 },
   { level: 3, name: 'Buah mulai muncul', air: 9, fertilizerUnits: 12 },
   { level: 4, name: 'Pohon besar', air: 27, fertilizerUnits: 36 },
-  { level: 5, name: 'Siap berbuah', air: 101, fertilizerUnits: 108 },
+  { level: 5, name: 'Cabang kiri', air: 52, fertilizerUnits: 60 },
+  { level: 6, name: 'Cabang kanan', air: 77, fertilizerUnits: 84 },
+  { level: 7, name: 'Pohon penuh', air: 101, fertilizerUnits: 108 },
 ];
 
 export const STAGES = [
@@ -14,7 +17,9 @@ export const STAGES = [
   'Daun',
   'Mulai berbuah',
   'Pohon besar',
-  'Siap berbuah',
+  'Cabang kiri tumbuh',
+  'Cabang kanan tumbuh',
+  'Pohon penuh',
 ];
 
 const ACTIVITY_REWARDS = {
@@ -56,7 +61,11 @@ function cloneState(state) {
   clonedState.growthFertilizerUnits = Number.isFinite(clonedState.growthFertilizerUnits)
     ? Math.max(0, clonedState.growthFertilizerUnits)
     : 0;
-  clonedState.level = Number.isFinite(clonedState.level) ? Math.min(5, Math.max(0, Math.floor(clonedState.level))) : 0;
+  const usesLegacyLevels = clonedState.levelSystemVersion !== LEVEL_SYSTEM_VERSION;
+  clonedState.level = Number.isFinite(clonedState.level) ? Math.min(7, Math.max(0, Math.floor(clonedState.level))) : 0;
+  if (usesLegacyLevels && clonedState.level >= 5) clonedState.level = 7;
+  clonedState.level = Math.max(clonedState.level, getLevelForProgress(clonedState.growthAir, clonedState.growthFertilizerUnits));
+  clonedState.levelSystemVersion = LEVEL_SYSTEM_VERSION;
   clonedState.fruitsInStorage = Number.isFinite(clonedState.fruitsInStorage) ? Math.max(0, clonedState.fruitsInStorage) : 0;
   clonedState.fruitsOnTree = Number.isFinite(clonedState.fruitsOnTree) ? Math.max(0, clonedState.fruitsOnTree) : 0;
   clonedState.clockMs = Number.isFinite(clonedState.clockMs) ? clonedState.clockMs : now;
@@ -112,6 +121,7 @@ function formatPupukAmount(units) {
 
 export function createInitialState(now = Date.now()) {
   return {
+    levelSystemVersion: LEVEL_SYSTEM_VERSION,
     level: 0,
     air: 1,
     fertilizerUnits: 2,

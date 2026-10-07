@@ -124,7 +124,7 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .scene-condition.is-dead { border-color: #efd9d1; color: #a66351; }.scene-condition.is-dead .condition-dot { background: #c77b62; box-shadow: 0 0 0 3px #f6e6e0; }
 .scene-level-caption { position: absolute; z-index: 3; right: 16px; bottom: 15px; color: #71866d; font-size: 8px; font-weight: 800; letter-spacing: 1.2px; }
 .tree-growing { animation: tree-grow .72s cubic-bezier(.2,.8,.2,1); }.tree-state-change { animation: status-shift .58s ease; }
-.stage-track { display: grid; grid-template-columns: repeat(6, 1fr); margin: 13px 1px 0; }
+.stage-track { display: grid; grid-template-columns: repeat(8, 1fr); margin: 13px 1px 0; }
 .stage-step { position: relative; display: grid; justify-items: center; gap: 5px; color: #a0aaa0; text-align: center; }
 .stage-step:not(:last-child)::after { position: absolute; z-index: 0; top: 11px; left: calc(50% + 13px); width: calc(100% - 25px); height: 1px; background: #e5ebe3; content: ''; }
 .stage-step.is-reached:not(:last-child)::after { background: #a9cbaa; }
@@ -1636,7 +1636,7 @@ body.is-mobile-menu-open { overflow: hidden; }
 .level-key-title .info-tooltip { width: 21px; height: 21px; }
 .level-key-legend { gap: 10px; }
 .level-key-legend > span { padding: 5px 7px; border: 1px solid #dce7f2; border-radius: 8px; color: #5a7290; background: rgba(255,255,255,.82); font-size: 9px; }
-.level-key-list { grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 11px; border-top: 1px solid #e3ebf3; }
+.level-key-list { grid-template-columns: repeat(7, minmax(0, 1fr)); padding: 11px; border-top: 1px solid #e3ebf3; }
 .level-key-item { grid-template-columns: 27px repeat(2, minmax(0, 1fr)); }
 
 /* Preserve the earlier transparent progress display over the tree scene. */
@@ -1959,6 +1959,38 @@ body.is-mobile-menu-open { overflow: hidden; }
 .tree-scene.is-advanced-stage .scene-ground { animation: meadow-shimmer 4.8s ease-in-out infinite; }
 .tree-scene.is-advanced-stage .scene-sun { animation: mature-sun-glimmer 5.6s ease-in-out infinite; }
 
+.tree-scene { background: linear-gradient(180deg, #4db6ce 0%, #58bfd1 72%, #9bd5d9 100%); }
+.tree-card.is-thirsty .tree-scene { background: linear-gradient(180deg, #c6c18b 0%, #d9d49c 72%, #e1dca8 100%); }
+.tree-card.is-dead .tree-scene { background: linear-gradient(180deg, #bd9780 0%, #c7a18b 72%, #d0aa92 100%); }
+.tree-scene .scene-ground {
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 60px;
+  border-radius: 0;
+  background: #86c342;
+  opacity: 1;
+}
+.tree-scene .scene-ground::before {
+  position: absolute;
+  right: 14%;
+  bottom: calc(100% - 1px);
+  left: 14%;
+  height: 115px;
+  background: #4ba747;
+  clip-path: ellipse(65% 100% at 50% 100%);
+  content: '';
+}
+.tree-scene .tree-progress-hud {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, .82);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .84);
+  box-shadow: 0 5px 16px rgba(34, 79, 78, .13);
+  backdrop-filter: blur(7px);
+}
+
 @keyframes rain-shower {
   0% { opacity: 0; background-position: 0 -36px; }
   18% { opacity: .72; }
@@ -1988,8 +2020,8 @@ body.is-mobile-menu-open { overflow: hidden; }
   82% { opacity: .95; filter: blur(10px); transform: scaleX(1.08); }
 }
 @keyframes meadow-shimmer {
-  0%, 70%, 100% { opacity: .48; filter: brightness(1); }
-  82% { opacity: .9; filter: brightness(1.3); }
+  0%, 70%, 100% { filter: brightness(1); }
+  82% { filter: brightness(1.08); }
 }
 @keyframes mature-sun-glimmer {
   0%, 72%, 100% { box-shadow: 0 0 0 9px rgba(249, 221, 153, .18), 0 0 14px rgba(247, 216, 140, .3); }

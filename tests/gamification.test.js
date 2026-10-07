@@ -22,9 +22,26 @@ describe('gamification prototype logic', () => {
     expect(getLevelForProgress(3, 4)).toBe(2);
     expect(getLevelForProgress(9, 12)).toBe(3);
     expect(getLevelForProgress(27, 36)).toBe(4);
-    expect(getLevelForProgress(101, 108)).toBe(5);
-    expect(getLevelForProgress(101, 107)).toBe(4);
-    expect(getLevelForProgress(100, 108)).toBe(4);
+    expect(getLevelForProgress(52, 60)).toBe(5);
+    expect(getLevelForProgress(77, 84)).toBe(6);
+    expect(getLevelForProgress(101, 108)).toBe(7);
+    expect(getLevelForProgress(101, 107)).toBe(6);
+    expect(getLevelForProgress(100, 108)).toBe(6);
+    expect(getLevelForProgress(52, 59)).toBe(4);
+  });
+
+  it('upgrades old saved Level 5 trees to Level 7 even after their bars have decayed', () => {
+    const oldMaxLevel = createInitialState(1_000);
+    oldMaxLevel.level = 5;
+    oldMaxLevel.growthAir = 12;
+    oldMaxLevel.growthFertilizerUnits = 18;
+    delete oldMaxLevel.levelSystemVersion;
+
+    const upgraded = advanceDemoDays(oldMaxLevel, 0, 1_000);
+
+    expect(upgraded.level).toBe(7);
+    expect(upgraded.growthAir).toBe(12);
+    expect(upgraded.growthFertilizerUnits).toBe(18);
   });
 
   it('starts at Level 0 with initial Air and Pupuk that do not count as growth progress', () => {
@@ -350,9 +367,9 @@ describe('gamification prototype logic', () => {
     expect(afterWatering.state.growthFertilizerUnits).toBe(2);
   });
 
-  it('allows care recovery at the Level 5 progress cap without adding progress past the cap', () => {
+  it('allows care recovery at the Level 7 progress cap without adding progress past the cap', () => {
     const maxed = createInitialState(1_000);
-    maxed.level = 5;
+    maxed.level = 7;
     maxed.growthAir = 101;
     maxed.growthFertilizerUnits = 108;
     maxed.careAir = 1;
@@ -369,7 +386,7 @@ describe('gamification prototype logic', () => {
     expect(fertilized.applied).toBe(true);
     expect(fertilized.progressApplied).toBe(false);
     expect(getTreeCondition(fertilized.state)).toBe('healthy');
-    expect(fertilized.state.level).toBe(5);
+    expect(fertilized.state.level).toBe(7);
     expect(fertilized.state.growthAir).toBe(101);
     expect(fertilized.state.growthFertilizerUnits).toBe(108);
     expect(fertilized.state.fruitsOnTree).toBe(0);
