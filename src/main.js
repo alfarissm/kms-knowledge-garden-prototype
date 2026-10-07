@@ -297,16 +297,14 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   }
 
   const canopy = canopyByLevel[level] ?? canopyByLevel[2];
-  const trunkPath = 'M200 294 C194 266 193 238 198 211 C204 181 207 149 200 118';
+  const trunkPath = 'M200 294 C198 266 199 238 200 211 C201 181 200 149 200 118';
   const trunk = `<path d="${trunkPath}" fill="none" stroke="${colors.branch}" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/><path d="${trunkPath}" fill="none" stroke="${colors.trunk}" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/><path d="M199 286 C195 257 197 234 201 211 C206 182 207 154 202 132" fill="none" stroke="${colors.trunkLight}" stroke-width="4" stroke-linecap="round" opacity=".78"/>`;
   const branchPaths = [
-    ...(level >= 5 ? ['M198 242 C182 228 177 211 161 194 C147 178 137 163 120 156'] : []),
-    ...(level >= 6 ? ['M202 232 C220 216 224 198 240 181 C254 166 265 156 282 151'] : []),
+    ...(level >= 5 ? ['M198 220 C179 219 162 214 144 212 C129 210 117 210 105 211'] : []),
+    ...(level >= 6 ? ['M202 220 C221 219 238 214 256 212 C271 210 283 210 295 211'] : []),
     ...(level >= 7 ? [
-      'M184 221 C169 211 159 197 148 181',
-      'M216 214 C231 202 241 188 252 173',
-      'M198 184 C187 167 187 150 190 135',
-      'M205 183 C216 166 216 149 212 135',
+      'M199 181 C182 180 168 176 153 174 C141 172 132 172 122 173',
+      'M201 181 C218 180 232 176 247 174 C259 172 268 172 278 173',
     ] : []),
   ];
   const branches = branchPaths.map((path, index) => {
@@ -321,18 +319,17 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     .sort((a, b) => canopyDistance(b) - canopyDistance(a))
     .map(([cx, cy, radius], index) => {
       const distanceRatio = canopyDistance([cx, cy]) / farthestCanopyLeaf;
-      const fill = distanceRatio < .55 ? colors.leafDark : distanceRatio < .82 ? colors.leaf : colors.leafLight;
+      const fill = distanceRatio > .82 ? colors.leafDark : distanceRatio > .55 ? colors.leaf : colors.leafLight;
       return `<circle class="leaf-cluster cluster-${index % 3}" cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}"/>`;
     }).join('');
-  const makeLeafTip = (x, y, angle, scale = 1) => `<g class="tree-terminal-leaves" transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})"><path d="M0 0C-7-17-25-20-36-9c4 15 20 22 36 9Z" fill="${colors.leafLight}"/><path d="M0 0C8-19 25-24 37-13 32 4 14 9 0 0Z" fill="${colors.leaf}"/><path d="M-2 0c-12 8-13 23-1 34C12 25 12 8-2 0Z" fill="${colors.leafLight}"/><path d="M-29-9C-18-5-9-2-1 0M30-13C18-7 9-3 1 0M-3 29C-2 17-1 8-1 1" fill="none" stroke="${colors.leafDark}" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></g>`;
+  const makeLeafTip = (x, y, angle, scale = 1) => `<g class="tree-terminal-leaves" transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})"><path d="M0 0C-7-17-25-20-36-9c4 15 20 22 36 9Z" fill="${colors.leafDark}"/><path d="M0 0C8-19 25-24 37-13 32 4 14 9 0 0Z" fill="${colors.leafDark}"/><path d="M-2 0c-12 8-13 23-1 34C12 25 12 8-2 0Z" fill="${colors.leafLight}"/><path d="M-29-9C-18-5-9-2-1 0M30-13C18-7 9-3 1 0M-3 29C-2 17-1 8-1 1" fill="none" stroke="${colors.leaf}" stroke-width="1.6" stroke-linecap="round" opacity=".9"/></g>`;
   const terminalLeaves = [
-    ...(level >= 5 ? [makeLeafTip(119, 155, -18, .9)] : []),
-    ...(level >= 6 ? [makeLeafTip(282, 150, 18, .9)] : []),
+    ...(level >= 5 ? [makeLeafTip(105, 211, 0, .95)] : []),
+    ...(level >= 6 ? [makeLeafTip(295, 211, 180, .95)] : []),
     ...(level >= 7 ? [
-      makeLeafTip(148, 181, -42, .72),
-      makeLeafTip(252, 173, 42, .72),
-      makeLeafTip(190, 135, -68, .68),
-      makeLeafTip(212, 135, 68, .68),
+      makeLeafTip(122, 173, 0, .72),
+      makeLeafTip(278, 173, 180, .72),
+      makeLeafTip(200, 118, -90, .82),
     ] : []),
   ].join('');
   const fruitPositions = [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
