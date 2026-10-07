@@ -300,8 +300,8 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const trunkPath = 'M200 395 C194 360 196 322 198 286 C199 258 199 234 200 211 C201 181 199 150 200 119 C201 91 199 63 200 42';
   const trunk = `<path d="${trunkPath}" fill="none" stroke="${colors.branch}" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/><path d="${trunkPath}" fill="none" stroke="${colors.trunk}" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/><path d="M199 386 C194 350 197 320 199 286 C200 258 199 234 201 211 C202 182 201 154 201 132 C202 105 200 78 201 55" fill="none" stroke="${colors.trunkLight}" stroke-width="4" stroke-linecap="round" opacity=".78"/>`;
   const branchPaths = [
-    ...(level >= 5 ? ['M198 220 C171 218 145 211 118 210 C91 209 68 211 45 211'] : []),
-    ...(level >= 6 ? ['M202 220 C229 218 255 211 282 210 C309 209 332 211 355 211'] : []),
+    ...(level >= 5 ? ['M198 330 C171 312 142 301 112 299'] : []),
+    ...(level >= 6 ? ['M202 330 C229 312 258 301 288 299'] : []),
   ];
   const branches = branchPaths.map((path, index) => {
     const width = index < 2 ? 8 : 6;
@@ -320,11 +320,12 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     }).join('');
   const fullCanopy = `<path d="M200 55C223 55 242 69 250 88 276 72 306 83 314 109 341 111 355 134 345 157 366 179 354 208 331 221 328 248 300 261 274 247 258 267 228 273 204 259 181 275 151 269 137 248 109 260 82 244 79 218 54 205 51 177 70 158 59 132 77 106 104 104 108 79 135 65 164 79 174 63 186 55 200 55Z" fill="${colors.leafDark}"/><path d="M200 75C220 74 235 88 241 104 265 89 291 99 297 121 319 122 332 141 323 160 339 179 328 202 308 211 305 234 281 244 260 232 245 249 220 254 201 242 180 255 155 248 144 231 121 242 99 227 98 207 77 197 76 175 92 160 82 138 98 118 120 117 124 96 147 84 170 95 178 82 188 75 200 75Z" fill="${colors.leaf}"/><path d="M200 99C217 98 230 109 235 124 254 113 277 122 281 142 299 145 308 161 300 177 312 194 302 212 284 219 279 237 258 243 242 233 228 246 208 248 194 237 177 247 157 240 150 225 131 232 114 218 116 200 99 188 103 168 118 156 111 138 127 122 145 125 149 107 167 101 181 111 187 104 193 99 200 99Z" fill="${colors.leafLight}"/>`;
   const canopyMarkup = level === 7 ? fullCanopy : leafClusterMarkup;
-  const copyCanopyAt = (x, y, scale = .28) => `<g class="canopy-tip-copy" transform="translate(${x} ${y}) scale(${scale}) translate(-200 -154)">${fullCanopy}</g>`;
+  const tipScaleX = level >= 7 ? .85 : .55;
+  const tipScaleY = level >= 7 ? .95 : .65;
+  const copyCanopyAt = (x, y) => `<g class="canopy-tip-copy" transform="translate(${x} ${y}) scale(${tipScaleX} ${tipScaleY}) translate(-200 -154)">${fullCanopy}</g>`;
   const canopyTips = [
-    ...(level >= 5 ? [copyCanopyAt(45, 211)] : []),
-    ...(level >= 6 ? [copyCanopyAt(355, 211)] : []),
-    ...(level >= 7 ? [copyCanopyAt(200, 42)] : []),
+    ...(level >= 5 ? [copyCanopyAt(level >= 7 ? -20 : 45, level >= 7 ? 299 : 245)] : []),
+    ...(level >= 6 ? [copyCanopyAt(level >= 7 ? 420 : 355, level >= 7 ? 299 : 245)] : []),
   ].join('');
   const fruitPositions = [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
