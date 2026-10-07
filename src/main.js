@@ -298,10 +298,10 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const topCanopyByLevel = {
     2: [300, 312, 1],
     3: [300, 258, 1.18],
-    4: [300, 207, .7],
-    5: [300, 179, .78],
-    6: [300, 159, .84],
-    7: [300, 139, .9],
+    4: [300, 195, .7],
+    5: [300, 165, .78],
+    6: [300, 136, .84],
+    7: [300, 108, .9],
   };
   const sideCanopiesByLevel = {
     5: [[186, 240, .58]],
@@ -312,8 +312,9 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const sideCanopies = sideCanopiesByLevel[level] ?? [];
   const trunkTipY = topCanopy[1];
   const trunkHeight = 446 - trunkTipY;
-  const trunkPath = `M282 446 C288 ${446 - trunkHeight * .22} 293 ${trunkTipY + trunkHeight * .44} 292 ${trunkTipY + trunkHeight * .3} L296 ${trunkTipY} Q300 ${trunkTipY - 9} 304 ${trunkTipY} L308 ${trunkTipY + trunkHeight * .3} C309 ${trunkTipY + trunkHeight * .44} 309 ${446 - trunkHeight * .22} 318 446Z`;
-  const trunk = `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="M293 446 C299 ${446 - trunkHeight * .22} 299 ${trunkTipY + trunkHeight * .44} 298 ${trunkTipY + trunkHeight * .3} L299 ${trunkTipY + 8} L301 ${trunkTipY + 8} L302 ${trunkTipY + trunkHeight * .3} C303 ${trunkTipY + trunkHeight * .44} 303 ${446 - trunkHeight * .22} 304 446Z" fill="${colors.trunkLight}" opacity=".7"/>`;
+  const trunkPath = `M270 446 C282 ${446 - trunkHeight * .2} 288 ${trunkTipY + trunkHeight * .45} 290 ${trunkTipY + trunkHeight * .31} L294 ${trunkTipY + 18} Q300 ${trunkTipY - 9} 306 ${trunkTipY + 18} L310 ${trunkTipY + trunkHeight * .31} C312 ${trunkTipY + trunkHeight * .45} 318 ${446 - trunkHeight * .2} 330 446Z`;
+  const trunkHighlight = `M285 446 C294 ${446 - trunkHeight * .2} 297 ${trunkTipY + trunkHeight * .45} 297 ${trunkTipY + trunkHeight * .31} L298 ${trunkTipY + 18} Q300 ${trunkTipY + 12} 302 ${trunkTipY + 18} L303 ${trunkTipY + trunkHeight * .31} C303 ${trunkTipY + trunkHeight * .45} 306 ${446 - trunkHeight * .2} 315 446Z`;
+  const trunk = `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="${trunkHighlight}" fill="${colors.trunkLight}" opacity=".68"/>`;
   const branches = sideCanopies.map(([x, y]) => {
     const offset = x - 300;
     const branchY = y + 40;

@@ -1018,7 +1018,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .tree-card { padding: 12px; }
 .tree-scene { height: 420px; margin-top: 0; }
 .level-badge.scene-level-badge { position: absolute; z-index: 6; top: 12px; left: 12px; padding: 6px 10px; border-color: rgba(211, 228, 241, .98); background: rgba(255,255,255,.95); box-shadow: 0 5px 14px rgba(45, 78, 125, .1); }
-.scene-sun { top: 105px; right: calc(50% - 150px); }
+.scene-sun { top: 34px; right: 8%; }
 .stage-track { position: absolute; z-index: 5; right: 20px; bottom: 116px; left: 20px; margin: 0; }
 .tree-progress-hud { right: 12px; bottom: 12px; left: 12px; padding: 10px 14px; }
 .progress-hud-bars { gap: 28px; }
@@ -1027,7 +1027,7 @@ body { color: #294b7d; background: #f0f3f7; }
 @media (max-width: 900px) {
   .tree-scene { height: 400px; }
   .stage-track { right: 15px; bottom: 115px; left: 15px; }
-  .scene-sun { top: 101px; right: calc(50% - 135px); }
+  .scene-sun { top: 30px; right: 10%; }
 }
 @media (max-width: 680px) {
   .tree-card { padding: 8px; }
@@ -1035,7 +1035,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .level-badge.scene-level-badge { top: 8px; left: 8px; padding: 5px 8px; }
   .level-badge.scene-level-badge strong { font-size: 15px; }
   .level-badge.scene-level-badge span { font-size: 6px; }
-  .scene-sun { top: 99px; right: calc(50% - 96px); width: 29px; height: 29px; }
+  .scene-sun { top: 72px; right: 7%; width: 29px; height: 29px; }
   .stage-track { right: 8px; bottom: 114px; left: 8px; }
   .stage-name { font-size: 6px; }
   .stage-marker { width: 20px; height: 20px; }
