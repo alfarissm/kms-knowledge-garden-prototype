@@ -101,7 +101,7 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .scene-cloud::before, .scene-cloud::after { position: absolute; bottom: 2px; width: 20px; height: 20px; border-radius: 50%; background: inherit; content: ''; }
 .scene-cloud::before { left: 8px; }.scene-cloud::after { left: 22px; width: 15px; height: 15px; }
 .cloud-a { top: 71px; left: 9%; }.cloud-b { top: 48px; right: 18%; transform: scale(.75); opacity: .75; }
-.scene-glow { position: absolute; bottom: 100px; width: min(72%, 390px); height: 34px; border-radius: 50%; background: rgba(141, 179, 103, .13); filter: blur(7px); }
+.scene-glow { position: absolute; bottom: 16px; width: min(72%, 390px); height: 34px; border-radius: 50%; background: rgba(141, 179, 103, .13); filter: blur(7px); }
 .tree-art { position: absolute; z-index: 2; bottom: 14px; display: block; width: min(80%, 385px); height: 252px; transform-origin: 50% 100%; }
 .tree-canvas { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .tree-svg { display: block; width: 100%; height: 100%; overflow: hidden; }
@@ -686,9 +686,9 @@ h1, h2 { color: #214b82; }
 }
 
 .tree-layout { display: block; margin-top: 15px; }
-.tree-scene { height: 420px; }
-.tree-art { bottom: 84px; width: min(calc(100% - 28px), 480px); height: calc(100% - 98px); }
-.scene-ground { bottom: 84px; }
+.tree-scene { height: 336px; }
+.tree-art { bottom: 0; width: min(calc(100% - 28px), 480px); height: calc(100% - 14px); }
+.scene-ground { bottom: 0; }
 .scene-condition { top: 79px; right: auto; bottom: auto; left: 14px; }
 .scene-level-caption { top: 83px; right: 14px; bottom: auto; }
 .tree-progress-hud {
@@ -721,14 +721,14 @@ h1, h2 { color: #214b82; }
 .tree-care-row .inline-time-button { flex: 0 0 auto; margin-top: 0; }
 
 @media (max-width: 900px) {
-  .tree-scene { height: 400px; }
-  .scene-ground { bottom: 84px; }
+  .tree-scene { height: 316px; }
+  .scene-ground { bottom: 0; }
   .tree-care-row { gap: 9px; }
 }
 @media (max-width: 680px) {
   .tree-layout { margin-top: 11px; }
-  .tree-scene { height: 360px; }
-  .scene-ground { bottom: 84px; }
+  .tree-scene { height: 276px; }
+  .scene-ground { bottom: 0; }
   .scene-condition { top: 65px; left: 9px; padding: 5px 7px; font-size: 7px; }
   .scene-condition .condition-dot { width: 5px; height: 5px; }
   .scene-level-caption { top: 68px; right: 9px; font-size: 6px; letter-spacing: .7px; }
@@ -1016,7 +1016,7 @@ body { color: #294b7d; background: #f0f3f7; }
 }
 
 .tree-card { padding: 12px; }
-.tree-scene { height: 420px; margin-top: 0; }
+.tree-scene { height: 336px; margin-top: 0; }
 .level-badge.scene-level-badge { position: absolute; z-index: 6; top: 12px; left: 12px; padding: 6px 10px; border-color: rgba(211, 228, 241, .98); background: rgba(255,255,255,.95); box-shadow: 0 5px 14px rgba(45, 78, 125, .1); }
 .scene-sun { top: 105px; right: calc(50% - 150px); }
 .stage-track { position: absolute; z-index: 5; right: 20px; bottom: 116px; left: 20px; margin: 0; }
@@ -1025,13 +1025,13 @@ body { color: #294b7d; background: #f0f3f7; }
 .progress-hud-bars .progress-line { min-width: 0; }
 
 @media (max-width: 900px) {
-  .tree-scene { height: 400px; }
+  .tree-scene { height: 316px; }
   .stage-track { right: 15px; bottom: 115px; left: 15px; }
   .scene-sun { top: 101px; right: calc(50% - 135px); }
 }
 @media (max-width: 680px) {
   .tree-card { padding: 8px; }
-  .tree-scene { height: 360px; }
+  .tree-scene { height: 276px; }
   .level-badge.scene-level-badge { top: 8px; left: 8px; padding: 5px 8px; }
   .level-badge.scene-level-badge strong { font-size: 15px; }
   .level-badge.scene-level-badge span { font-size: 6px; }
@@ -1101,7 +1101,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .tree-care-button.is-unavailable:hover,
 .tree-care-button.is-unavailable:active { transform: none; }
 
-.care-animation { position: absolute; z-index: 4; inset: 0 0 84px; overflow: hidden; pointer-events: none; }
+.care-animation { position: absolute; z-index: 4; inset: 0; overflow: hidden; pointer-events: none; }
 .care-particle { position: absolute; display: block; opacity: 0; }
 .water-particle { top: 14%; width: 12px; height: 17px; border-radius: 75% 75% 75% 10%; background: linear-gradient(145deg, #a8e7f4, #328bd4); box-shadow: 0 2px 7px rgba(38, 123, 190, .24); transform: rotate(-45deg); }
 .care-animation.is-watering .water-particle { animation: water-drop-fall .98s cubic-bezier(.2,.7,.35,1) calc(var(--particle-index) * 65ms) both; }
@@ -1964,7 +1964,7 @@ body.is-mobile-menu-open { overflow: hidden; }
 .tree-scene .scene-ground {
   z-index: 3;
   right: 0;
-  bottom: 84px;
+  bottom: 0;
   left: 0;
   height: 20px;
   border-radius: 0;
@@ -1972,12 +1972,17 @@ body.is-mobile-menu-open { overflow: hidden; }
   opacity: 1;
 }
 .tree-scene .tree-progress-hud {
-  padding: 9px 12px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
+  right: auto;
+  bottom: 8px;
+  left: 50%;
+  width: min(740px, calc(100% - 24px));
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, .56);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .62);
+  box-shadow: 0 4px 14px rgba(39, 77, 129, .09);
+  backdrop-filter: blur(5px);
+  transform: translateX(-50%);
 }
 .tree-scene .tree-progress-hud .progress-label,
 .tree-scene .tree-progress-hud .progress-label strong,
@@ -1985,6 +1990,19 @@ body.is-mobile-menu-open { overflow: hidden; }
 .tree-scene .tree-progress-hud .progress-hint {
   color: #153f60;
   text-shadow: 0 1px 2px rgba(255, 255, 255, .96), 0 0 5px rgba(255, 255, 255, .82);
+}
+@media (max-width: 680px) {
+  .tree-scene .tree-progress-hud {
+    bottom: 8px;
+    width: calc(100% - 16px);
+    padding: 4px 7px;
+    border-radius: 9px;
+  }
+  .tree-scene .progress-hud-bars { gap: 6px; }
+  .tree-scene .progress-hud-bars .progress-label { gap: 4px; margin-bottom: 2px; font-size: 7px; }
+  .tree-scene .progress-hud-bars .progress-label strong { font-size: 7px; }
+  .tree-scene .progress-hud-bars .progress-track { height: 4px; }
+  .tree-scene .progress-hint { margin-top: 3px; font-size: 6px; line-height: 1.15; }
 }
 
 @keyframes rain-shower {
