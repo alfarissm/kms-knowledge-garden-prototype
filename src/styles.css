@@ -710,7 +710,7 @@ h1, h2 { color: #214b82; }
 .tree-progress-hud .progress-heading h2 { font-size: 12px; }
 .tree-progress-hud .next-level-note { max-width: 48%; margin: 0; padding: 7px 9px; font-size: 7px; white-space: nowrap; }
 .tree-progress-hud .next-level-note .icon { width: 13px; height: 13px; }
-.progress-hud-bars { display: grid; width: min(520px, 72%); grid-template-columns: 1fr 1fr; gap: 21px; margin: 0 auto; }
+.progress-hud-bars { display: grid; width: min(680px, 78%); grid-template-columns: 1fr 1fr; gap: 21px; margin: 0 auto; }
 .progress-hud-bars .progress-line + .progress-line { margin: 0; }
 .progress-hud-bars .progress-label { gap: 6px; margin-bottom: 5px; font-size: 9px; }
 .progress-hud-bars .progress-label strong { font-size: 9px; white-space: nowrap; }
@@ -1973,11 +1973,11 @@ body.is-mobile-menu-open { overflow: hidden; }
 }
 .tree-scene .tree-progress-hud {
   padding: 9px 12px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .76);
+  box-shadow: 0 5px 16px rgba(39, 77, 129, .08);
+  backdrop-filter: blur(7px);
 }
 .tree-scene .tree-progress-hud .progress-label,
 .tree-scene .tree-progress-hud .progress-label strong,
