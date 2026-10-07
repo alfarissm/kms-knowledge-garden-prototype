@@ -169,12 +169,9 @@ export function getTreeCondition(state) {
 function syncFruitPlacement(state, at) {
   const condition = getTreeCondition(state);
   const canShowFruit = state.level >= 3 && condition === 'healthy';
-  let movedToTree = 0;
-  let movedToStorage = 0;
 
   if (!canShowFruit && state.fruitsOnTree > 0) {
     const movedFruit = state.fruitsOnTree;
-    movedToStorage = movedFruit;
     state.fruitsInStorage += movedFruit;
     state.fruitsOnTree = 0;
 
@@ -190,22 +187,9 @@ function syncFruitPlacement(state, at) {
       detail: `${movedFruit} Buah disimpan sementara karena ${reason}.`,
       status: 'fruit',
     }));
-  } else if (canShowFruit && state.fruitsInStorage > 0) {
-    const movedFruit = state.fruitsInStorage;
-    movedToTree = movedFruit;
-    state.fruitsOnTree += movedFruit;
-    state.fruitsInStorage = 0;
-    state.history.unshift(makeHistoryEntry(state, {
-      at,
-      type: 'fruit',
-      title: 'Buah kembali terlihat di pohon',
-      detail: `${movedFruit} Buah dari Storage kembali tampil karena pohon sehat dan sudah mencapai Level 3.`,
-      status: 'fruit',
-    }));
   }
 
   state.history = state.history.slice(0, 30);
-  return { movedToTree, movedToStorage };
 }
 
 function syncWallClock(state, wallNow) {
@@ -272,16 +256,12 @@ function addReward(state, reward, at, label) {
     state.fruitsInStorage += reward.fruit;
   }
 
-  const fruitMovement = syncFruitPlacement(state, at);
+  syncFruitPlacement(state, at);
 
   const rewardParts = [];
   if (reward.air > 0) rewardParts.push(`+${reward.air} Air masuk Storage`);
   if (reward.fertilizerUnits > 0) rewardParts.push(`+${reward.fertilizerUnits / 2} Pupuk masuk Storage`);
-  if (reward.fruit > 0) {
-    rewardParts.push(fruitMovement.movedToTree > 0
-      ? `+${reward.fruit} Buah; buah yang memenuhi syarat tampil di pohon`
-      : `+${reward.fruit} Buah masuk Storage`);
-  }
+  if (reward.fruit > 0) rewardParts.push(`+${reward.fruit} Buah masuk Storage`);
   const rewardDetail = rewardParts.length > 0
     ? rewardParts.join(' · ')
     : 'Aktivitas valid · tanpa reward';
@@ -557,8 +537,49 @@ export function applyCare(currentState, resourceType, options = {}) {
   syncWallClock(state, wallNow);
   applyElapsedDecay(state);
 
-  if (!['air', 'fertilizer'].includes(resourceType)) {
+  if (!['air', 'fertilizer', 'fruit'].includes(resourceType)) {
     throw new Error(`Jenis resource perawatan tidak dikenal: ${resourceType}`);
+  }
+
+  if (resourceType === 'fruit') {
+    if (state.fruitsInStorage < 1) {
+      state.history.unshift(makeHistoryEntry(state, {
+        at: state.clockMs,
+        type: 'fruit',
+        title: 'Buah tidak tersedia di Storage',
+        detail: 'Butuh 1 Buah di Storage untuk memindahkannya ke pohon.',
+        status: 'insufficient',
+      }));
+      state.history = state.history.slice(0, 30);
+      return { state, applied: false, resourceType, reason: 'insufficient' };
+    }
+
+    if (state.level < 3 || getTreeCondition(state) !== 'healthy') {
+      const reason = state.level < 3
+        ? 'Buah dapat dipindahkan setelah pohon mencapai Level 3.'
+        : 'Buah dapat dipindahkan saat pohon dalam kondisi sehat.';
+      state.history.unshift(makeHistoryEntry(state, {
+        at: state.clockMs,
+        type: 'fruit',
+        title: 'Pohon belum siap menerima Buah',
+        detail: reason,
+        status: 'unavailable',
+      }));
+      state.history = state.history.slice(0, 30);
+      return { state, applied: false, resourceType, reason: 'tree-not-ready' };
+    }
+
+    state.fruitsInStorage -= 1;
+    state.fruitsOnTree += 1;
+    state.history.unshift(makeHistoryEntry(state, {
+      at: state.clockMs,
+      type: 'fruit',
+      title: 'Buah dipindahkan ke pohon',
+      detail: '−1 Buah dari Storage · +1 Buah di pohon; progres dan perawatan tidak berubah.',
+      status: 'fruit',
+    }));
+    state.history = state.history.slice(0, 30);
+    return { state, applied: true, progressApplied: false, resourceType };
   }
 
   const resourceLabel = resourceType === 'air' ? 'Air' : 'Pupuk';
@@ -684,7 +705,7 @@ export function addDemoResource(currentState, resourceType, amount, options = {}
     storageDelta.fruit = quantity;
   }
 
-  const fruitMovement = syncFruitPlacement(state, state.clockMs);
+  syncFruitPlacement(state, state.clockMs);
 
   const labels = { air: 'Air', fertilizer: 'Pupuk', fruit: 'Buah' };
   const formattedAmount = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(quantity);
@@ -692,9 +713,7 @@ export function addDemoResource(currentState, resourceType, amount, options = {}
     at: state.clockMs,
     type: 'demo',
     title: `Demo: tambah ${formattedAmount} ${labels[resourceType]}`,
-    detail: resourceType === 'fruit' && fruitMovement.movedToTree > 0
-      ? `+${formattedAmount} Buah ditambahkan dan langsung ditampilkan pada pohon yang sehat.`
-      : `+${formattedAmount} ${labels[resourceType]} masuk ke Storage; progres tidak berubah.`,
+    detail: `+${formattedAmount} ${labels[resourceType]} masuk ke Storage; progres tidak berubah.`,
     status: 'demo',
     airDelta: storageDelta.air,
     fertilizerDeltaUnits: storageDelta.fertilizerUnits,
@@ -736,12 +755,12 @@ export function applyDemoBoost(currentState, wallNow = Date.now()) {
   state.air += 10;
   state.fertilizerUnits += 12;
   state.fruitsInStorage += 1;
-  const fruitMovement = syncFruitPlacement(state, state.clockMs);
+  syncFruitPlacement(state, state.clockMs);
   recordActivity(state, {
     at: state.clockMs,
     type: 'demo',
     title: 'Boost Demo: tambah resource',
-    detail: `+10 Air dan +6 Pupuk masuk Storage · +1 Buah${fruitMovement.movedToTree > 0 ? ' ditampilkan di pohon sehat' : ' masuk Storage'} · progres tidak berubah.`,
+    detail: '+10 Air, +6 Pupuk, dan +1 Buah masuk Storage · progres tidak berubah.',
     status: 'demo',
     airDelta: 10,
     fertilizerDeltaUnits: 12,

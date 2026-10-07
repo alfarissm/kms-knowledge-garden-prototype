@@ -64,8 +64,10 @@ const elements = {
   pupukValue: document.querySelector('#pupukValue'),
   careAirBalance: document.querySelector('#careAirBalance'),
   carePupukBalance: document.querySelector('#carePupukBalance'),
+  careFruitBalance: document.querySelector('#careFruitBalance'),
   careAirButton: document.querySelector('[data-tree-care-resource="air"]'),
   careFertilizerButton: document.querySelector('[data-tree-care-resource="fertilizer"]'),
+  careFruitButton: document.querySelector('[data-tree-care-resource="fruit"]'),
   storageFruitValue: document.querySelector('#storageFruitValue'),
   storageButton: document.querySelector('#storageButton'),
   storageDialog: document.querySelector('#storageDialog'),
@@ -360,6 +362,7 @@ function renderResources() {
   elements.pupukValue.textContent = formatPupuk(state.fertilizerUnits);
   elements.careAirBalance.textContent = String(state.air);
   elements.carePupukBalance.textContent = formatPupuk(state.fertilizerUnits);
+  elements.careFruitBalance.textContent = String(state.fruitsInStorage);
   const requirement = getNextLevelRequirement(state.level);
   const airProgressFull = state.growthAir >= requirement.air && state.careAir > 0;
   const fertilizerProgressFull = state.growthFertilizerUnits >= requirement.fertilizerUnits && state.careFertilizerUnits > 0;
@@ -387,6 +390,20 @@ function renderResources() {
     : state.growthFertilizerUnits >= requirement.fertilizerUnits
       ? 'Gunakan 1 Pupuk untuk memulihkan perawatan pohon; progres level tetap penuh.'
       : 'Gunakan 1 Pupuk dari Storage untuk merawat pohon dan mengisi progres.';
+  const fruitTreeReady = state.level >= 3 && getTreeCondition(state) === 'healthy';
+  const fruitUnavailable = state.fruitsInStorage < 1 || !fruitTreeReady;
+  elements.careFruitButton.setAttribute('aria-disabled', String(fruitUnavailable));
+  elements.careFruitButton.classList.toggle('is-unavailable', fruitUnavailable);
+  elements.careFruitButton.setAttribute('aria-label', state.fruitsInStorage < 1
+    ? 'Tidak ada Buah di Storage untuk dipindahkan ke pohon.'
+    : !fruitTreeReady
+      ? `Pindahkan Buah setelah pohon sehat dan mencapai Level 3. Ada ${state.fruitsInStorage} Buah di Storage.`
+      : `Pindahkan 1 Buah dari Storage ke pohon. Ada ${state.fruitsInStorage} Buah di Storage.`);
+  elements.careFruitButton.title = state.fruitsInStorage < 1
+    ? 'Belum ada Buah di Storage.'
+    : !fruitTreeReady
+      ? 'Buah dapat dipindahkan saat pohon sehat dan mencapai Level 3.'
+      : 'Pindahkan 1 Buah dari Storage ke pohon.';
   elements.storageFruitValue.textContent = String(state.fruitsInStorage);
   elements.fruitOnTreeLabel.textContent = String(state.fruitsOnTree);
   elements.fruitOnTreeLabel.parentElement.setAttribute('aria-label', `${state.fruitsOnTree} buah di pohon`);
@@ -1091,9 +1108,14 @@ function playCareAnimation(resourceType) {
 
 function careForTree(resourceType) {
   const result = applyCare(state, resourceType);
-  const resourceName = resourceType === 'air' ? 'Air' : 'Pupuk';
+  const resourceName = { air: 'Air', fertilizer: 'Pupuk', fruit: 'Buah' }[resourceType];
 
   if (result.applied) {
+    if (resourceType === 'fruit') {
+      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon. Progres dan perawatan tidak berubah.', 'success', { animateTree: false });
+      return;
+    }
+
     const levelChanged = result.state.level !== state.level;
     const effect = result.progressApplied
       ? 'Progres dan perawatan pohon bertambah.'
@@ -1105,6 +1127,11 @@ function careForTree(resourceType) {
 
   if (result.reason === 'progress-full') {
     updateWith(result.state, `Progres ${resourceName} sudah penuh. Saldo ${resourceName} tetap di Storage hingga progres pasangannya terpenuhi.`, 'notice', { animateTree: false });
+    return;
+  }
+
+  if (result.reason === 'tree-not-ready') {
+    updateWith(result.state, 'Buah hanya dapat dipindahkan ke pohon yang sehat mulai Level 3. Buah tetap di Storage.', 'notice', { animateTree: false });
     return;
   }
 
@@ -1169,7 +1196,7 @@ function activateCareDrag() {
   document.body.classList.add('is-care-dragging');
 
   const ghost = document.createElement('div');
-  ghost.className = `care-drag-ghost ${button.dataset.treeCareResource === 'air' ? 'ghost-air' : 'ghost-fertilizer'}`;
+  ghost.className = `care-drag-ghost ghost-${button.dataset.treeCareResource}`;
   ghost.append(button.querySelector('.care-quick-icon').cloneNode(true));
   const balance = document.createElement('strong');
   balance.textContent = button.querySelector('strong').textContent;

@@ -107,7 +107,7 @@ describe('gamification prototype logic', () => {
     expect(validated.state.lastDecayAt).toBe(validated.state.clockMs);
   });
 
-  it('credits fruit from a validated Sharing to a healthy Level 3 tree without double-counting growth', () => {
+  it('credits validated Sharing fruit to Storage even when the Level 3 tree is healthy', () => {
     const mature = createInitialState(1_000);
     mature.level = 3;
     mature.growthAir = 9;
@@ -121,8 +121,8 @@ describe('gamification prototype logic', () => {
 
     expect(validated.state.air).toBe(mature.air + 3);
     expect(validated.state.fertilizerUnits).toBe(mature.fertilizerUnits + 4);
-    expect(validated.state.fruitsInStorage).toBe(0);
-    expect(validated.state.fruitsOnTree).toBe(1);
+    expect(validated.state.fruitsInStorage).toBe(1);
+    expect(validated.state.fruitsOnTree).toBe(0);
     expect(validated.state.growthAir).toBe(mature.growthAir);
     expect(validated.state.growthFertilizerUnits).toBe(mature.growthFertilizerUnits);
   });
@@ -198,7 +198,7 @@ describe('gamification prototype logic', () => {
     expect(repeatedRating.state.air).toBe(start.air + 1);
   });
 
-  it('keeps the Learning rating record attached to its reward when fruit is reconciled', () => {
+  it('keeps Learning rating reward history and stored fruit separate', () => {
     const mature = createInitialState(1_000);
     mature.level = 3;
     mature.growthAir = 9;
@@ -210,8 +210,8 @@ describe('gamification prototype logic', () => {
     expect(rated.state.history[0].title).toBe('Rating Learning: kms-fundamentals');
     expect(rated.state.history[0].rating).toBe(5);
     expect(rated.state.history[0].detail).toBe('Rating 5/5 · +1 Air masuk Storage');
-    expect(rated.state.history[1].title).toBe('Buah kembali terlihat di pohon');
-    expect(rated.state.fruitsOnTree).toBe(2);
+    expect(rated.state.fruitsInStorage).toBe(2);
+    expect(rated.state.fruitsOnTree).toBe(0);
   });
 
   it('awards one Air for Review without resetting the decay clock', () => {
@@ -372,11 +372,11 @@ describe('gamification prototype logic', () => {
     expect(fertilized.state.level).toBe(5);
     expect(fertilized.state.growthAir).toBe(101);
     expect(fertilized.state.growthFertilizerUnits).toBe(108);
-    expect(fertilized.state.fruitsOnTree).toBe(3);
-    expect(fertilized.state.fruitsInStorage).toBe(0);
+    expect(fertilized.state.fruitsOnTree).toBe(0);
+    expect(fertilized.state.fruitsInStorage).toBe(3);
   });
 
-  it('holds sharing fruit in Storage until Level 3, then displays the exact amount and preserves level on decay', () => {
+  it('keeps Sharing fruit in Storage until manually placed on a healthy Level 3 tree', () => {
     let state = createInitialState(1_000);
     for (let index = 0; index < 3; index += 1) {
       const pending = submitSharingMaterial(state, {
@@ -414,6 +414,14 @@ describe('gamification prototype logic', () => {
     expect(state.level).toBe(3);
     expect(state.growthAir).toBe(9);
     expect(state.growthFertilizerUnits).toBe(12);
+    expect(state.fruitsInStorage).toBe(3);
+    expect(state.fruitsOnTree).toBe(0);
+
+    for (let index = 0; index < 3; index += 1) {
+      const placed = applyCare(state, 'fruit', { wallNow: 1_000 });
+      expect(placed.applied).toBe(true);
+      state = placed.state;
+    }
     expect(state.fruitsInStorage).toBe(0);
     expect(state.fruitsOnTree).toBe(3);
 
@@ -424,7 +432,7 @@ describe('gamification prototype logic', () => {
     expect(decayed.fruitsInStorage).toBe(3);
   });
 
-  it('stores fruit while the tree is yellow or dead and restores it after the tree is healthy again', () => {
+  it('returns tree fruit to Storage when unhealthy and requires manual placement after recovery', () => {
     const mature = createInitialState(1_000);
     mature.level = 3;
     mature.growthAir = 9;
@@ -443,10 +451,15 @@ describe('gamification prototype logic', () => {
 
     const healthyAgain = applyCare(yellow, 'air', { wallNow: 1_000 }).state;
     expect(getTreeCondition(healthyAgain)).toBe('healthy');
-    expect(healthyAgain.fruitsOnTree).toBe(5);
-    expect(healthyAgain.fruitsInStorage).toBe(0);
+    expect(healthyAgain.fruitsOnTree).toBe(0);
+    expect(healthyAgain.fruitsInStorage).toBe(5);
 
-    const dead = advanceDemoDays(healthyAgain, 14, 1_000);
+    const placedAfterYellow = applyCare(healthyAgain, 'fruit', { wallNow: 1_000 });
+    expect(placedAfterYellow.applied).toBe(true);
+    expect(placedAfterYellow.state.fruitsOnTree).toBe(1);
+    expect(placedAfterYellow.state.fruitsInStorage).toBe(4);
+
+    const dead = advanceDemoDays(placedAfterYellow.state, 14, 1_000);
     expect(getTreeCondition(dead)).toBe('dead');
     expect(dead.fruitsOnTree).toBe(0);
     expect(dead.fruitsInStorage).toBe(5);
@@ -459,8 +472,13 @@ describe('gamification prototype logic', () => {
 
     const restored = applyCare(thirstyAgain, 'air', { wallNow: 1_000 }).state;
     expect(getTreeCondition(restored)).toBe('healthy');
-    expect(restored.fruitsOnTree).toBe(5);
-    expect(restored.fruitsInStorage).toBe(0);
+    expect(restored.fruitsOnTree).toBe(0);
+    expect(restored.fruitsInStorage).toBe(5);
+
+    const placedAfterDead = applyCare(restored, 'fruit', { wallNow: 1_000 });
+    expect(placedAfterDead.applied).toBe(true);
+    expect(placedAfterDead.state.fruitsOnTree).toBe(1);
+    expect(placedAfterDead.state.fruitsInStorage).toBe(4);
   });
 
   it('lets demo condition controls show yellow and dead states without changing growth or Storage balances', () => {
@@ -486,7 +504,7 @@ describe('gamification prototype logic', () => {
     expect(dead.history[0].title).toBe('Demo: uji pohon mati');
   });
 
-  it('moves exactly five stored fruits onto the tree when Level 3 is reached', () => {
+  it('moves stored fruits to the eligible tree one at a time using the Fruit action', () => {
     const nearlyMature = createInitialState(1_000);
     nearlyMature.level = 2;
     nearlyMature.growthAir = 8;
@@ -495,8 +513,54 @@ describe('gamification prototype logic', () => {
     const mature = applyCare(stocked, 'air', { wallNow: 1_000 }).state;
 
     expect(mature.level).toBe(3);
-    expect(mature.fruitsOnTree).toBe(5);
-    expect(mature.fruitsInStorage).toBe(0);
+    expect(mature.fruitsOnTree).toBe(0);
+    expect(mature.fruitsInStorage).toBe(5);
+
+    const progressBefore = [mature.growthAir, mature.growthFertilizerUnits];
+    const careBefore = [mature.careAir, mature.careFertilizerUnits];
+    const decayClockBefore = mature.lastDecayAt;
+    const activityClockBefore = mature.lastValidActivityAt;
+    let state = mature;
+    for (let index = 0; index < 5; index += 1) {
+      const result = applyCare(state, 'fruit', { wallNow: 1_000 });
+      expect(result.applied).toBe(true);
+      state = result.state;
+      expect(state.fruitsOnTree).toBe(index + 1);
+      expect(state.fruitsInStorage).toBe(4 - index);
+    }
+    expect([state.growthAir, state.growthFertilizerUnits]).toEqual(progressBefore);
+    expect([state.careAir, state.careFertilizerUnits]).toEqual(careBefore);
+    expect(state.lastDecayAt).toBe(decayClockBefore);
+    expect(state.lastValidActivityAt).toBe(activityClockBefore);
+  });
+
+  it('keeps fruit in Storage if there is no fruit, the tree is young, or the tree is unhealthy', () => {
+    const young = createInitialState(1_000);
+    young.fruitsInStorage = 2;
+    const tooYoung = applyCare(young, 'fruit', { wallNow: 1_000 });
+    expect(tooYoung.applied).toBe(false);
+    expect(tooYoung.reason).toBe('tree-not-ready');
+    expect(tooYoung.state.fruitsInStorage).toBe(2);
+
+    const unhealthy = createInitialState(1_000);
+    unhealthy.level = 3;
+    unhealthy.growthAir = 9;
+    unhealthy.growthFertilizerUnits = 12;
+    unhealthy.careAir = 0;
+    unhealthy.fruitsInStorage = 2;
+    const notHealthy = applyCare(unhealthy, 'fruit', { wallNow: 1_000 });
+    expect(notHealthy.applied).toBe(false);
+    expect(notHealthy.reason).toBe('tree-not-ready');
+    expect(notHealthy.state.fruitsInStorage).toBe(2);
+
+    const noFruit = createInitialState(1_000);
+    noFruit.level = 3;
+    noFruit.growthAir = 9;
+    noFruit.growthFertilizerUnits = 12;
+    const emptyStorage = applyCare(noFruit, 'fruit', { wallNow: 1_000 });
+    expect(emptyStorage.applied).toBe(false);
+    expect(emptyStorage.reason).toBe('insufficient');
+    expect(emptyStorage.state.fruitsOnTree).toBe(0);
   });
 
   it('supports the demo boost without changing the normal activity reward rules', () => {
@@ -528,12 +592,12 @@ describe('gamification prototype logic', () => {
     expect(withFertilizer.fertilizerUnits).toBe(start.fertilizerUnits + 1);
     expect(withFertilizer.growthFertilizerUnits).toBe(start.growthFertilizerUnits);
     expect(withFertilizer.careFertilizerUnits).toBe(start.careFertilizerUnits);
-    expect(withFruit.fruitsInStorage).toBe(matureTree.fruitsInStorage);
-    expect(withFruit.fruitsOnTree).toBe(matureTree.fruitsOnTree + 3);
+    expect(withFruit.fruitsInStorage).toBe(matureTree.fruitsInStorage + 3);
+    expect(withFruit.fruitsOnTree).toBe(matureTree.fruitsOnTree);
     expect(withFruit.level).toBe(matureTree.level);
     expect(withFruit.lastDecayAt).toBe(start.lastDecayAt);
     expect(withFruit.lastValidActivityAt).toBe(start.lastValidActivityAt);
-    expect(withFruit.history[0].detail).toContain('langsung ditampilkan');
+    expect(withFruit.history[0].detail).toContain('masuk ke Storage');
     expect(() => addDemoResource(start, 'fertilizer', 0.25)).toThrow('kelipatan 0,5');
     expect(() => addDemoResource(start, 'fruit', 1.5)).toThrow('bilangan bulat');
   });

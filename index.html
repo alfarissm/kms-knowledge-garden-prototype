@@ -146,21 +146,24 @@
                       <div class="progress-track" id="growthPupukTrack" role="progressbar" aria-label="Progres Pupuk menuju level berikutnya" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" aria-valuetext="0 dari 1 Pupuk"><span class="pupuk-progress-fill" id="growthPupukBar"></span></div>
                     </div>
                   </div>
-                  <small class="progress-hint">Gunakan resource dari Storage pada pohon untuk mengisi progres.</small>
+                  <small class="progress-hint">Gunakan Air/Pupuk untuk mengisi progres; pindahkan Buah satu per satu dari Storage saat pohon sehat dan mencapai Level 3.</small>
                 </section>
               </div>
-              <div class="tree-care-actions" aria-label="Rawat pohon dan jumlah Buah di pohon">
+              <div class="tree-care-actions" aria-label="Aksi penggunaan Air, Pupuk, dan Buah dari Storage">
                 <button class="tree-care-button care-water-button" type="button" data-tree-care-resource="air" aria-label="Gunakan Air" title="Gunakan Air">
                   <span class="care-quick-icon"><svg class="icon"><use href="#icon-water" /></svg></span><span class="care-button-label">Air</span><strong id="careAirBalance">1</strong>
                 </button>
                 <button class="tree-care-button care-fertilizer-button" type="button" data-tree-care-resource="fertilizer" aria-label="Gunakan Pupuk" title="Gunakan Pupuk">
                   <span class="care-quick-icon"><svg class="icon"><use href="#icon-sprout" /></svg></span><span class="care-button-label">Pupuk</span><strong id="carePupukBalance">1</strong>
                 </button>
-                <span class="tree-fruit-status" role="img" title="Buah di pohon" aria-label="Buah di pohon"><svg class="icon"><use href="#icon-fruit" /></svg><strong id="fruitOnTreeLabel">0</strong><span>Buah</span></span>
+                <button class="tree-care-button care-fruit-button is-unavailable" type="button" data-tree-care-resource="fruit" aria-label="Pindahkan Buah dari Storage ke pohon" title="Buah dapat dipindahkan setelah pohon sehat dan mencapai Level 3">
+                  <span class="care-quick-icon"><svg class="icon"><use href="#icon-fruit" /></svg></span><span class="care-button-label">Buah</span><strong id="careFruitBalance">0</strong>
+                </button>
               </div>
               <div class="stage-track" id="stageTrack" aria-label="Tahap pertumbuhan pohon"></div>
               <div class="tree-card-foot">
                 <span class="info-tooltip tree-level-info" tabindex="0" role="img" aria-label="Info decay mingguan." data-tooltip="Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres dan perawatan berkurang maksimal 1 Air serta 0,5 Pupuk. Review memberi 1 Air ke Storage tetapi tidak mereset decay. Storage tidak berkurang oleh decay; level tetap."><svg class="icon"><use href="#icon-info" /></svg></span>
+                <span class="tree-fruit-status" role="img" title="Buah di pohon" aria-label="Buah di pohon"><svg class="icon"><use href="#icon-fruit" /></svg><strong id="fruitOnTreeLabel">0</strong><span>Buah di pohon</span></span>
               </div>
               <div class="tree-care-row">
                 <div class="decay-info"><span class="decay-clock"><svg class="icon"><use href="#icon-clock" /></svg></span><div><strong id="lastActivityLabel">Aktivitas/perawatan terakhir: hari ini</strong><small id="nextDecayLabel">Decay berikutnya dalam 7 hari</small></div></div>
@@ -209,7 +212,7 @@
 
           <details class="assumption-details">
             <summary>Aturan gamifikasi prototype</summary>
-            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, dan L5 101/54. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Buah tampil pada pohon sehat Level 3+ dan kembali ke Storage jika kondisinya memburuk.</p>
+            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, dan L5 101/54. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Pindahkan Buah satu per satu dengan tombol klik atau drag-and-drop ke pohon sehat Level 3+; Buah di pohon otomatis kembali ke Storage jika kondisinya memburuk.</p>
           </details>
           </section>
 
@@ -239,7 +242,7 @@
             <section class="activity-page panel sharing-page" aria-labelledby="sharing-title">
               <div class="panel-heading activity-page-heading">
                 <div><p class="eyebrow">AKTIVITAS KMS · SHARING</p><h2 id="sharing-title">Bagikan pengetahuan</h2><p class="activity-page-description">Kirim materi untuk divalidasi. Video pendukung dapat diunggah secara opsional.</p></div>
-                <span class="sharing-reward-pill" title="Air dan Pupuk masuk Storage; Buah disimpan sampai pohon dapat menampilkannya.">Tervalidasi · +1 Buah · +3 Air · +2 Pupuk ke Storage</span>
+                <span class="sharing-reward-pill" title="Buah, Air, dan Pupuk masuk Storage. Gunakan tombol Buah untuk memindahkannya satu per satu ke pohon sehat Level 3+.">Tervalidasi · +1 Buah · +3 Air · +2 Pupuk ke Storage</span>
               </div>
               <section class="sharing-panel sharing-page-panel" aria-label="Form Sharing dan antrean validasi">
                 <div class="sharing-section-heading"><div><p class="eyebrow">KIRIM KONTRIBUSI</p><h3>Materi Sharing</h3></div></div>
