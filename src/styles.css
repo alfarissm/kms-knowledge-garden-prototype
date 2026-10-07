@@ -1075,7 +1075,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .fruit-bento { border-color: #f0e6d4; background: #fffaf0; }
 .fruit-bento .bento-icon { color: #c58937; background: #f9edd7; }
 .fruit-bento strong { color: #a8752f; }
-.tree-care-actions { display: flex; width: min(250px, 100%); justify-content: center; gap: 8px; margin: 12px auto 0; }
+.tree-care-actions { display: flex; width: min(390px, 100%); align-items: stretch; justify-content: center; gap: 8px; margin: 12px auto 0; }
 .tree-care-button { position: relative; display: flex; min-width: 0; min-height: 43px; flex: 1; align-items: center; justify-content: center; gap: 7px; overflow: hidden; padding: 6px 9px; border: 1px solid #126ca6; border-radius: 11px; color: #fff; background: linear-gradient(145deg, #1684c7, #116ca7); box-shadow: 0 5px 13px rgba(25, 105, 159, .29), inset 0 1px 0 rgba(255,255,255,.2); text-align: left; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; transition: transform .16s, box-shadow .16s, background .16s; }
 .tree-care-button:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(42, 80, 128, .12); }
 .tree-care-button:active { transform: translateY(0) scale(.97); }
@@ -1132,7 +1132,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .storage-bento .icon { width: 14px; height: 14px; }
   .storage-bento strong { font-size: 16px; }
   .storage-bento small { font-size: 7px; }
-  .tree-care-actions { width: min(230px, 100%); gap: 6px; margin-top: 9px; }
+  .tree-care-actions { width: min(340px, 100%); gap: 6px; margin-top: 9px; }
   .tree-care-button { min-height: 39px; gap: 5px; padding: 5px 7px; }
   .care-quick-icon { width: 22px; height: 22px; }
   .tree-care-button > strong { min-width: 19px; height: 19px; font-size: 8px; }
@@ -1317,10 +1317,9 @@ body { color: #294b7d; background: #f0f3f7; }
 .tree-card-foot { align-items: center; margin-top: 9px; padding-top: 0; border-top: 0; }
 .tree-card { overflow: visible; }
 .tree-card-foot > span.info-tooltip:first-child { display: grid; place-items: center; }
-.tree-fruit-status { display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #c38b40; font-size: 9px; }
+.tree-fruit-status { display: inline-flex; min-height: 43px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; padding: 0 10px; border: 1px solid #f0e6d4; border-radius: 11px; color: #a8752f; background: #fffaf0; font-size: 9px; font-weight: 700; line-height: 1; white-space: nowrap; }
 .tree-fruit-status .icon { width: 15px; height: 15px; }
-.tree-fruit-status { color: #c38b40; }
-.tree-card-foot .tree-fruit-status .icon { color: inherit; }
+.tree-fruit-status .icon { color: inherit; }
 .tree-fruit-status strong { min-width: 12px; color: #866e45; font-size: 9px; }
 .info-tooltip { position: relative; z-index: 1; display: inline-grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border: 1px solid #b8cce0; border-radius: 50%; color: #4779a5; background: #f7fbff; cursor: help; outline: none; }
 .info-tooltip > .icon { width: 15px; height: 15px; }
@@ -1660,6 +1659,13 @@ body.is-mobile-menu-open { overflow: hidden; }
 @media (max-width: 380px) {
   .topbar-leading { gap: 8px; }
   .breadcrumb > span:first-child, .breadcrumb > span[aria-hidden="true"] { display: none; }
+  .tree-care-actions { gap: 5px; }
+  .tree-care-button { gap: 4px; padding-right: 5px; padding-left: 5px; }
+  .care-quick-icon { width: 21px; height: 21px; }
+  .care-button-label { font-size: 9px; }
+  .tree-fruit-status { min-height: 39px; gap: 3px; padding: 0 6px; font-size: 8px; }
+  .tree-fruit-status .icon { width: 13px; height: 13px; }
+  .tree-fruit-status strong { min-width: 10px; font-size: 8px; }
 }
 
 /* Match the KMS primary site's royal-blue, teal, and garden-green identity. */

@@ -149,18 +149,18 @@
                   <small class="progress-hint">Gunakan resource dari Storage pada pohon untuk mengisi progres.</small>
                 </section>
               </div>
-              <div class="tree-care-actions" aria-label="Rawat pohon">
+              <div class="tree-care-actions" aria-label="Rawat pohon dan jumlah Buah di pohon">
                 <button class="tree-care-button care-water-button" type="button" data-tree-care-resource="air" aria-label="Gunakan Air" title="Gunakan Air">
                   <span class="care-quick-icon"><svg class="icon"><use href="#icon-water" /></svg></span><span class="care-button-label">Air</span><strong id="careAirBalance">1</strong>
                 </button>
                 <button class="tree-care-button care-fertilizer-button" type="button" data-tree-care-resource="fertilizer" aria-label="Gunakan Pupuk" title="Gunakan Pupuk">
                   <span class="care-quick-icon"><svg class="icon"><use href="#icon-sprout" /></svg></span><span class="care-button-label">Pupuk</span><strong id="carePupukBalance">1</strong>
                 </button>
+                <span class="tree-fruit-status" role="img" title="Buah di pohon" aria-label="Buah di pohon"><svg class="icon"><use href="#icon-fruit" /></svg><strong id="fruitOnTreeLabel">0</strong><span>Buah</span></span>
               </div>
               <div class="stage-track" id="stageTrack" aria-label="Tahap pertumbuhan pohon"></div>
               <div class="tree-card-foot">
                 <span class="info-tooltip tree-level-info" tabindex="0" role="img" aria-label="Info decay mingguan." data-tooltip="Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres dan perawatan berkurang maksimal 1 Air serta 0,5 Pupuk. Review memberi 1 Air ke Storage tetapi tidak mereset decay. Storage tidak berkurang oleh decay; level tetap."><svg class="icon"><use href="#icon-info" /></svg></span>
-                <span class="tree-fruit-status" role="img" title="Buah di pohon" aria-label="Buah di pohon"><svg class="icon"><use href="#icon-fruit" /></svg><strong id="fruitOnTreeLabel">0</strong><span>Buah di pohon</span></span>
               </div>
               <div class="tree-care-row">
                 <div class="decay-info"><span class="decay-clock"><svg class="icon"><use href="#icon-clock" /></svg></span><div><strong id="lastActivityLabel">Aktivitas/perawatan terakhir: hari ini</strong><small id="nextDecayLabel">Decay berikutnya dalam 7 hari</small></div></div>
