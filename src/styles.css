@@ -694,9 +694,9 @@ h1, h2 { color: #214b82; }
 .tree-progress-hud {
   position: absolute;
   z-index: 6;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   padding: 13px 16px 12px;
   border: 1px solid rgba(211, 227, 240, .96);
   border-radius: 13px;
@@ -732,7 +732,7 @@ h1, h2 { color: #214b82; }
   .scene-condition { top: 65px; left: 9px; padding: 5px 7px; font-size: 7px; }
   .scene-condition .condition-dot { width: 5px; height: 5px; }
   .scene-level-caption { top: 68px; right: 9px; font-size: 6px; letter-spacing: .7px; }
-  .tree-progress-hud { right: 8px; bottom: 8px; left: 8px; padding: 10px; border-radius: 11px; }
+  .tree-progress-hud { right: 0; bottom: 0; left: 0; padding: 10px; border-radius: 11px; }
   .progress-hud-head { align-items: flex-start; gap: 6px; margin-bottom: 8px; }
   .tree-progress-hud .progress-heading .eyebrow { font-size: 6px; }
   .tree-progress-hud .progress-heading h2 { font-size: 10px; }
@@ -1020,7 +1020,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .level-badge.scene-level-badge { position: absolute; z-index: 6; top: 12px; left: 12px; padding: 6px 10px; border-color: rgba(211, 228, 241, .98); background: rgba(255,255,255,.95); box-shadow: 0 5px 14px rgba(45, 78, 125, .1); }
 .scene-sun { top: 34px; right: 8%; }
 .stage-track { position: absolute; z-index: 5; right: 20px; bottom: 116px; left: 20px; margin: 0; }
-.tree-progress-hud { right: 12px; bottom: 12px; left: 12px; padding: 10px 14px; }
+.tree-progress-hud { right: 0; bottom: 0; left: 0; padding: 10px 14px; }
 .progress-hud-bars { gap: 28px; }
 .progress-hud-bars .progress-line { min-width: 0; }
 
@@ -1040,7 +1040,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .stage-name { font-size: 6px; }
   .stage-marker { width: 20px; height: 20px; }
   .stage-step:not(:last-child)::after { top: 10px; left: calc(50% + 11px); width: calc(100% - 21px); }
-  .tree-progress-hud { right: 8px; bottom: 9px; left: 8px; padding: 9px 10px; }
+  .tree-progress-hud { right: 0; bottom: 0; left: 0; padding: 9px 10px; }
   .progress-hud-bars { gap: 11px; }
   .progress-hud-bars .progress-label { margin-bottom: 4px; }
 }
