@@ -1963,11 +1963,11 @@ body.is-mobile-menu-open { overflow: hidden; }
 .tree-card.is-thirsty .tree-scene { background: linear-gradient(180deg, #c6c18b 0%, #d9d49c 58%, rgba(217, 212, 156, 0) 82%); }
 .tree-card.is-dead .tree-scene { background: linear-gradient(180deg, #bd9780 0%, #c7a18b 58%, rgba(199, 161, 139, 0) 82%); }
 .tree-scene .scene-ground {
-  z-index: 1;
+  z-index: 3;
   right: 0;
   bottom: 0;
   left: 0;
-  height: 175px;
+  height: 120px;
   border-radius: 0;
   background: #4ba747;
   opacity: 1;
@@ -1979,6 +1979,13 @@ body.is-mobile-menu-open { overflow: hidden; }
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
+}
+.tree-scene .tree-progress-hud .progress-label,
+.tree-scene .tree-progress-hud .progress-label strong,
+.tree-scene .tree-progress-hud .progress-label strong small,
+.tree-scene .tree-progress-hud .progress-hint {
+  color: #f7fff2;
+  text-shadow: 0 1px 2px rgba(24, 76, 34, .95), 0 0 4px rgba(24, 76, 34, .7);
 }
 
 @keyframes rain-shower {
