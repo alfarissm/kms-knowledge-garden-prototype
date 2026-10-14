@@ -779,6 +779,73 @@ export function applyDemoBoost(currentState, wallNow = Date.now()) {
   return state;
 }
 
+export function applyDemoLevelBoost(currentState, wallNow = Date.now()) {
+  const state = cloneState(currentState);
+  syncWallClock(state, wallNow);
+  applyElapsedDecay(state);
+  const requirement = getNextLevelRequirement(state.level);
+  const alreadyMaxed = state.level >= 7
+    && state.growthAir >= requirement.air
+    && state.growthFertilizerUnits >= requirement.fertilizerUnits;
+  state.growthAir = Math.max(state.growthAir, requirement.air);
+  state.growthFertilizerUnits = Math.max(state.growthFertilizerUnits, requirement.fertilizerUnits);
+  state.careAir = Math.max(state.careAir, 1);
+  state.careFertilizerUnits = Math.max(state.careFertilizerUnits, 2);
+  const leveledUp = updateTreeLevel(state, state.clockMs);
+  recordCareActivity(state);
+  recordActivity(state, {
+    at: state.clockMs,
+    type: 'demo',
+    title: alreadyMaxed && !leveledUp
+      ? 'Boost Level: pohon sudah maksimal'
+      : `Boost Level: naik ke Level ${state.level}`,
+    detail: alreadyMaxed && !leveledUp
+      ? 'Pohon sudah Level 7 · perawatan dipulihkan agar tetap sehat.'
+      : `Progres demo diisi ke ${requirement.air} Air / ${formatPupukAmount(requirement.fertilizerUnits)} Pupuk · perawatan dipulihkan.`,
+    status: 'demo',
+    growthAirDelta: requirement.air,
+    growthFertilizerDeltaUnits: requirement.fertilizerUnits,
+  });
+  return state;
+}
+
+export function applyDemoLevelDecrease(currentState, wallNow = Date.now()) {
+  const state = cloneState(currentState);
+  syncWallClock(state, wallNow);
+  applyElapsedDecay(state);
+  if (state.level <= 0) {
+    recordActivity(state, {
+      at: state.clockMs,
+      type: 'demo',
+      title: 'Turun Level: pohon sudah paling awal',
+      detail: 'Pohon masih Level 0 · tidak ada level yang lebih rendah.',
+      status: 'demo',
+    });
+    return state;
+  }
+  const target = state.level - 1;
+  const requirement = LEVELS[target - 1];
+  state.growthAir = requirement ? requirement.air : 0;
+  state.growthFertilizerUnits = requirement ? requirement.fertilizerUnits : 0;
+  state.level = target;
+  state.careAir = Math.max(state.careAir, 1);
+  state.careFertilizerUnits = Math.max(state.careFertilizerUnits, 2);
+  syncFruitPlacement(state, state.clockMs);
+  recordCareActivity(state);
+  recordActivity(state, {
+    at: state.clockMs,
+    type: 'demo',
+    title: `Turun Level: kembali ke Level ${target}`,
+    detail: requirement
+      ? `Progres demo dikurangi ke ${requirement.air} Air / ${formatPupukAmount(requirement.fertilizerUnits)} Pupuk · perawatan dipulihkan.`
+      : 'Progres demo dikosongkan · perawatan dipulihkan.',
+    status: 'demo',
+    growthAirDelta: state.growthAir,
+    growthFertilizerDeltaUnits: state.growthFertilizerUnits,
+  });
+  return state;
+}
+
 export function tickState(currentState, wallNow = Date.now()) {
   const state = cloneState(currentState);
   syncWallClock(state, wallNow);

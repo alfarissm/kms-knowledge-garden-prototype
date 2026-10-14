@@ -5,6 +5,8 @@ import {
   applyActivity,
   applyCare,
   applyDemoBoost,
+  applyDemoLevelBoost,
+  applyDemoLevelDecrease,
   completeLearningModule,
   createInitialState,
   getTreeCondition,
@@ -591,6 +593,52 @@ describe('gamification prototype logic', () => {
     expect(boosted.growthAir).toBe(0);
     expect(boosted.growthFertilizerUnits).toBe(0);
     expect(boosted.lastDecayAt).toBe(1_000);
+  });
+
+  it('supports the demo level decrease to step exactly one level down', () => {
+    const start = createInitialState(1_000);
+    const grown = applyDemoLevelBoost(applyDemoLevelBoost(start, 2_000), 3_000);
+    expect(grown.level).toBe(2);
+
+    const down = applyDemoLevelDecrease(grown, 4_000);
+    expect(down.level).toBe(1);
+    expect(down.growthAir).toBe(1);
+    expect(down.growthFertilizerUnits).toBe(2);
+    expect(down.careAir).toBeGreaterThan(0);
+    expect(down.careFertilizerUnits).toBeGreaterThan(0);
+
+    const atZero = applyDemoLevelDecrease(createInitialState(1_000), 2_000);
+    expect(atZero.level).toBe(0);
+    expect(atZero.history[0].title).toContain('paling awal');
+
+    const atLevel3 = applyDemoLevelBoost(grown, 5_000);
+    expect(atLevel3.level).toBe(3);
+    const fruited = { ...structuredClone(atLevel3), fruitsOnTree: 2, fruitsInStorage: 0 };
+    const dropped = applyDemoLevelDecrease(applyDemoLevelDecrease(fruited, 6_000), 7_000);
+    expect(dropped.level).toBe(1);
+    expect(dropped.fruitsOnTree).toBe(0);
+    expect(dropped.fruitsInStorage).toBe(2);
+  });
+
+  it('supports the demo level boost to climb exactly one level while staying healthy', () => {
+    const start = createInitialState(1_000);
+    const toLevel1 = applyDemoLevelBoost(start, 2_000);
+
+    expect(toLevel1.level).toBe(1);
+    expect(toLevel1.growthAir).toBe(1);
+    expect(toLevel1.growthFertilizerUnits).toBe(2);
+    expect(toLevel1.careAir).toBeGreaterThan(0);
+    expect(toLevel1.careFertilizerUnits).toBeGreaterThan(0);
+
+    const toLevel2 = applyDemoLevelBoost(toLevel1, 3_000);
+    expect(toLevel2.level).toBe(2);
+    expect(toLevel2.growthAir).toBe(3);
+    expect(toLevel2.growthFertilizerUnits).toBe(4);
+
+    const maxed = { ...structuredClone(toLevel2), level: 7, growthAir: 101, growthFertilizerUnits: 108 };
+    const stillMaxed = applyDemoLevelBoost(maxed, 4_000);
+    expect(stillMaxed.level).toBe(7);
+    expect(stillMaxed.history[0].title).toContain('sudah maksimal');
   });
 
   it('adds demo resources to Storage only without changing the tree or resetting the decay clock', () => {

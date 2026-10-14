@@ -12,6 +12,8 @@ import {
   applyActivity,
   applyCare,
   applyDemoBoost,
+  applyDemoLevelBoost,
+  applyDemoLevelDecrease,
   completeLearningModule,
   createInitialState,
   getNextLevelRequirement,
@@ -100,6 +102,8 @@ const elements = {
   completeLearningButton: document.querySelector('#completeLearningButton'),
   learningDialogClose: document.querySelector('#learningDialogClose'),
   advanceWeekButton: document.querySelector('#advanceWeekButton'),
+  boostLevelButton: document.querySelector('#boostLevelButton'),
+  lowerLevelButton: document.querySelector('#lowerLevelButton'),
   lastActivityLabel: document.querySelector('#lastActivityLabel'),
   nextDecayLabel: document.querySelector('#nextDecayLabel'),
   boostButton: document.querySelector('#boostButton'),
@@ -282,9 +286,9 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
   const svgStart = `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon">`;
   const canopyByLevel = {
-    2: [[200, 168, 28], [174, 187, 24], [226, 188, 23]],
-    3: [[200, 168, 35], [174, 188, 29], [226, 188, 29]],
-    4: [[200, 168, 38], [170, 190, 32], [230, 190, 32]],
+    2: [[200, 160, 27], [174, 183, 20], [226, 183, 20]],
+    3: [[200, 159, 35], [169, 184, 25], [231, 184, 25]],
+    4: [[200, 159, 39], [166, 187, 28], [234, 187, 28]],
   };
 
   if (level === 0) {
@@ -297,24 +301,36 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
 
   // All stages share one bounded coordinate system and the same soil baseline.
   const topCanopyByLevel = {
-    2: [300, 312, 1],
-    3: [300, 190, 1.5],
-    4: [300, 175, 1.65],
-    5: [300, 165, .78],
-    6: [300, 136, .84],
-    7: [300, 108, .9],
+    2: [300, 310, 1],
+    3: [300, 235, 1.25],
+    4: [300, 185, 1.55],
+    5: [300, 164, 0.78],
+    6: [300, 133, 0.83],
+    7: [300, 105, 0.89],
   };
   const sideCanopiesByLevel = {
-    5: [[186, 240, .58]],
-    6: [[164, 235, .7], [436, 235, .7]],
-    7: [[148, 229, .8], [452, 229, .8]],
+    5: [[179, 246, 0.56]],
+    6: [[160, 253, 0.62], [440, 253, 0.62]],
+    7: [[134, 258, 0.74], [466, 258, 0.74]],
   };
   const topCanopy = topCanopyByLevel[level];
   const sideCanopies = sideCanopiesByLevel[level] ?? [];
   const trunkTipY = topCanopy[1];
   const trunkHeight = 446 - trunkTipY;
-  const trunkPath = `M270 446 C282 ${446 - trunkHeight * .2} 288 ${trunkTipY + trunkHeight * .45} 290 ${trunkTipY + trunkHeight * .31} L294 ${trunkTipY + 18} Q300 ${trunkTipY - 9} 306 ${trunkTipY + 18} L310 ${trunkTipY + trunkHeight * .31} C312 ${trunkTipY + trunkHeight * .45} 318 ${446 - trunkHeight * .2} 330 446Z`;
-  const trunkHighlight = `M285 446 C294 ${446 - trunkHeight * .2} 297 ${trunkTipY + trunkHeight * .45} 297 ${trunkTipY + trunkHeight * .31} L298 ${trunkTipY + 18} Q300 ${trunkTipY + 12} 302 ${trunkTipY + 18} L303 ${trunkTipY + trunkHeight * .31} C303 ${trunkTipY + trunkHeight * .45} 306 ${446 - trunkHeight * .2} 315 446Z`;
+  const grassTuft = ([x, s, flip, color]) => `<g class="grass-tuft" transform="translate(${x} 443) scale(${flip ? -s : s} ${s})" stroke="${color}" stroke-width="3.5" stroke-linecap="round" fill="none"><path d="M0 0C-3-8-8-12-13-14"/><path d="M0 0C-1-10 0-17 2-23"/><path d="M0 0C3-8 8-12 13-13"/></g>`;
+  const grassByLevel = {
+    3: [[150, 1, false, colors.leaf], [450, 1.1, true, colors.leafDark]],
+    4: [[130, 1, false, colors.leafDark], [230, 0.9, true, colors.leaf], [470, 1.05, false, colors.leafDark]],
+    5: [[110, 1, false, colors.leaf], [210, 0.85, true, colors.leafDark], [390, 0.9, false, colors.leaf], [490, 1.1, true, colors.leafDark]],
+    6: [[85, 1, false, colors.leafDark], [170, 0.9, true, colors.leaf], [250, 1, false, colors.leafDark], [420, 0.95, true, colors.leaf], [495, 1.1, false, colors.leafDark]],
+    7: [[70, 1, true, colors.leaf], [145, 0.9, false, colors.leafDark], [220, 1.05, true, colors.leaf], [380, 0.9, false, colors.leafDark], [455, 1.1, true, colors.leaf], [530, 1, false, colors.leafDark]],
+  };
+  const grass = (grassByLevel[level] ?? []).map(grassTuft).join('');
+  const trunkWidthScaleByLevel = { 2: 0.6, 3: 0.8, 4: 1, 5: 1.1, 6: 1.2, 7: 1.3 };
+  const trunkScale = trunkWidthScaleByLevel[level] ?? 1;
+  const trunkX = (x) => 300 + (x - 300) * trunkScale;
+  const trunkPath = `M${trunkX(270)} 446 C${trunkX(282)} ${446 - trunkHeight * .2} ${trunkX(288)} ${trunkTipY + trunkHeight * .45} ${trunkX(290)} ${trunkTipY + trunkHeight * .31} L${trunkX(294)} ${trunkTipY + 18} Q300 ${trunkTipY - 9} ${trunkX(306)} ${trunkTipY + 18} L${trunkX(310)} ${trunkTipY + trunkHeight * .31} C${trunkX(312)} ${trunkTipY + trunkHeight * .45} ${trunkX(318)} ${446 - trunkHeight * .2} ${trunkX(330)} 446Z`;
+  const trunkHighlight = `M${trunkX(285)} 446 C${trunkX(294)} ${446 - trunkHeight * .2} ${trunkX(297)} ${trunkTipY + trunkHeight * .45} ${trunkX(297)} ${trunkTipY + trunkHeight * .31} L${trunkX(298)} ${trunkTipY + 18} Q300 ${trunkTipY + 12} ${trunkX(302)} ${trunkTipY + 18} L${trunkX(303)} ${trunkTipY + trunkHeight * .31} C${trunkX(303)} ${trunkTipY + trunkHeight * .45} ${trunkX(306)} ${446 - trunkHeight * .2} ${trunkX(315)} 446Z`;
   const trunk = `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="${trunkHighlight}" fill="${colors.trunkLight}" opacity=".68"/>`;
   const branches = sideCanopies.map(([x, y]) => {
     const offset = x - 300;
@@ -327,12 +343,30 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const canopyCenter = [200, 154];
   const canopyDistance = ([cx, cy]) => Math.hypot(cx - canopyCenter[0], cy - canopyCenter[1]);
   const farthestCanopyLeaf = Math.max(...visibleCanopy.map(canopyDistance), 1);
+  const blobPath = ([cx, cy, radius]) => {
+    const bumps = 10;
+    const pts = [];
+    for (let i = 0; i < bumps; i += 1) {
+      const angle = (i / bumps) * Math.PI * 2 - Math.PI / 2;
+      const wobble = radius * (i % 2 === 0 ? 1.1 : 0.92);
+      pts.push([cx + Math.cos(angle) * wobble, cy + Math.sin(angle) * wobble]);
+    }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    let [mx, my] = mid(pts[bumps - 1], pts[0]);
+    let d = `M${mx.toFixed(1)} ${my.toFixed(1)}`;
+    for (let i = 0; i < bumps; i += 1) {
+      const p = pts[i];
+      const [qx, qy] = mid(p, pts[(i + 1) % bumps]);
+      d += `Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${qx.toFixed(1)} ${qy.toFixed(1)}`;
+    }
+    return `${d}Z`;
+  };
   const leafClusterMarkup = [...visibleCanopy]
     .sort((a, b) => canopyDistance(b) - canopyDistance(a))
     .map(([cx, cy, radius], index) => {
       const distanceRatio = canopyDistance([cx, cy]) / farthestCanopyLeaf;
       const fill = distanceRatio > .82 ? colors.leafDark : distanceRatio > .55 ? colors.leaf : colors.leafLight;
-      return `<circle class="leaf-cluster cluster-${index % 3}" cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}"/>`;
+      return `<path class="leaf-cluster cluster-${index % 3}" d="${blobPath([cx, cy, radius])}" fill="${fill}"/>`;
     }).join('');
   const fullCanopy = `<path d="M200 55C223 55 242 69 250 88 276 72 306 83 314 109 341 111 355 134 345 157 366 179 354 208 331 221 328 248 300 261 274 247 258 267 228 273 204 259 181 275 151 269 137 248 109 260 82 244 79 218 54 205 51 177 70 158 59 132 77 106 104 104 108 79 135 65 164 79 174 63 186 55 200 55Z" fill="${colors.leafDark}"/><path d="M200 75C220 74 235 88 241 104 265 89 291 99 297 121 319 122 332 141 323 160 339 179 328 202 308 211 305 234 281 244 260 232 245 249 220 254 201 242 180 255 155 248 144 231 121 242 99 227 98 207 77 197 76 175 92 160 82 138 98 118 120 117 124 96 147 84 170 95 178 82 188 75 200 75Z" fill="${colors.leaf}"/><path d="M200 99C217 98 230 109 235 124 254 113 277 122 281 142 299 145 308 161 300 177 312 194 302 212 284 219 279 237 258 243 242 233 228 246 208 248 194 237 177 247 157 240 150 225 131 232 114 218 116 200 99 188 103 168 118 156 111 138 127 122 145 125 149 107 167 101 181 111 187 104 193 99 200 99Z" fill="${colors.leafLight}"/>`;
   const placeInCanopy = (markup, [x, y, scale], className = '') => `<g class="${className}" transform="translate(${x} ${y}) scale(${scale}) translate(-200 -154)">${markup}</g>`;
@@ -346,9 +380,12 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   const fallingLeaves = condition === 'dead'
     ? '<ellipse class="falling-leaf fall-one" cx="134" cy="223" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-two" cx="263" cy="246" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-three" cx="156" cy="257" rx="6" ry="3" fill="#d7a66b"/>'
     : '';
+  const leafDrops = level >= 2 && condition !== 'dead'
+    ? `<ellipse class="leaf-drop drop-one" cx="150" cy="232" rx="6.5" ry="2.8" fill="${colors.leaf}"/><ellipse class="leaf-drop drop-two" cx="252" cy="238" rx="6" ry="2.6" fill="${colors.leafDark}"/>`
+    : '';
   const fruitCounter = fruitCount > MAX_VISIBLE_FRUIT ? `<text x="286" y="149" class="extra-fruit-label">+${fruitCount - MAX_VISIBLE_FRUIT}</text>` : '';
 
-  return `${svgStart}${branches}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + fruitCounter, topCanopy)}</svg>`;
+  return `${svgStart}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}</svg>`;
 }
 
 function renderStageTrack() {
@@ -734,7 +771,7 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
     || elements.treeCanvas.dataset.fruits !== fruitValue;
 
   if (visualChanged) {
-    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, state.fruitsOnTree, animate && levelChanged);
+    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, state.fruitsOnTree, false);
     elements.treeCanvas.dataset.level = levelValue;
     elements.treeCanvas.dataset.condition = condition;
     elements.treeCanvas.dataset.fruits = fruitValue;
@@ -749,14 +786,14 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
   renderStageTrack();
 
   if (!animate) {
-    elements.treeArt.classList.remove('tree-growing', 'tree-state-change');
+    elements.treeArt.classList.remove('tree-state-change');
   }
 
-  if (animate && visualChanged && (levelChanged || conditionChanged)) {
-    elements.treeArt.classList.remove('tree-growing', 'tree-state-change');
+  if (animate && visualChanged && conditionChanged && !levelChanged) {
+    elements.treeArt.classList.remove('tree-state-change');
     void elements.treeArt.offsetWidth;
-    elements.treeArt.classList.add(levelChanged ? 'tree-growing' : 'tree-state-change');
-    window.setTimeout(() => elements.treeArt.classList.remove('tree-growing', 'tree-state-change'), 850);
+    elements.treeArt.classList.add('tree-state-change');
+    window.setTimeout(() => elements.treeArt.classList.remove('tree-state-change'), 850);
   }
 }
 
@@ -1127,7 +1164,7 @@ function playCareAnimation(resourceType) {
     const shovel = document.createElement('span');
     shovel.className = 'care-shovel';
     shovel.setAttribute('aria-hidden', 'true');
-    shovel.innerHTML = '<svg viewBox="0 0 72 108" focusable="false"><path class="shovel-handle" d="M47 14 30 76"/><path class="shovel-grip" d="M41 15q2-10 13-9"/><path class="shovel-blade" d="M25 68c-8 10-14 22-13 32 10 7 25 7 37-1-2-12-7-23-14-32Z"/><path class="shovel-edge" d="M15 97q17 8 33-1"/></svg>';
+    shovel.innerHTML = '<svg viewBox="0 0 72 108" focusable="false"><path class="shovel-handle" d="M44 10 31 70"/><path class="shovel-grip" d="M34 8 54 12"/><path class="shovel-blade" d="M25 68C17 78 15 90 18 99 26 105 42 105 50 98 53 89 49 78 41 68Z"/><path class="shovel-edge" d="M22 94q12 7 25-1"/></svg>';
     effect.append(shovel);
   }
 
@@ -1330,6 +1367,30 @@ elements.testDeadButton.addEventListener('click', () => {
 elements.boostButton.addEventListener('click', () => {
   const nextState = applyDemoBoost(state);
   updateWith(nextState, 'Boost demo: resource ditambahkan ke Storage; gunakan Air/Pupuk pada pohon untuk mengisi progres.', 'notice');
+});
+
+elements.boostLevelButton.addEventListener('click', () => {
+  const previousLevel = state.level;
+  const nextState = applyDemoLevelBoost(state);
+  updateWith(
+    nextState,
+    nextState.level > previousLevel
+      ? `Boost level: pohon naik ke Level ${nextState.level}.`
+      : 'Boost level: pohon sudah maksimal; perawatan dipulihkan.',
+    'notice',
+  );
+});
+
+elements.lowerLevelButton.addEventListener('click', () => {
+  const previousLevel = state.level;
+  const nextState = applyDemoLevelDecrease(state);
+  updateWith(
+    nextState,
+    nextState.level < previousLevel
+      ? `Turun level: pohon kembali ke Level ${nextState.level}.`
+      : 'Turun level: pohon sudah paling awal.',
+    'notice',
+  );
 });
 
 elements.demoResourceType.addEventListener('change', updateDemoResourceAmountConstraints);
