@@ -29,54 +29,21 @@
       <symbol id="icon-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
     </svg>
 
-    <section class="auth-screen" id="authScreen" aria-label="Autentikasi prototype">
-      <div class="auth-card">
-        <div class="auth-art">
-          <a class="brand auth-brand" href="#top" aria-label="Knowledge Garden">
-            <span class="brand-mark"><svg class="icon"><use href="#icon-leaf" /></svg></span>
-            <span class="brand-name">knowledge<span>garden</span></span>
-          </a>
-          <div class="auth-illustration" aria-hidden="true"><span class="auth-orbit orbit-one"></span><span class="auth-orbit orbit-two"></span><svg class="icon"><use href="#icon-sprout" /></svg></div>
-          <div class="auth-art-copy"><p>Satu pohon pengetahuan.</p><strong>Tumbuh bersama.</strong><small>Daftar dan masuk untuk memulai kebun demo-mu.</small></div>
-          <span class="auth-art-footer">PROTOTYPE LOKAL · DATA TERSIMPAN DI BROWSER</span>
-        </div>
-
-        <div class="auth-form-area">
-          <div class="auth-view" id="loginView">
-            <p class="eyebrow">SELAMAT DATANG KEMBALI</p>
-            <h1>Masuk ke kebunmu</h1>
-            <p class="auth-description">Masuk untuk melanjutkan perjalanan pohon pengetahuan.</p>
-            <form id="loginForm" class="auth-form">
-              <label for="loginEmail">Email</label>
-              <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
-              <label for="loginPassword">Kata sandi</label>
-              <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required />
-              <button class="auth-submit" type="submit">Masuk <svg class="icon"><use href="#icon-arrow" /></svg></button>
-            </form>
-            <p class="auth-switch">Belum punya akun? <button type="button" id="showRegisterButton">Daftar</button></p>
-          </div>
-
-          <div class="auth-view" id="registerView" hidden>
-            <p class="eyebrow">BUAT AKUN DEMO</p>
-            <h1>Mulai dari bibit</h1>
-            <p class="auth-description">Daftar dulu, lalu masuk untuk mulai bermain.</p>
-            <form id="registerForm" class="auth-form">
-              <label for="registerName">Nama</label>
-              <input id="registerName" name="name" type="text" autocomplete="name" placeholder="Nama kamu" minlength="2" required />
-              <label for="registerEmail">Email</label>
-              <input id="registerEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
-              <label for="registerPassword">Kata sandi <span>minimal 8 karakter</span></label>
-              <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Buat kata sandi" required />
-              <label for="registerPasswordConfirm">Ulangi kata sandi</label>
-              <input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ulangi kata sandi" required />
-              <button class="auth-submit" type="submit">Daftar <svg class="icon"><use href="#icon-arrow" /></svg></button>
-            </form>
-            <p class="auth-switch">Sudah punya akun? <button type="button" id="showLoginButton">Masuk</button></p>
-          </div>
-
-          <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
-          <p class="auth-disclaimer">Akun ini hanya untuk menguji alur prototype di browser ini, bukan akun KMS.</p>
-        </div>
+    <section class="auth-screen" id="authScreen" aria-label="Masuk prototype">
+      <div class="auth-card auth-card-simple">
+        <span class="auth-logo" aria-hidden="true"><svg class="icon"><use href="#icon-leaf" /></svg></span>
+        <p class="eyebrow">KNOWLEDGE GARDEN · PROTOTYPE</p>
+        <h1>Masuk ke kebunmu</h1>
+        <p class="auth-description">Cukup nama dan email. Akun baru dibuat otomatis di browser ini.</p>
+        <form id="loginForm" class="auth-form">
+          <label for="loginName">Nama</label>
+          <input id="loginName" name="name" type="text" autocomplete="name" placeholder="Nama kamu" minlength="2" required />
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
+          <button class="auth-submit" type="submit">Masuk <svg class="icon"><use href="#icon-arrow" /></svg></button>
+        </form>
+        <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+        <p class="auth-disclaimer">Data tersimpan di browser ini saja, bukan akun KMS.</p>
       </div>
     </section>
 

@@ -1,9 +1,8 @@
 import './styles.css';
 import {
-  loginAccount,
+  enterGarden,
   logoutAccount,
   readSessionAccount,
-  registerAccount,
   saveAccountTreeState,
 } from './auth.js';
 import {
@@ -38,14 +37,8 @@ const elements = {
   mobileMenuToggle: document.querySelector('#mobileMenuToggle'),
   mobileMenuClose: document.querySelector('#mobileMenuClose'),
   mobileMenuBackdrop: document.querySelector('#mobileMenuBackdrop'),
-  loginView: document.querySelector('#loginView'),
-  registerView: document.querySelector('#registerView'),
   loginForm: document.querySelector('#loginForm'),
-  registerForm: document.querySelector('#registerForm'),
-  loginEmail: document.querySelector('#loginEmail'),
   authMessage: document.querySelector('#authMessage'),
-  showRegisterButton: document.querySelector('#showRegisterButton'),
-  showLoginButton: document.querySelector('#showLoginButton'),
   logoutButton: document.querySelector('#logoutButton'),
   currentUserName: document.querySelector('#currentUserName'),
   userAvatar: document.querySelector('#userAvatar'),
@@ -201,13 +194,6 @@ function setAuthMessage(message, tone = 'notice') {
   elements.authMessage.className = `auth-message${message ? ` auth-message-${tone}` : ''}`;
 }
 
-function setAuthView(view, message = '', tone = 'notice') {
-  const showLogin = view === 'login';
-  elements.loginView.hidden = !showLogin;
-  elements.registerView.hidden = showLogin;
-  setAuthMessage(message, tone);
-}
-
 function enterApp(account, awardLogin = false) {
   currentAccount = account;
   state = tickState(account.treeState ?? createInitialState());
@@ -247,7 +233,7 @@ function leaveApp(message = '') {
   elements.appShell.hidden = true;
   elements.authScreen.hidden = false;
   elements.loginForm.reset();
-  setAuthView('login', message, 'success');
+  setAuthMessage(message, 'success');
 }
 
 function formatPupuk(units) {
@@ -912,53 +898,20 @@ function openLearningModule(moduleId) {
   elements.learningDialog.showModal();
 }
 
-elements.showRegisterButton.addEventListener('click', () => {
-  setAuthView('register');
-});
-
-elements.showLoginButton.addEventListener('click', () => {
-  setAuthView('login');
-});
-
-elements.registerForm.addEventListener('submit', async (event) => {
-  if (event.type === 'keydown') {
-    event.preventDefault();
-  }
-  const formData = new FormData(elements.registerForm);
-  const email = String(formData.get('email'));
-  const password = String(formData.get('password'));
-  const passwordConfirm = String(formData.get('passwordConfirm'));
-
-  if (password !== passwordConfirm) {
-    setAuthMessage('Ulangi kata sandi dengan benar.', 'error');
-    return;
-  }
-
-  try {
-    const account = await registerAccount({
-      name: String(formData.get('name')),
-      email,
-      password,
-    });
-    elements.registerForm.reset();
-    elements.loginEmail.value = account.email;
-    setAuthView('login', 'Akun demo berhasil dibuat. Silakan masuk untuk mulai bermain.', 'success');
-  } catch (error) {
-    setAuthMessage(error.message, 'error');
-  }
-});
-
 elements.loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const formData = new FormData(elements.loginForm);
 
   try {
-    const account = await loginAccount({
+    const { account, isNew } = await enterGarden({
+      name: String(formData.get('name')),
       email: String(formData.get('email')),
-      password: String(formData.get('password')),
     });
     elements.loginForm.reset();
     enterApp(account, true);
+    if (isNew) {
+      showToast('Kebun baru dibuat. Selamat menanam! +1 Air masuk Storage.', 'success');
+    }
   } catch (error) {
     setAuthMessage(error.message, 'error');
   }
@@ -1428,10 +1381,7 @@ function initialize() {
   const account = readSessionAccount();
   if (account) {
     enterApp(account);
-    return;
   }
-
-  setAuthView('login');
 }
 
 initialize();

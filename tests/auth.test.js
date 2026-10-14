@@ -1,10 +1,8 @@
-import { webcrypto } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   ACCOUNTS_STORAGE_KEY,
-  loginAccount,
+  enterGarden,
   readSessionAccount,
-  registerAccount,
   saveAccountTreeState,
 } from '../src/auth.js';
 import { createInitialState } from '../src/gamification.js';
@@ -26,37 +24,35 @@ class MemoryStorage {
 }
 
 describe('prototype account flow', () => {
-  it('registers first, requires a separate login, and keeps the password out of local account data', async () => {
+  it('creates an account on first entry without a password and reuses it afterwards', async () => {
     const storage = new MemoryStorage();
-    const account = await registerAccount({
+    const first = await enterGarden({
       name: 'Nadia Demo',
       email: ' Nadia@Example.com ',
-      password: 'kebunaman123',
-    }, { storage, cryptoApi: webcrypto, now: 1_000 });
+    }, { storage, now: 1_000 });
 
-    expect(account.email).toBe('nadia@example.com');
-    expect(account.treeState).toEqual(createInitialState(1_000));
-    expect(readSessionAccount({ storage })).toBeNull();
-    expect(storage.getItem(ACCOUNTS_STORAGE_KEY)).not.toContain('kebunaman123');
-
-    await expect(loginAccount({ email: account.email, password: 'salah1234' }, { storage, cryptoApi: webcrypto }))
-      .rejects.toThrow('Email atau kata sandi tidak cocok.');
-
-    const loggedIn = await loginAccount({ email: account.email, password: 'kebunaman123' }, { storage, cryptoApi: webcrypto });
+    expect(first.isNew).toBe(true);
+    expect(first.account.email).toBe('nadia@example.com');
+    expect(first.account.treeState).toEqual(createInitialState(1_000));
     expect(readSessionAccount({ storage }).email).toBe('nadia@example.com');
-    expect(loggedIn.name).toBe('Nadia Demo');
+    expect(storage.getItem(ACCOUNTS_STORAGE_KEY)).not.toContain('password');
 
-    const changedTree = { ...loggedIn.treeState, air: 8 };
-    saveAccountTreeState(loggedIn.email, changedTree, { storage });
+    const second = await enterGarden({ name: 'Nama Lain', email: 'nadia@example.com' }, { storage });
+    expect(second.isNew).toBe(false);
+    expect(second.account.name).toBe('Nadia Demo');
+
+    const changedTree = { ...second.account.treeState, air: 8 };
+    saveAccountTreeState(second.account.email, changedTree, { storage });
     expect(readSessionAccount({ storage }).treeState.air).toBe(8);
   });
 
-  it('rejects registering the same normalized email twice', async () => {
+  it('rejects short names and invalid emails for new accounts only', async () => {
     const storage = new MemoryStorage();
-    const details = { name: 'Nadia', email: 'nadia@example.com', password: 'kebunaman123' };
 
-    await registerAccount(details, { storage, cryptoApi: webcrypto, now: 1_000 });
-    await expect(registerAccount({ ...details, email: ' NADIA@example.com ' }, { storage, cryptoApi: webcrypto }))
-      .rejects.toThrow('Email sudah terdaftar. Silakan masuk.');
+    await expect(enterGarden({ name: 'A', email: 'baru@example.com' }, { storage }))
+      .rejects.toThrow('minimal 2 karakter');
+    await expect(enterGarden({ name: 'Baru', email: 'bukan-email' }, { storage }))
+      .rejects.toThrow('email yang valid');
+    expect(readSessionAccount({ storage })).toBeNull();
   });
 });
