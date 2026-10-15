@@ -521,6 +521,13 @@ describe('gamification prototype logic', () => {
     expect(dead.fruitsOnTree).toBe(0);
     expect(dead.fruitsInStorage).toBe(4);
     expect(dead.history[0].title).toBe('Demo: uji pohon mati');
+
+    const healed = simulateDemoTreeCondition(dead, 'healthy');
+    expect(getTreeCondition(healed)).toBe('healthy');
+    expect(healed.growthAir).toBe(mature.growthAir);
+    expect(healed.growthFertilizerUnits).toBe(mature.growthFertilizerUnits);
+    expect(healed.air).toBe(mature.air);
+    expect(healed.history[0].title).toBe('Demo: pohon dipulihkan sehat');
   });
 
   it('moves stored fruits to the eligible tree one at a time using the Fruit action', () => {

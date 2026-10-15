@@ -35,6 +35,7 @@ const elements = {
   mainContent: document.querySelector('.main-content'),
   sidebar: document.querySelector('.sidebar'),
   mobileMenuToggle: document.querySelector('#mobileMenuToggle'),
+  sidebarCollapse: document.querySelector('#sidebarCollapse'),
   mobileMenuClose: document.querySelector('#mobileMenuClose'),
   mobileMenuBackdrop: document.querySelector('#mobileMenuBackdrop'),
   loginForm: document.querySelector('#loginForm'),
@@ -55,18 +56,12 @@ const elements = {
   levelValue: document.querySelector('#levelValue'),
   stageTrack: document.querySelector('#stageTrack'),
   fruitOnTreeLabel: document.querySelector('#fruitOnTreeLabel'),
-  airValue: document.querySelector('#airValue'),
-  pupukValue: document.querySelector('#pupukValue'),
   careAirBalance: document.querySelector('#careAirBalance'),
   carePupukBalance: document.querySelector('#carePupukBalance'),
   careFruitBalance: document.querySelector('#careFruitBalance'),
   careAirButton: document.querySelector('[data-tree-care-resource="air"]'),
   careFertilizerButton: document.querySelector('[data-tree-care-resource="fertilizer"]'),
   careFruitButton: document.querySelector('[data-tree-care-resource="fruit"]'),
-  storageFruitValue: document.querySelector('#storageFruitValue'),
-  storageButton: document.querySelector('#storageButton'),
-  storageDialog: document.querySelector('#storageDialog'),
-  storageDialogClose: document.querySelector('#storageDialogClose'),
   careAnimation: document.querySelector('#careAnimation'),
   growthAirValue: document.querySelector('#growthAirValue'),
   growthAirTarget: document.querySelector('#growthAirTarget'),
@@ -97,6 +92,7 @@ const elements = {
   advanceWeekButton: document.querySelector('#advanceWeekButton'),
   boostLevelButton: document.querySelector('#boostLevelButton'),
   lowerLevelButton: document.querySelector('#lowerLevelButton'),
+  healthyButton: document.querySelector('#healthyButton'),
   lastActivityLabel: document.querySelector('#lastActivityLabel'),
   nextDecayLabel: document.querySelector('#nextDecayLabel'),
   boostButton: document.querySelector('#boostButton'),
@@ -226,9 +222,6 @@ function leaveApp(message = '') {
   if (elements.learningDialog.open) {
     elements.learningDialog.close();
   }
-  if (elements.storageDialog.open) {
-    elements.storageDialog.close();
-  }
   activeLearningModule = null;
   elements.appShell.hidden = true;
   elements.authScreen.hidden = false;
@@ -261,20 +254,26 @@ function formatDate(timestamp, options = {}) {
   }).format(new Date(timestamp));
 }
 
-function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
+function makeTreeSvg(level, condition, fruits) {
   const palettes = {
     healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', trunkLight: '#c16b35', branch: '#84391f' },
     thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', trunkLight: '#bd9366', branch: '#916441' },
     dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', trunkLight: '#a57e5c', branch: '#805c49' },
   };
   const colors = palettes[condition];
-  const growthEntryClass = animateGrowth ? ' tree-entering' : '';
   const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
-  const svgStart = `<svg class="tree-svg stage-${level} ${condition}${growthEntryClass}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon">`;
+  const svgStart = `<svg class="tree-svg stage-${level} ${condition}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon">`;
+  // Three-blob crowns computed symmetrically, sides tucked against the center
+  // like the reference (slight overlap ~0.8x, bumps stay visible via wobble).
+  const blobTriplet = (cy, rCenter, spreadX, dySide, rSide) => [
+    [200, cy, rCenter],
+    [200 - spreadX, cy + dySide, rSide],
+    [200 + spreadX, cy + dySide, rSide],
+  ];
   const canopyByLevel = {
-    2: [[200, 160, 27], [174, 183, 20], [226, 183, 20]],
-    3: [[200, 159, 35], [169, 184, 25], [231, 184, 25]],
-    4: [[200, 159, 39], [166, 187, 28], [234, 187, 28]],
+    2: blobTriplet(162, 26, 30, 20, 20),
+    3: blobTriplet(160, 30, 34, 24, 23),
+    4: blobTriplet(160, 34, 40, 26, 26),
   };
 
   if (level === 0) {
@@ -296,7 +295,7 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   };
   const sideCanopiesByLevel = {
     5: [[179, 246, 0.56]],
-    6: [[160, 253, 0.62], [440, 253, 0.62]],
+    6: [[160, 235, 0.62], [440, 235, 0.62]],
     7: [[134, 258, 0.74], [466, 258, 0.74]],
   };
   const topCanopy = topCanopyByLevel[level];
@@ -312,16 +311,19 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     7: [[70, 1, true, colors.leaf], [145, 0.9, false, colors.leafDark], [220, 1.05, true, colors.leaf], [380, 0.9, false, colors.leafDark], [455, 1.1, true, colors.leaf], [530, 1, false, colors.leafDark]],
   };
   const grass = (grassByLevel[level] ?? []).map(grassTuft).join('');
-  const trunkWidthScaleByLevel = { 2: 0.6, 3: 0.8, 4: 1, 5: 1.1, 6: 1.2, 7: 1.3 };
+  const trunkWidthScaleByLevel = { 2: 0.6, 3: 0.8, 4: 1, 5: 1.15, 6: 1.3, 7: 1.45 };
   const trunkScale = trunkWidthScaleByLevel[level] ?? 1;
   const trunkX = (x) => 300 + (x - 300) * trunkScale;
   const trunkPath = `M${trunkX(270)} 446 C${trunkX(282)} ${446 - trunkHeight * .2} ${trunkX(288)} ${trunkTipY + trunkHeight * .45} ${trunkX(290)} ${trunkTipY + trunkHeight * .31} L${trunkX(294)} ${trunkTipY + 18} Q300 ${trunkTipY - 9} ${trunkX(306)} ${trunkTipY + 18} L${trunkX(310)} ${trunkTipY + trunkHeight * .31} C${trunkX(312)} ${trunkTipY + trunkHeight * .45} ${trunkX(318)} ${446 - trunkHeight * .2} ${trunkX(330)} 446Z`;
   const trunkHighlight = `M${trunkX(285)} 446 C${trunkX(294)} ${446 - trunkHeight * .2} ${trunkX(297)} ${trunkTipY + trunkHeight * .45} ${trunkX(297)} ${trunkTipY + trunkHeight * .31} L${trunkX(298)} ${trunkTipY + 18} Q300 ${trunkTipY + 12} ${trunkX(302)} ${trunkTipY + 18} L${trunkX(303)} ${trunkTipY + trunkHeight * .31} C${trunkX(303)} ${trunkTipY + trunkHeight * .45} ${trunkX(306)} ${446 - trunkHeight * .2} ${trunkX(315)} 446Z`;
   const trunk = `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="${trunkHighlight}" fill="${colors.trunkLight}" opacity=".68"/>`;
+  // Side branches rise diagonally from the lower trunk into the side canopies (V shape).
   const branches = sideCanopies.map(([x, y]) => {
-    const offset = x - 300;
-    const branchY = y + 40;
-    const path = `M300 ${branchY - 10} C${300 + offset * .4} ${branchY - 8} ${300 + offset * .65} ${branchY - 12} ${x} ${branchY - 13} L${x} ${branchY - 2} C${300 + offset * .65} ${branchY - 2} ${300 + offset * .4} ${branchY + 7} 300 ${branchY + 8}Z`;
+    const bx = 300, by = y + 75;
+    const tx = 300 + (x - 300) * 0.55, ty = y + 5;
+    const dx = tx - bx, dy = ty - by, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len, wb = 11 * trunkScale, wt = 4.5 * trunkScale;
+    const path = `M${(bx + nx * wb).toFixed(1)} ${(by + ny * wb).toFixed(1)} L${(tx + nx * wt).toFixed(1)} ${(ty + ny * wt).toFixed(1)} L${(tx - nx * wt).toFixed(1)} ${(ty - ny * wt).toFixed(1)} L${(bx - nx * wb).toFixed(1)} ${(by - ny * wb).toFixed(1)}Z`;
     return `<path class="tree-branch" d="${path}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/>`;
   }).join('');
   const canopy = canopyByLevel[level] ?? [];
@@ -349,10 +351,10 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
   };
   const leafClusterMarkup = [...visibleCanopy]
     .sort((a, b) => canopyDistance(b) - canopyDistance(a))
-    .map(([cx, cy, radius], index) => {
+    .map(([cx, cy, radius]) => {
       const distanceRatio = canopyDistance([cx, cy]) / farthestCanopyLeaf;
       const fill = distanceRatio > .82 ? colors.leafDark : distanceRatio > .55 ? colors.leaf : colors.leafLight;
-      return `<path class="leaf-cluster cluster-${index % 3}" d="${blobPath([cx, cy, radius])}" fill="${fill}"/>`;
+      return `<path class="leaf-cluster" d="${blobPath([cx, cy, radius])}" fill="${fill}"/>`;
     }).join('');
   const fullCanopy = `<path d="M200 55C223 55 242 69 250 88 276 72 306 83 314 109 341 111 355 134 345 157 366 179 354 208 331 221 328 248 300 261 274 247 258 267 228 273 204 259 181 275 151 269 137 248 109 260 82 244 79 218 54 205 51 177 70 158 59 132 77 106 104 104 108 79 135 65 164 79 174 63 186 55 200 55Z" fill="${colors.leafDark}"/><path d="M200 75C220 74 235 88 241 104 265 89 291 99 297 121 319 122 332 141 323 160 339 179 328 202 308 211 305 234 281 244 260 232 245 249 220 254 201 242 180 255 155 248 144 231 121 242 99 227 98 207 77 197 76 175 92 160 82 138 98 118 120 117 124 96 147 84 170 95 178 82 188 75 200 75Z" fill="${colors.leaf}"/><path d="M200 99C217 98 230 109 235 124 254 113 277 122 281 142 299 145 308 161 300 177 312 194 302 212 284 219 279 237 258 243 242 233 228 246 208 248 194 237 177 247 157 240 150 225 131 232 114 218 116 200 99 188 103 168 118 156 111 138 127 122 145 125 149 107 167 101 181 111 187 104 193 99 200 99Z" fill="${colors.leafLight}"/>`;
   const placeInCanopy = (markup, [x, y, scale], className = '') => `<g class="${className}" transform="translate(${x} ${y}) scale(${scale}) translate(-200 -154)">${markup}</g>`;
@@ -362,7 +364,9 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     ? [[188, 157], [218, 151], [164, 184], [236, 184], [198, 190], [202, 145], [224, 198]]
     : [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   const visibleFruit = Math.min(fruitCount, MAX_VISIBLE_FRUIT);
-  const fruitMarkup = fruitPositions.slice(0, visibleFruit).map(([x, y], index) => `<g class="tree-fruit" style="--fruit-index:${index}"><circle cx="${x}" cy="${y}" r="9" fill="#f2a64b"/><path d="M${x} ${y - 8}q2-8 8-7" fill="none" stroke="#4a9962" stroke-width="3" stroke-linecap="round"/><circle cx="${x - 3}" cy="${y - 3}" r="2.2" fill="#ffd382"/></g>`).join('');
+  // Rare golden apple: halo emas + badan gradasi merah + daun + kilau bintang.
+  const fruitDefs = `<defs><radialGradient id="rareHalo" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe9a8" stop-opacity=".85"/><stop offset="100%" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient><linearGradient id="rareApple" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a62"/><stop offset=".55" stop-color="#e23b3b"/><stop offset="1" stop-color="#a41623"/></linearGradient></defs>`;
+  const fruitMarkup = fruitPositions.slice(0, visibleFruit).map(([x, y], index) => `<g class="tree-fruit" style="--fruit-index:${index}"><circle cx="${x}" cy="${y}" r="13" fill="url(#rareHalo)"/><circle cx="${x}" cy="${y}" r="8.5" fill="url(#rareApple)" stroke="#7d101b" stroke-width="1.5"/><path d="M${x} ${y - 8}q1-7 7-8" fill="none" stroke="#3f7a3d" stroke-width="2.5" stroke-linecap="round"/><path d="M${x + 7} ${y - 15}q6-3 9 2q-5 4-9-2Z" fill="#4ca947"/><ellipse cx="${x - 3}" cy="${y - 3.5}" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 ${x - 3} ${y - 3.5})"/><path d="M0 -6L1.8 -1.8 6 0 1.8 1.8 0 6 -1.8 1.8 -6 0 -1.8 -1.8Z" fill="#fff" opacity=".9" transform="translate(${x + 4} ${y - 4}) scale(.5)"/></g>`).join('');
   const fallingLeaves = condition === 'dead'
     ? '<ellipse class="falling-leaf fall-one" cx="134" cy="223" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-two" cx="263" cy="246" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-three" cx="156" cy="257" rx="6" ry="3" fill="#d7a66b"/>'
     : '';
@@ -371,7 +375,7 @@ function makeTreeSvg(level, condition, fruits, animateGrowth = false) {
     : '';
   const fruitCounter = fruitCount > MAX_VISIBLE_FRUIT ? `<text x="286" y="149" class="extra-fruit-label">+${fruitCount - MAX_VISIBLE_FRUIT}</text>` : '';
 
-  return `${svgStart}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}</svg>`;
+  return `${svgStart}${visibleFruit ? fruitDefs : ''}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}</svg>`;
 }
 
 function renderStageTrack() {
@@ -414,8 +418,6 @@ function renderProgress() {
 }
 
 function renderResources() {
-  elements.airValue.textContent = String(state.air);
-  elements.pupukValue.textContent = formatPupuk(state.fertilizerUnits);
   elements.careAirBalance.textContent = String(state.air);
   elements.carePupukBalance.textContent = formatPupuk(state.fertilizerUnits);
   elements.careFruitBalance.textContent = String(state.fruitsInStorage);
@@ -460,7 +462,6 @@ function renderResources() {
     : !fruitTreeReady
       ? 'Buah dapat dipindahkan saat pohon sehat dan mencapai Level 3.'
       : 'Pindahkan 1 Buah dari Storage ke pohon.';
-  elements.storageFruitValue.textContent = String(state.fruitsInStorage);
   elements.fruitOnTreeLabel.textContent = String(state.fruitsOnTree);
   elements.fruitOnTreeLabel.parentElement.setAttribute('aria-label', `${state.fruitsOnTree} buah di pohon`);
 }
@@ -757,7 +758,7 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
     || elements.treeCanvas.dataset.fruits !== fruitValue;
 
   if (visualChanged) {
-    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, state.fruitsOnTree, false);
+    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, state.fruitsOnTree);
     elements.treeCanvas.dataset.level = levelValue;
     elements.treeCanvas.dataset.condition = condition;
     elements.treeCanvas.dataset.fruits = fruitValue;
@@ -936,6 +937,12 @@ elements.mobileMenuToggle.addEventListener('click', () => {
   }
 });
 
+elements.sidebarCollapse.addEventListener('click', () => {
+  const collapsed = document.body.classList.toggle('is-sidebar-collapsed');
+  elements.sidebarCollapse.setAttribute('aria-expanded', String(!collapsed));
+  elements.sidebarCollapse.setAttribute('aria-label', collapsed ? 'Tampilkan sidebar' : 'Sembunyikan sidebar');
+});
+
 elements.mobileMenuClose.addEventListener('click', () => {
   setMobileMenuOpen(false);
   elements.mobileMenuToggle.focus();
@@ -967,13 +974,6 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('resize', () => setMobileMenuOpen(false));
 
-elements.storageButton.addEventListener('click', () => elements.storageDialog.showModal());
-elements.storageDialogClose.addEventListener('click', () => elements.storageDialog.close());
-elements.storageDialog.addEventListener('click', (event) => {
-  if (event.target === elements.storageDialog) {
-    elements.storageDialog.close();
-  }
-});
 window.addEventListener('popstate', () => navigateToPage(pageFromLocationHash(), false));
 
 elements.learningCatalog.addEventListener('click', (event) => {
@@ -1101,6 +1101,9 @@ function playCareAnimation(resourceType) {
   const isWatering = resourceType === 'air';
   const particleClass = isWatering ? 'water-particle' : 'fertilizer-particle';
   const particleCount = isWatering ? 7 : 9;
+  // Horizontal slot of each fertilizer grain, synced to the mascot flyby below.
+  const fertilizerLefts = [14, 23, 32, 41, 50, 59, 68, 77, 86];
+  const mascotFlybyMs = 3000;
 
   window.clearTimeout(careAnimationTimer);
   effect.className = 'care-animation';
@@ -1110,15 +1113,31 @@ function playCareAnimation(resourceType) {
     const particle = document.createElement('span');
     particle.className = `care-particle ${particleClass}`;
     particle.style.setProperty('--particle-index', String(index));
+    if (!isWatering) {
+      const flybyDelay = ((fertilizerLefts[index] + 18) / 122) * mascotFlybyMs;
+      particle.style.setProperty('--drop-delay', `${Math.round(flybyDelay)}ms`);
+    }
     effect.append(particle);
   }
 
+  if (isWatering) {
+    const cloud = document.createElement('span');
+    cloud.className = 'care-cloud';
+    cloud.setAttribute('aria-hidden', 'true');
+    effect.append(cloud);
+  }
+
   if (!isWatering) {
-    const shovel = document.createElement('span');
-    shovel.className = 'care-shovel';
-    shovel.setAttribute('aria-hidden', 'true');
-    shovel.innerHTML = '<svg viewBox="0 0 72 108" focusable="false"><path class="shovel-handle" d="M44 10 31 70"/><path class="shovel-grip" d="M34 8 54 12"/><path class="shovel-blade" d="M25 68C17 78 15 90 18 99 26 105 42 105 50 98 53 89 49 78 41 68Z"/><path class="shovel-edge" d="M22 94q12 7 25-1"/></svg>';
-    effect.append(shovel);
+    const mascot = document.createElement('span');
+    mascot.className = 'care-mascot';
+    mascot.setAttribute('aria-hidden', 'true');
+    const mascotImg = document.createElement('img');
+    mascotImg.src = 'mascot.png';
+    mascotImg.alt = '';
+    mascotImg.draggable = false;
+    mascotImg.addEventListener('error', () => mascot.remove(), { once: true });
+    mascot.append(mascotImg);
+    effect.append(mascot);
   }
 
   void effect.offsetWidth;
@@ -1126,7 +1145,7 @@ function playCareAnimation(resourceType) {
   careAnimationTimer = window.setTimeout(() => {
     effect.className = 'care-animation';
     effect.replaceChildren();
-  }, 1500);
+  }, isWatering ? 1500 : 4000);
 }
 
 function careForTree(resourceType) {
@@ -1342,6 +1361,16 @@ elements.lowerLevelButton.addEventListener('click', () => {
     nextState.level < previousLevel
       ? `Turun level: pohon kembali ke Level ${nextState.level}.`
       : 'Turun level: pohon sudah paling awal.',
+    'notice',
+  );
+});
+
+elements.healthyButton.addEventListener('click', () => {
+  const wasHealthy = getTreeCondition(state) === 'healthy';
+  const nextState = simulateDemoTreeCondition(state, 'healthy');
+  updateWith(
+    nextState,
+    wasHealthy ? 'Pohon sudah sehat; perawatan dipulihkan.' : 'Demo: pohon dipulihkan menjadi sehat.',
     'notice',
   );
 });

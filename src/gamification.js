@@ -735,24 +735,31 @@ export function addDemoResource(currentState, resourceType, amount, options = {}
 }
 
 export function simulateDemoTreeCondition(currentState, condition) {
-  if (!['thirsty', 'dead'].includes(condition)) {
-    throw new Error('Kondisi uji demo harus menguning atau mati.');
+  if (!['healthy', 'thirsty', 'dead'].includes(condition)) {
+    throw new Error('Kondisi uji demo harus sehat, menguning, atau mati.');
   }
 
   const state = cloneState(currentState);
-  state.careAir = 0;
-  if (condition === 'thirsty') {
-    state.careFertilizerUnits = Math.max(1, state.careFertilizerUnits);
+  if (condition === 'healthy') {
+    state.careAir = Math.max(1, state.careAir);
+    state.careFertilizerUnits = Math.max(2, state.careFertilizerUnits);
   } else {
-    state.careFertilizerUnits = 0;
+    state.careAir = 0;
+    if (condition === 'thirsty') {
+      state.careFertilizerUnits = Math.max(1, state.careFertilizerUnits);
+    } else {
+      state.careFertilizerUnits = 0;
+    }
   }
 
   syncFruitPlacement(state, state.clockMs);
   recordActivity(state, {
     at: state.clockMs,
     type: 'demo',
-    title: condition === 'thirsty' ? 'Demo: uji pohon menguning' : 'Demo: uji pohon mati',
-    detail: 'Kondisi pohon diubah untuk uji demo; Storage dan progres pertumbuhan tidak berubah.',
+    title: condition === 'healthy' ? 'Demo: pohon dipulihkan sehat' : condition === 'thirsty' ? 'Demo: uji pohon menguning' : 'Demo: uji pohon mati',
+    detail: condition === 'healthy'
+      ? 'Perawatan pohon dipulihkan untuk uji demo; Storage dan progres pertumbuhan tidak berubah.'
+      : 'Kondisi pohon diubah untuk uji demo; Storage dan progres pertumbuhan tidak berubah.',
     status: 'demo',
   });
   return state;
