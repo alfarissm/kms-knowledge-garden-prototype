@@ -356,9 +356,16 @@ function makeTreeSvg(level, condition, fruits) {
       const fill = distanceRatio > .82 ? colors.leafDark : distanceRatio > .55 ? colors.leaf : colors.leafLight;
       return `<path class="leaf-cluster" d="${blobPath([cx, cy, radius])}" fill="${fill}"/>`;
     }).join('');
+  // Small branchlets peeking through the foliage gaps (levels 3-4).
+  const branchletsByLevel = {
+    3: [[[196, 205], [172, 191]], [[197, 190], [178, 179]], [[204, 205], [228, 191]], [[203, 190], [222, 179]]],
+    4: [[[195, 208], [170, 192]], [[196, 192], [172, 180]], [[205, 208], [230, 192]], [[204, 192], [228, 180]]],
+  };
+  const branchletMarkup = (branchletsByLevel[level] ?? []).map(([[ax, ay], [bx, by]]) =>
+    `<path d="M${ax} ${ay}L${bx} ${by}" fill="none" stroke="${colors.trunk}" stroke-width="3" stroke-linecap="round"/>`).join('');
   const fullCanopy = `<path d="M200 55C223 55 242 69 250 88 276 72 306 83 314 109 341 111 355 134 345 157 366 179 354 208 331 221 328 248 300 261 274 247 258 267 228 273 204 259 181 275 151 269 137 248 109 260 82 244 79 218 54 205 51 177 70 158 59 132 77 106 104 104 108 79 135 65 164 79 174 63 186 55 200 55Z" fill="${colors.leafDark}"/><path d="M200 75C220 74 235 88 241 104 265 89 291 99 297 121 319 122 332 141 323 160 339 179 328 202 308 211 305 234 281 244 260 232 245 249 220 254 201 242 180 255 155 248 144 231 121 242 99 227 98 207 77 197 76 175 92 160 82 138 98 118 120 117 124 96 147 84 170 95 178 82 188 75 200 75Z" fill="${colors.leaf}"/><path d="M200 99C217 98 230 109 235 124 254 113 277 122 281 142 299 145 308 161 300 177 312 194 302 212 284 219 279 237 258 243 242 233 228 246 208 248 194 237 177 247 157 240 150 225 131 232 114 218 116 200 99 188 103 168 118 156 111 138 127 122 145 125 149 107 167 101 181 111 187 104 193 99 200 99Z" fill="${colors.leafLight}"/>`;
   const placeInCanopy = (markup, [x, y, scale], className = '') => `<g class="${className}" transform="translate(${x} ${y}) scale(${scale}) translate(-200 -154)">${markup}</g>`;
-  const canopyMarkup = placeInCanopy(level >= 5 ? fullCanopy : leafClusterMarkup, topCanopy, 'canopy-crown');
+  const canopyMarkup = placeInCanopy(level >= 5 ? fullCanopy : branchletMarkup + leafClusterMarkup, topCanopy, 'canopy-crown');
   const canopyTips = sideCanopies.map((position) => placeInCanopy(fullCanopy, position, 'canopy-tip-copy')).join('');
   const fruitPositions = level === 3 || level === 4
     ? [[188, 157], [218, 151], [164, 184], [236, 184], [198, 190], [202, 145], [224, 198]]
