@@ -1633,12 +1633,16 @@ body.is-mobile-menu-open { overflow: hidden; }
   animation: rain-shower 1.12s ease-out both;
 }
 .care-animation.is-watering .water-particle { z-index: 1; }
-/* Rain cloud gathering above the shower during watering. */
-.care-cloud { position: absolute; z-index: 1; top: 5%; left: 50%; width: 112px; height: 26px; margin-left: -56px; border-radius: 20px; background: #fff; opacity: 0; pointer-events: none; }
+/* Rain clouds gathering above the shower during watering. */
+.care-cloud { position: absolute; z-index: 1; top: 11%; left: 50%; width: 112px; height: 26px; margin-left: -56px; border-radius: 20px; background: #fff; opacity: 0; pointer-events: none; }
 .care-cloud::before, .care-cloud::after { position: absolute; border-radius: 50%; background: #fff; content: ''; }
 .care-cloud::before { left: 16px; bottom: 8px; width: 46px; height: 46px; }
 .care-cloud::after { left: 56px; bottom: 14px; width: 32px; height: 32px; }
-.care-animation.is-watering .care-cloud { animation: cloud-gather 1.5s ease-out both; }
+.care-cloud.cloud-pos-1 { left: 20%; top: 13%; width: 88px; margin-left: -44px; }
+.care-cloud.cloud-pos-3 { left: 80%; top: 13%; width: 88px; margin-left: -44px; }
+.care-cloud.cloud-pos-1::before, .care-cloud.cloud-pos-3::before { left: 12px; bottom: 6px; width: 36px; height: 36px; }
+.care-cloud.cloud-pos-1::after, .care-cloud.cloud-pos-3::after { left: 44px; bottom: 11px; width: 25px; height: 25px; }
+.care-animation.is-watering .care-cloud { animation: cloud-gather 1.5s ease-out calc(var(--cloud-index) * 130ms) both; }
 @keyframes cloud-gather {
   0% { opacity: 0; transform: translateY(-14px) scale(.8); }
   20% { opacity: 1; transform: translateY(0) scale(1); }

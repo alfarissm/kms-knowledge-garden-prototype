@@ -371,9 +371,12 @@ function makeTreeSvg(level, condition, fruits) {
     ? [[188, 157], [218, 151], [164, 184], [236, 184], [198, 190], [202, 145], [224, 198]]
     : [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   const visibleFruit = Math.min(fruitCount, MAX_VISIBLE_FRUIT);
-  // Rare golden apple: halo emas + badan gradasi merah + daun + kilau bintang.
+  // Rare golden apple drawn around the origin; scaled per level with the tree.
+  const fruitScaleByLevel = { 3: 0.7, 4: 0.8, 5: 0.9, 6: 0.95, 7: 1 };
+  const fruitScale = fruitScaleByLevel[level] ?? 1;
   const fruitDefs = `<defs><radialGradient id="rareHalo" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe9a8" stop-opacity=".85"/><stop offset="100%" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient><linearGradient id="rareApple" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a62"/><stop offset=".55" stop-color="#e23b3b"/><stop offset="1" stop-color="#a41623"/></linearGradient></defs>`;
-  const fruitMarkup = fruitPositions.slice(0, visibleFruit).map(([x, y], index) => `<g class="tree-fruit" style="--fruit-index:${index}"><circle cx="${x}" cy="${y}" r="13" fill="url(#rareHalo)"/><circle cx="${x}" cy="${y}" r="8.5" fill="url(#rareApple)" stroke="#7d101b" stroke-width="1.5"/><path d="M${x} ${y - 8}q1-7 7-8" fill="none" stroke="#3f7a3d" stroke-width="2.5" stroke-linecap="round"/><path d="M${x + 7} ${y - 15}q6-3 9 2q-5 4-9-2Z" fill="#4ca947"/><ellipse cx="${x - 3}" cy="${y - 3.5}" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 ${x - 3} ${y - 3.5})"/><path d="M0 -6L1.8 -1.8 6 0 1.8 1.8 0 6 -1.8 1.8 -6 0 -1.8 -1.8Z" fill="#fff" opacity=".9" transform="translate(${x + 4} ${y - 4}) scale(.5)"/></g>`).join('');
+  const rareApple = `<circle cx="0" cy="0" r="13" fill="url(#rareHalo)"/><circle cx="0" cy="0" r="8.5" fill="url(#rareApple)" stroke="#7d101b" stroke-width="1.5"/><path d="M0 -8q1-7 7-8" fill="none" stroke="#3f7a3d" stroke-width="2.5" stroke-linecap="round"/><path d="M7 -15q6-3 9 2q-5 4-9-2Z" fill="#4ca947"/><ellipse cx="-3" cy="-3.5" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 -3 -3.5)"/><path d="M0 -6L1.8 -1.8 6 0 1.8 1.8 0 6 -1.8 1.8 -6 0 -1.8 -1.8Z" fill="#fff" opacity=".9" transform="translate(4 -4) scale(.5)"/>`;
+  const fruitMarkup = fruitPositions.slice(0, visibleFruit).map(([x, y], index) => `<g class="tree-fruit" style="--fruit-index:${index}" transform="translate(${x} ${y}) scale(${fruitScale})">${rareApple}</g>`).join('');
   const fallingLeaves = condition === 'dead'
     ? '<ellipse class="falling-leaf fall-one" cx="134" cy="223" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-two" cx="263" cy="246" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-three" cx="156" cy="257" rx="6" ry="3" fill="#d7a66b"/>'
     : '';
@@ -1128,10 +1131,13 @@ function playCareAnimation(resourceType) {
   }
 
   if (isWatering) {
-    const cloud = document.createElement('span');
-    cloud.className = 'care-cloud';
-    cloud.setAttribute('aria-hidden', 'true');
-    effect.append(cloud);
+    for (let cloudIndex = 0; cloudIndex < 3; cloudIndex += 1) {
+      const cloud = document.createElement('span');
+      cloud.className = `care-cloud cloud-pos-${cloudIndex + 1}`;
+      cloud.setAttribute('aria-hidden', 'true');
+      cloud.style.setProperty('--cloud-index', String(cloudIndex));
+      effect.append(cloud);
+    }
   }
 
   if (!isWatering) {
