@@ -281,14 +281,13 @@
           <section class="page-view" id="dashboardPage" data-page-view="admin" aria-label="Halaman Pusat Admin" hidden>
             <article class="activity-page panel admin-page admin-app" aria-labelledby="admin-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">MODE ADMIN · PUSAT KENDALI KMS</p><h2 id="admin-title">Pusat Admin</h2><p class="activity-page-description">Lihat kondisi kebun dan akun dalam satu tempat. Keputusan konten ada di Review Konten; riwayat pengguna ada di Log Aktivitas.</p></div>
+                <div><p class="eyebrow">MODE ADMIN · PUSAT KENDALI KMS</p><h2 id="admin-title">Pusat Admin</h2><p class="activity-page-description">Kondisi kebun dan akun dalam satu tempat.</p></div>
                 <span class="sharing-reward-pill admin-pill" title="Admin prototype lintas-akun">Admin · lintas akun server</span>
               </div>
 
               <h3 class="admin-subsection-title">Ringkasan kebun</h3>
               <div class="admin-stats" id="adminStats" aria-live="polite"></div>
               <h3 class="admin-subsection-title">Apa yang terjadi di kebun?</h3>
-              <p class="admin-charts-intro">Empat ringkasan di bawah menjawab: bagaimana status konten, posisi buah, aktivitas pekan ini, dan level akun.</p>
               <div class="admin-charts" id="adminCharts" aria-live="polite"></div>
 
               <div class="admin-section-heading">
@@ -304,6 +303,7 @@
                   <tbody id="adminAccountsBody"></tbody>
                 </table>
               </div>
+              <nav class="admin-accounts-pagination" id="adminAccountsPagination" aria-label="Halaman daftar akun" hidden></nav>
 
               <details class="admin-settings-details">
                 <summary><span>Parameter gamifikasi</span><small>Atur reward, decay, dan ambang level untuk semua akun</small></summary>
@@ -339,7 +339,7 @@
           <section class="page-view" id="adminActivityPage" data-page-view="activity" aria-label="Halaman Log Aktivitas Admin" hidden>
             <article class="activity-page panel admin-page admin-app admin-log-page" aria-labelledby="admin-activity-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">MODE ADMIN · RIWAYAT LINTAS AKUN</p><h2 id="admin-activity-title">Log Aktivitas</h2><p class="activity-page-description">Telusuri aktivitas yang tersimpan per pengguna, jenis, dan periode. Setiap akun menyimpan hingga 30 aktivitas terakhir.</p></div>
+                <div><p class="eyebrow">MODE ADMIN · RIWAYAT LINTAS AKUN</p><h2 id="admin-activity-title">Log Aktivitas</h2><p class="activity-page-description">Riwayat aktivitas semua akun; maksimal 30 terakhir per akun.</p></div>
               </div>
               <div class="admin-activity-controls" role="group" aria-label="Saring aktivitas pengguna">
                 <label>Cari pengguna
@@ -363,7 +363,7 @@
           <section class="page-view" id="reviewPage" data-page-view="review" aria-label="Halaman Review Konten" hidden>
             <article class="activity-page panel admin-page" aria-labelledby="review-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="review-title">Review konten Sharing</h2><p class="activity-page-description">Tentukan kondisi konten dari semua akun terdaftar: ACC (relevan), Basi (buah jatuh rebah di bawah pohon), atau Tidak relevan/duplikat (buah diangkat, slot kosong). Hitungan laporan pengguna tampil pada tiap konten; keputusan tetap manual.</p></div>
+                <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="review-title">Review konten Sharing</h2><p class="activity-page-description">Putuskan kondisi konten: ACC (relevan), Basi, atau Tidak relevan/duplikat.</p></div>
               </div>
               <div class="admin-summary" id="adminSummary" role="group" aria-label="Ringkasan dan saringan status konten"></div>
               <div class="admin-review-list" id="adminReviewList" aria-live="polite"></div>
@@ -373,7 +373,7 @@
           <section class="page-view" id="learnAdminPage" data-page-view="learnadm" aria-label="Halaman Kelola Learning" hidden>
             <article class="activity-page panel admin-page" aria-labelledby="learnadm-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">MODE ADMIN · KATALOG BELAJAR</p><h2 id="learnadm-title">Kelola modul Learning</h2><p class="activity-page-description">Modul yang tersimpan di server dipakai semua akun; katalog bawaan dipakai bila daftar masih kosong. Rekap penyelesaian dan rating dihitung dari seluruh akun terdaftar.</p></div>
+                <div><p class="eyebrow">MODE ADMIN · KATALOG BELAJAR</p><h2 id="learnadm-title">Kelola modul Learning</h2><p class="activity-page-description">Modul tersimpan di server dipakai semua akun; kosong = katalog bawaan.</p></div>
                 <button class="learning-admin-add" id="addLearningModuleButton" type="button">Tambah modul</button>
               </div>
               <div class="admin-accounts-scroll">

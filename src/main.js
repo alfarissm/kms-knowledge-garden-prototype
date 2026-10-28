@@ -103,6 +103,8 @@ const elements = {
   adminStats: document.querySelector('#adminStats'),
   adminCharts: document.querySelector('#adminCharts'),
   adminAccountsBody: document.querySelector('#adminAccountsBody'),
+  adminAccountsScroll: document.querySelector('.admin-accounts-scroll'),
+  adminAccountsPagination: document.querySelector('#adminAccountsPagination'),
   adminAccountSearch: document.querySelector('#adminAccountSearch'),
   adminAccountCount: document.querySelector('#adminAccountCount'),
   adminActivityList: document.querySelector('#adminActivityList'),
@@ -976,6 +978,8 @@ let latestActivityWeek = [];
 let adminActivityPage = 1;
 let adminActivityRequestId = 0;
 let adminActivitySearchTimer;
+const ADMIN_ACCOUNTS_PAGE_SIZE = 12;
+let adminAccountsPage = 1;
 
 const ADMIN_HISTORY_TYPE_LABELS = {
   activity: 'Aktivitas',
@@ -1091,35 +1095,33 @@ function formatRelativeNumber(value) {
 function buildAdminCharts(accounts) {
   const grid = document.createElement('div');
   grid.className = 'admin-charts-grid';
+  const heroChart = buildActivityWeekChart(latestActivityWeek);
+  heroChart.classList.add('is-hero');
   grid.append(
+    heroChart,
     buildContentConditionChart(accounts),
     buildFruitChart(accounts),
-    buildActivityWeekChart(latestActivityWeek),
     buildLevelDistributionChart(accounts),
   );
   elements.adminCharts.replaceChildren(grid);
 }
 
-function makeAdminChartCard(title, sub, body, theme, explanation) {
+function makeAdminChartCard(title, sub, body, theme) {
   const card = makeElement('div', 'admin-chart-card');
   card.dataset.chartTheme = theme;
   const head = document.createElement('div');
   head.className = 'admin-chart-head';
   head.append(makeElement('strong', 'admin-chart-title', title));
   if (sub) head.append(makeElement('small', 'admin-chart-sub', sub));
-  card.append(head);
-  if (explanation) card.append(makeElement('p', 'admin-chart-description', explanation));
-  card.append(body);
+  card.append(head, body);
   return card;
 }
 
-function makeAdminChartEmpty(icon, title, detail) {
+function makeAdminChartEmpty(symbolId, title) {
   const empty = makeElement('div', 'admin-chart-empty');
-  empty.append(
-    makeElement('span', 'admin-chart-empty-icon', icon),
-    makeElement('strong', '', title),
-    makeElement('p', '', detail),
-  );
+  const iconTile = makeElement('span', 'admin-chart-empty-icon');
+  iconTile.append(makeSvgIcon(symbolId, 'icon'));
+  empty.append(iconTile, makeElement('strong', '', title));
   return empty;
 }
 
@@ -1136,8 +1138,8 @@ function buildContentConditionChart(accounts) {
   body.className = 'admin-chart-body';
 
   if (totals.contents === 0) {
-    body.append(makeAdminChartEmpty('✳', 'Belum ada konten Sharing', 'Status menunggu, ACC, dan hasil review akan muncul setelah pengguna mengirim konten.'));
-    return makeAdminChartCard('Status konten', '0 konten', body, 'content', 'Sudah berapa konten ditinjau admin?');
+    body.append(makeAdminChartEmpty('icon-share', 'Belum ada konten'));
+    return makeAdminChartCard('Status konten', '0 konten', body, 'content');
   }
 
   const bar = makeElement('div', 'admin-stack-bar');
@@ -1160,7 +1162,7 @@ function buildContentConditionChart(accounts) {
   });
   body.append(legend);
 
-  return makeAdminChartCard('Status konten', `${formatRelativeNumber(totals.contents)} konten`, body, 'content', 'Warna menunjukkan hasil review setiap konten Sharing.');
+  return makeAdminChartCard('Status konten', `${formatRelativeNumber(totals.contents)} konten`, body, 'content');
 }
 
 function buildFruitChart(accounts) {
@@ -1176,12 +1178,12 @@ function buildFruitChart(accounts) {
   const body = document.createElement('div');
   body.className = 'admin-chart-body';
   if (max === 0) {
-    body.append(makeAdminChartEmpty('♧', 'Belum ada buah pengetahuan', 'Buah muncul setelah konten Sharing pertama kali di-ACC admin.'));
-    return makeAdminChartCard('Posisi buah', '0 buah', body, 'fruit', 'Buah dari konten Sharing yang sudah diputus.');
+    body.append(makeAdminChartEmpty('icon-fruit', 'Belum ada buah'));
+    return makeAdminChartCard('Posisi buah', '0 buah', body, 'fruit');
   }
   const totalFruits = bars.reduce((sum, bar) => sum + bar.count, 0);
   bars.forEach((bar) => body.append(makeHbarRow(bar.label, bar.count, totalFruits, bar.cls)));
-  return makeAdminChartCard('Posisi buah', `${formatRelativeNumber(totalFruits)} buah`, body, 'fruit', 'Batang menunjukkan bagian dari total buah yang tercatat.');
+  return makeAdminChartCard('Posisi buah', `${formatRelativeNumber(totalFruits)} buah`, body, 'fruit');
 }
 
 function makeHbarRow(label, value, max, className, valueLabel = formatRelativeNumber(value)) {
@@ -1221,8 +1223,8 @@ function buildActivityWeekChart(activityWeek) {
   const body = document.createElement('div');
   body.className = 'admin-chart-body';
   if (total === 0) {
-    body.append(makeAdminChartEmpty('↗', 'Belum ada aktivitas minggu ini', 'Aktivitas pengguna selama 7 hari terakhir akan ditampilkan per hari di sini.'));
-    return makeAdminChartCard('Aktivitas 7 hari', '0 aktivitas', body, 'activity', 'Simulasi dan penyusutan otomatis tidak dihitung.');
+    body.append(makeAdminChartEmpty('icon-clock', 'Belum ada aktivitas minggu ini'));
+    return makeAdminChartCard('Aktivitas 7 hari', '0 aktivitas', body, 'activity');
   }
   const columns = makeElement('div', 'admin-vchart');
   buckets.forEach((bucket, index) => {
@@ -1235,7 +1237,7 @@ function buildActivityWeekChart(activityWeek) {
     columns.append(column);
   });
   body.append(columns);
-  return makeAdminChartCard('Aktivitas 7 hari', `${formatRelativeNumber(total)} aktivitas`, body, 'activity', 'Berapa aktivitas tercatat setiap hari? Simulasi dan penyusutan tidak dihitung.');
+  return makeAdminChartCard('Aktivitas 7 hari', `${formatRelativeNumber(total)} aktivitas`, body, 'activity');
 }
 
 function buildLevelDistributionChart(accounts) {
@@ -1250,14 +1252,14 @@ function buildLevelDistributionChart(accounts) {
   const body = document.createElement('div');
   body.className = 'admin-chart-body';
   if (totalAccounts === 0) {
-    body.append(makeAdminChartEmpty('♧', 'Belum ada akun pengguna', 'Sebaran level akan terlihat setelah akun pengguna terdaftar.'));
-    return makeAdminChartCard('Level pohon pengguna', '0 pengguna', body, 'level', 'Hanya akun pengguna yang mempunyai pohon; admin tidak dihitung.');
+    body.append(makeAdminChartEmpty('icon-sprout', 'Belum ada akun pengguna'));
+    return makeAdminChartCard('Level pohon pengguna', '0 pengguna', body, 'level');
   }
   for (let level = 0; level <= 7; level += 1) {
     if (counts[level] === 0) continue;
     body.append(makeHbarRow(`L${level} · ${STAGE_SHORT_NAMES[level]}`, counts[level], totalAccounts, `hbar-level-${level}`, `${formatRelativeNumber(counts[level])} · ${Math.round(counts[level] / totalAccounts * 100)}%`));
   }
-  return makeAdminChartCard('Level pohon pengguna', `${formatRelativeNumber(totalAccounts)} pengguna`, body, 'level', 'Persentase dari seluruh akun pengguna. Level tanpa akun disembunyikan.');
+  return makeAdminChartCard('Level pohon pengguna', `${formatRelativeNumber(totalAccounts)} pengguna`, body, 'level');
 }
 
 function renderAdminTab() {
@@ -1617,14 +1619,21 @@ function buildAdminChartsError(error) {
 function buildAdminAccounts(accounts) {
   elements.adminAccountsBody.replaceChildren();
   const query = elements.adminAccountSearch.value.trim().toLocaleLowerCase('id-ID');
-  const visibleAccounts = query
+  const filteredAccounts = query
     ? accounts.filter((account) => `${account.name ?? ''} ${account.email ?? ''}`.toLocaleLowerCase('id-ID').includes(query))
     : accounts;
+  const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / ADMIN_ACCOUNTS_PAGE_SIZE));
+  adminAccountsPage = Math.min(Math.max(adminAccountsPage, 1), totalPages);
+  const pagedAccounts = filteredAccounts.slice((adminAccountsPage - 1) * ADMIN_ACCOUNTS_PAGE_SIZE, adminAccountsPage * ADMIN_ACCOUNTS_PAGE_SIZE);
+  const pageInfo = filteredAccounts.length === 0
+    ? ''
+    : ` · tampil ${formatRelativeNumber((adminAccountsPage - 1) * ADMIN_ACCOUNTS_PAGE_SIZE + 1)}–${formatRelativeNumber(Math.min(adminAccountsPage * ADMIN_ACCOUNTS_PAGE_SIZE, filteredAccounts.length))}`;
   elements.adminAccountCount.textContent = query
-    ? `${formatRelativeNumber(visibleAccounts.length)} dari ${formatRelativeNumber(accounts.length)} akun ditemukan`
-    : `${formatRelativeNumber(accounts.length)} akun terdaftar`;
+    ? `${formatRelativeNumber(filteredAccounts.length)} dari ${formatRelativeNumber(accounts.length)} akun ditemukan${pageInfo}`
+    : `${formatRelativeNumber(accounts.length)} akun terdaftar${pageInfo}`;
 
-  if (visibleAccounts.length === 0) {
+  if (filteredAccounts.length === 0) {
+    elements.adminAccountsPagination.hidden = true;
     const emptyRow = document.createElement('tr');
     emptyRow.className = 'admin-accounts-empty';
     const cell = document.createElement('td');
@@ -1634,8 +1643,9 @@ function buildAdminAccounts(accounts) {
     elements.adminAccountsBody.append(emptyRow);
     return;
   }
+  renderTablePagination(elements.adminAccountsPagination, 'accountPage', adminAccountsPage, totalPages);
 
-  visibleAccounts.forEach((account) => {
+  pagedAccounts.forEach((account) => {
     const treeState = account.treeState ?? {};
     const submissions = Array.isArray(treeState.sharingSubmissions) ? treeState.sharingSubmissions : [];
     const accCount = submissions.filter((s) => s.status === 'validated').length;
@@ -1804,7 +1814,7 @@ function renderAdminActivityPage({ items, page, pageSize, total, totalPages }) {
   elements.adminActivityCount.textContent = total === 0
     ? 'Tidak ada aktivitas sesuai filter.'
     : `Aktivitas ${formatRelativeNumber(start)}–${formatRelativeNumber(end)} dari ${formatRelativeNumber(total)} tersimpan · halaman ${formatRelativeNumber(page)} dari ${formatRelativeNumber(totalPages)}`;
-  renderAdminActivityPagination(page, totalPages);
+  renderTablePagination(elements.adminActivityPagination, 'activityPage', page, totalPages);
 
   if (items.length === 0) {
     elements.adminActivityList.append(makeElement('li', 'admin-review-empty',
@@ -1866,16 +1876,15 @@ function renderAdminActivityPage({ items, page, pageSize, total, totalPages }) {
   });
 }
 
-function renderAdminActivityPagination(page, totalPages) {
-  const nav = elements.adminActivityPagination;
+function renderTablePagination(nav, attribute, page, totalPages) {
   nav.replaceChildren();
   nav.hidden = totalPages <= 1;
   if (totalPages <= 1) return;
 
   const addButton = (label, targetPage, disabled = false, current = false) => {
-    const button = makeElement('button', `admin-activity-page-button${current ? ' is-current' : ''}`, label);
+    const button = makeElement('button', `admin-page-button${current ? ' is-current' : ''}`, label);
     button.type = 'button';
-    button.dataset.activityPage = String(targetPage);
+    button.dataset[attribute] = String(targetPage);
     button.disabled = disabled;
     if (current) button.setAttribute('aria-current', 'page');
     button.setAttribute('aria-label', label === 'Sebelumnya' || label === 'Berikutnya' ? label : `Halaman ${label}`);
@@ -1884,7 +1893,7 @@ function renderAdminActivityPagination(page, totalPages) {
   addButton('Sebelumnya', page - 1, page === 1);
   const pages = [...new Set([1, totalPages, page - 1, page, page + 1].filter((value) => value >= 1 && value <= totalPages))].sort((a, b) => a - b);
   pages.forEach((value, index) => {
-    if (index > 0 && value - pages[index - 1] > 1) nav.append(makeElement('span', 'admin-activity-page-gap', '…'));
+    if (index > 0 && value - pages[index - 1] > 1) nav.append(makeElement('span', 'admin-page-gap', '…'));
     addButton(String(value), value, false, value === page);
   });
   addButton('Berikutnya', page + 1, page === totalPages);
@@ -2879,7 +2888,18 @@ elements.adminReviewList.addEventListener('click', (event) => {
   }
 });
 
-elements.adminAccountSearch.addEventListener('input', () => buildAdminAccounts(latestAdminAccounts));
+elements.adminAccountSearch.addEventListener('input', () => {
+  adminAccountsPage = 1;
+  buildAdminAccounts(latestAdminAccounts);
+});
+
+elements.adminAccountsPagination.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-account-page]');
+  if (!button || button.disabled || button.getAttribute('aria-current') === 'page') return;
+  adminAccountsPage = Number(button.dataset.accountPage);
+  buildAdminAccounts(latestAdminAccounts);
+  elements.adminAccountsScroll.scrollTop = 0;
+});
 
 elements.adminAccountsBody.addEventListener('click', (event) => {
   const actionButton = event.target.closest('[data-admin-action]');
