@@ -11,6 +11,83 @@ export const LEVELS = [
   { level: 7, name: 'Pohon penuh', air: 101, fertilizerUnits: 108 },
 ];
 
+// Parameter gamifikasi yang boleh diubah admin (tersimpan di DB · tabel
+// app_settings). Nilai bawaan identik dengan konstanta lama sehingga perilaku
+// dan seluruh pengujian mesin tidak berubah sampai admin menyesuaikannya.
+export const DEFAULT_GAMIFICATION_SETTINGS = Object.freeze({
+  accReward: Object.freeze({ air: 3, fertilizerUnits: 4 }),
+  activityRewards: Object.freeze({ access: 1, review: 1 }),
+  learningRewardFertilizerUnits: 2,
+  learningRatingAir: 1,
+  decayIntervalDays: 7,
+  decayPerPeriod: Object.freeze({
+    growthAir: 1,
+    growthFertilizerUnits: 1,
+    careAir: 1,
+    careFertilizerUnits: 1,
+  }),
+  levels: Object.freeze(LEVELS.map((entry) => Object.freeze({ ...entry }))),
+});
+
+const ACC_FRUIT = 1;
+
+function clampInt(value, fallback, min, max) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.min(max, Math.max(min, Math.round(num))) : fallback;
+}
+
+// Tapal batas nilai tak dikenal (JSON dari DB) menjadi bentuk lengkap yang aman.
+export function normalizeGamificationSettings(input = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const defaults = DEFAULT_GAMIFICATION_SETTINGS;
+  const acc = source.accReward ?? {};
+  const activities = source.activityRewards ?? {};
+  const decay = source.decayPerPeriod ?? {};
+  const rawLevels = Array.isArray(source.levels) ? source.levels : [];
+  return {
+    accReward: {
+      air: clampInt(acc.air, defaults.accReward.air, 0, 50),
+      fertilizerUnits: clampInt(acc.fertilizerUnits, defaults.accReward.fertilizerUnits, 0, 100),
+    },
+    activityRewards: {
+      access: clampInt(activities.access, defaults.activityRewards.access, 0, 20),
+      review: clampInt(activities.review, defaults.activityRewards.review, 0, 20),
+    },
+    learningRewardFertilizerUnits: clampInt(source.learningRewardFertilizerUnits, defaults.learningRewardFertilizerUnits, 0, 100),
+    learningRatingAir: clampInt(source.learningRatingAir, defaults.learningRatingAir, 0, 20),
+    decayIntervalDays: clampInt(source.decayIntervalDays, defaults.decayIntervalDays, 1, 90),
+    decayPerPeriod: {
+      growthAir: clampInt(decay.growthAir, defaults.decayPerPeriod.growthAir, 0, 20),
+      growthFertilizerUnits: clampInt(decay.growthFertilizerUnits, defaults.decayPerPeriod.growthFertilizerUnits, 0, 20),
+      careAir: clampInt(decay.careAir, defaults.decayPerPeriod.careAir, 0, 20),
+      careFertilizerUnits: clampInt(decay.careFertilizerUnits, defaults.decayPerPeriod.careFertilizerUnits, 0, 20),
+    },
+    // Nama level tetap milik mesin; yang bisa diatur admin hanya ambang Air/Pupuk.
+    levels: defaults.levels.map((entry) => {
+      const candidate = rawLevels.find((item) => Number(item?.level) === entry.level);
+      if (!candidate) return { ...entry };
+      return {
+        level: entry.level,
+        name: entry.name,
+        air: clampInt(candidate.air, entry.air, 0, 100000),
+        fertilizerUnits: clampInt(candidate.fertilizerUnits, entry.fertilizerUnits, 0, 100000),
+      };
+    }),
+  };
+}
+
+// Pengaturan aktif mesin; server & klien menyetelnya setelah memuat DB.
+let activeSettings = normalizeGamificationSettings({});
+
+export function setGamificationSettings(settings) {
+  activeSettings = normalizeGamificationSettings(settings ?? {});
+  return activeSettings;
+}
+
+export function getGamificationSettings() {
+  return normalizeGamificationSettings(activeSettings);
+}
+
 export const STAGES = [
   'Tanah kosong',
   'Bibit',
@@ -22,10 +99,15 @@ export const STAGES = [
   'Pohon penuh',
 ];
 
-const ACTIVITY_REWARDS = {
-  access: { air: 1, fertilizerUnits: 0, fruit: 0, label: 'Akses / Login valid' },
-  review: { air: 1, fertilizerUnits: 0, fruit: 0, label: 'Review valid' },
+const ACTIVITY_LABELS = {
+  access: 'Akses / Login valid',
+  review: 'Review valid',
 };
+
+function activityReward(type) {
+  const amount = activeSettings.activityRewards[type] ?? 0;
+  return { air: amount, fertilizerUnits: 0, fruit: 0, label: ACTIVITY_LABELS[type] };
+}
 const SHARING_TYPES = new Set(['video', 'article', 'document', 'podcast', 'link']);
 const FRUIT_PLACEMENTS = new Set(['storage', 'tree', 'ground', 'gone']);
 
@@ -44,7 +126,7 @@ function getLocalDayKey(timestamp) {
 function getLastAccessRewardDay(history) {
   const lastReward = history.find((entry) => (
     entry?.type === 'activity'
-    && entry?.title === ACTIVITY_REWARDS.access.label
+    && entry?.title === ACTIVITY_LABELS.access
     && Number(entry?.airDelta) > 0
     && Number.isFinite(entry?.at)
   ));
@@ -95,6 +177,11 @@ function cloneState(state) {
   clonedState.learningRatings = clonedState.learningRatings && typeof clonedState.learningRatings === 'object'
     ? clonedState.learningRatings
     : {};
+  // Notifikasi server (hasil review admin, hapus konten, reset pohon) tersimpan
+  // di payload; bila tidak ada, isi kosong agar semua pembaca aman.
+  clonedState.notifications = Array.isArray(clonedState.notifications)
+    ? clonedState.notifications.filter((entry) => entry && typeof entry.id === 'string' && typeof entry.title === 'string')
+    : [];
   clonedState.sharingSubmissions = Array.isArray(clonedState.sharingSubmissions)
     ? clonedState.sharingSubmissions
     : [];
@@ -156,6 +243,7 @@ export function createInitialState(now = Date.now()) {
     lastDecayAt: now,
     completedLearningIds: [],
     learningRatings: {},
+    notifications: [],
     sharingSubmissions: [],
     history: [],
   };
@@ -164,7 +252,7 @@ export function createInitialState(now = Date.now()) {
 export function getLevelForProgress(growthAir, growthFertilizerUnits) {
   let level = 0;
 
-  for (const requirement of LEVELS) {
+  for (const requirement of activeSettings.levels) {
     if (growthAir >= requirement.air && growthFertilizerUnits >= requirement.fertilizerUnits) {
       level = requirement.level;
     }
@@ -174,7 +262,7 @@ export function getLevelForProgress(growthAir, growthFertilizerUnits) {
 }
 
 export function getNextLevelRequirement(level) {
-  return LEVELS.find((requirement) => requirement.level > level) ?? LEVELS.at(-1);
+  return activeSettings.levels.find((requirement) => requirement.level > level) ?? activeSettings.levels.at(-1);
 }
 
 export function getTreeCondition(state) {
@@ -346,18 +434,19 @@ function syncWallClock(state, wallNow) {
 }
 
 function applyElapsedDecay(state) {
-  const elapsedPeriods = Math.floor((state.clockMs - state.lastDecayAt) / (7 * DAY_MS));
+  const decayIntervalMs = Math.max(DAY_MS, activeSettings.decayIntervalDays * DAY_MS);
+  const elapsedPeriods = Math.floor((state.clockMs - state.lastDecayAt) / decayIntervalMs);
 
   for (let period = 0; period < elapsedPeriods; period += 1) {
     const oldGrowthAir = state.growthAir;
     const oldGrowthFertilizerUnits = state.growthFertilizerUnits;
     const oldCareAir = state.careAir;
     const oldCareFertilizerUnits = state.careFertilizerUnits;
-    state.growthAir = Math.max(0, state.growthAir - 1);
-    state.growthFertilizerUnits = Math.max(0, state.growthFertilizerUnits - 1);
-    state.careAir = Math.max(0, state.careAir - 1);
-    state.careFertilizerUnits = Math.max(0, state.careFertilizerUnits - 1);
-    state.lastDecayAt += 7 * DAY_MS;
+    state.growthAir = Math.max(0, state.growthAir - activeSettings.decayPerPeriod.growthAir);
+    state.growthFertilizerUnits = Math.max(0, state.growthFertilizerUnits - activeSettings.decayPerPeriod.growthFertilizerUnits);
+    state.careAir = Math.max(0, state.careAir - activeSettings.decayPerPeriod.careAir);
+    state.careFertilizerUnits = Math.max(0, state.careFertilizerUnits - activeSettings.decayPerPeriod.careFertilizerUnits);
+    state.lastDecayAt += decayIntervalMs;
 
     const lostGrowthAir = oldGrowthAir - state.growthAir;
     const lostGrowthFertilizerUnits = oldGrowthFertilizerUnits - state.growthFertilizerUnits;
@@ -469,7 +558,7 @@ export function completeLearningModule(currentState, moduleId, options = {}) {
   }
 
   state.completedLearningIds.push(moduleId);
-  addReward(state, { air: 0, fertilizerUnits: 2, fruit: 0 }, state.clockMs, `Learning selesai: ${title}`);
+  addReward(state, { air: 0, fertilizerUnits: activeSettings.learningRewardFertilizerUnits, fruit: 0 }, state.clockMs, `Learning selesai: ${title}`);
   recordValidActivity(state);
 
   return { state, awarded: true };
@@ -494,8 +583,11 @@ export function rateLearningModule(currentState, moduleId, rating, options = {})
   }
 
   state.learningRatings[moduleId] = rating;
-  const ratingEntry = addReward(state, { air: 1, fertilizerUnits: 0, fruit: 0 }, state.clockMs, `Rating Learning: ${title}`);
-  ratingEntry.detail = `Rating ${rating}/5 · +1 Air masuk Storage`;
+  const ratingAir = activeSettings.learningRatingAir;
+  const ratingEntry = addReward(state, { air: ratingAir, fertilizerUnits: 0, fruit: 0 }, state.clockMs, `Rating Learning: ${title}`);
+  ratingEntry.detail = ratingAir > 0
+    ? `Rating ${rating}/5 · +${ratingAir} Air masuk Storage`
+    : `Rating ${rating}/5 · tanpa reward Air`;
   ratingEntry.rating = rating;
   recordValidActivity(state);
 
@@ -656,8 +748,12 @@ export function setSharingCondition(currentState, submissionId, condition, optio
   }
 
   if (condition === 'validated' && previousStatus === 'pending') {
-    // Reward ACC pertama: +3 Air, +2 Pupuk, dan buah konten itu sendiri.
-    addReward(state, { air: 3, fertilizerUnits: 4, fruit: 1 }, state.clockMs, `Sharing di-ACC: ${submission.title}`, { boundSubmissionId: submission.id });
+    // Reward ACC pertama: Air/Pupuk dari parameter admin, plus buah konten itu sendiri.
+    addReward(state, {
+      air: activeSettings.accReward.air,
+      fertilizerUnits: activeSettings.accReward.fertilizerUnits,
+      fruit: ACC_FRUIT,
+    }, state.clockMs, `Sharing di-ACC: ${submission.title}`, { boundSubmissionId: submission.id });
     recordValidActivity(state);
     return { state, applied: true, rewarded: true };
   }
@@ -783,7 +879,7 @@ export function applyActivity(currentState, type, options = {}) {
     throw new Error(`${type} harus dicatat melalui alur aktivitasnya.`);
   }
 
-  if (!ACTIVITY_REWARDS[type]) {
+  if (!ACTIVITY_LABELS[type]) {
     throw new Error(`Jenis aktivitas tidak dikenal: ${type}`);
   }
 
@@ -793,19 +889,21 @@ export function applyActivity(currentState, type, options = {}) {
       recordActivity(state, {
         at: state.clockMs,
         type: 'activity',
-        title: ACTIVITY_REWARDS.access.label,
-        detail: 'Reward +1 Air harian sudah diterima hari ini; tidak ada Air tambahan.',
+        title: ACTIVITY_LABELS.access,
+        detail: 'Reward Air harian sudah diterima hari ini; tidak ada Air tambahan.',
         status: 'activity',
       });
     } else {
-      addReward(state, ACTIVITY_REWARDS.access, state.clockMs, ACTIVITY_REWARDS.access.label);
+      const accessReward = activityReward('access');
+      addReward(state, accessReward, state.clockMs, accessReward.label);
       state.lastAccessRewardDay = today;
     }
     recordValidActivity(state);
     return state;
   }
 
-  addReward(state, ACTIVITY_REWARDS[type], state.clockMs, ACTIVITY_REWARDS[type].label);
+  const reward = activityReward(type);
+  addReward(state, reward, state.clockMs, reward.label);
   if (type !== 'review') {
     recordValidActivity(state);
   }
@@ -1115,7 +1213,7 @@ export function applyDemoLevelDecrease(currentState, wallNow = Date.now()) {
     return state;
   }
   const target = state.level - 1;
-  const requirement = LEVELS[target - 1];
+  const requirement = activeSettings.levels[target - 1];
   state.growthAir = requirement ? requirement.air : 0;
   state.growthFertilizerUnits = requirement ? requirement.fertilizerUnits : 0;
   state.level = target;

@@ -60,8 +60,16 @@ export async function apiLibrary() {
 
 // Sisi admin setara readAllAccounts() versi server (butuh peran admin).
 export async function apiAdminAccounts() {
-  const data = await request('/api/admin/accounts');
-  return data.accounts;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  today.setDate(today.getDate() - 6);
+  const params = new URLSearchParams({ activityStart: String(today.getTime()) });
+  return request(`/api/admin/accounts?${params}`);
+}
+
+export async function apiAdminActivity({ page, search, type, period }) {
+  const params = new URLSearchParams({ page: String(page), search, type, period });
+  return request(`/api/admin/activity?${params}`);
 }
 
 export async function apiAdminCondition(submissionId, condition) {
@@ -71,9 +79,84 @@ export async function apiAdminCondition(submissionId, condition) {
   });
 }
 
+// --- CRUD akun & konten (khusus admin) ---
+
+export async function apiAdminUpdateAccount(userId, role) {
+  return request('/api/admin/account', {
+    method: 'PATCH',
+    body: JSON.stringify({ userId, role }),
+  });
+}
+
+export async function apiAdminResetAccount(userId) {
+  return request('/api/admin/account/reset', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function apiAdminDeleteAccount(userId) {
+  return request('/api/admin/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function apiAdminDeleteContent(submissionId) {
+  return request('/api/admin/content', {
+    method: 'DELETE',
+    body: JSON.stringify({ submissionId }),
+  });
+}
+
 export async function apiReport(submissionId) {
   return request('/api/report', {
     method: 'POST',
     body: JSON.stringify({ submissionId }),
+  });
+}
+
+// --- Parameter gamifikasi (#9) ---
+
+export async function apiSettings() {
+  const data = await request('/api/settings');
+  return data.settings;
+}
+
+export async function apiAdminSaveSettings(settings) {
+  const data = await request('/api/admin/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+  return data.settings;
+}
+
+// --- Katalog Learning terkelola (#8) ---
+
+export async function apiLearning() {
+  const data = await request('/api/learning');
+  return data.modules;
+}
+
+export async function apiAdminCreateLearning(module) {
+  const data = await request('/api/admin/learning', {
+    method: 'POST',
+    body: JSON.stringify(module),
+  });
+  return data.module;
+}
+
+export async function apiAdminUpdateLearning(module) {
+  const data = await request('/api/admin/learning', {
+    method: 'PATCH',
+    body: JSON.stringify(module),
+  });
+  return data.module;
+}
+
+export async function apiAdminDeleteLearning(moduleId) {
+  return request('/api/admin/learning', {
+    method: 'DELETE',
+    body: JSON.stringify({ id: moduleId }),
   });
 }

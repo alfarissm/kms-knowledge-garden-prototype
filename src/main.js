@@ -1,8 +1,17 @@
 import './styles.css';
 import {
   apiAdminAccounts,
+  apiAdminActivity,
   apiAdminCondition,
+  apiAdminCreateLearning,
+  apiAdminDeleteContent,
+  apiAdminDeleteLearning,
+  apiAdminResetAccount,
+  apiAdminSaveSettings,
+  apiAdminUpdateAccount,
+  apiAdminUpdateLearning,
   apiEntry,
+  apiLearning,
   apiLibrary,
   apiLogout,
   apiMe,
@@ -10,6 +19,7 @@ import {
   apiSaveState,
 } from './api.js';
 import {
+  DEFAULT_GAMIFICATION_SETTINGS,
   advanceDemoDays,
   addDemoResource,
   applyActivity,
@@ -20,9 +30,11 @@ import {
   completeLearningModule,
   createInitialState,
   getFruitView,
+  getGamificationSettings,
   getNextLevelRequirement,
   getTreeCondition,
   rateLearningModule,
+  setGamificationSettings,
   simulateDemoTreeCondition,
   STAGES,
   submitSharingMaterial,
@@ -88,8 +100,69 @@ const elements = {
   contentStatusCount: document.querySelector('#contentStatusCount'),
   adminReviewList: document.querySelector('#adminReviewList'),
   adminSummary: document.querySelector('#adminSummary'),
+  adminStats: document.querySelector('#adminStats'),
+  adminCharts: document.querySelector('#adminCharts'),
+  adminAccountsBody: document.querySelector('#adminAccountsBody'),
+  adminAccountSearch: document.querySelector('#adminAccountSearch'),
+  adminAccountCount: document.querySelector('#adminAccountCount'),
+  adminActivityList: document.querySelector('#adminActivityList'),
+  adminActivitySearch: document.querySelector('#adminActivitySearch'),
+  adminActivityUsers: document.querySelector('#adminActivityUsers'),
+  adminActivityType: document.querySelector('#adminActivityType'),
+  adminActivityPeriod: document.querySelector('#adminActivityPeriod'),
+  adminActivityClear: document.querySelector('#adminActivityClear'),
+  adminActivityCount: document.querySelector('#adminActivityCount'),
+  adminActivityPagination: document.querySelector('#adminActivityPagination'),
   libraryList: document.querySelector('#libraryList'),
   libraryCount: document.querySelector('#libraryCount'),
+  learningModuleCount: document.querySelector('#learningModuleCount'),
+  learningPageDescription: document.querySelector('#learningPageDescription'),
+  learningRewardComplete: document.querySelector('#learningRewardComplete'),
+  learningRewardRating: document.querySelector('#learningRewardRating'),
+  sharingRewardPill: document.querySelector('#sharingRewardPill'),
+  notifyToggle: document.querySelector('#notifyToggle'),
+  notifyBadge: document.querySelector('#notifyBadge'),
+  notifyPanel: document.querySelector('#notifyPanel'),
+  notifyList: document.querySelector('#notifyList'),
+  levelKeyList: document.querySelector('.level-key-list'),
+  learnAdminBody: document.querySelector('#learnAdminBody'),
+  addLearningModuleButton: document.querySelector('#addLearningModuleButton'),
+  learningAdminDialog: document.querySelector('#learningAdminDialog'),
+  learnAdminDialogTitle: document.querySelector('#learnAdminDialogTitle'),
+  learnAdminDialogClose: document.querySelector('#learnAdminDialogClose'),
+  learningModuleForm: document.querySelector('#learningModuleForm'),
+  learnFieldTitle: document.querySelector('#learnFieldTitle'),
+  learnFieldCategory: document.querySelector('#learnFieldCategory'),
+  learnFieldDuration: document.querySelector('#learnFieldDuration'),
+  learnFieldDescription: document.querySelector('#learnFieldDescription'),
+  learnFieldResourceLabel: document.querySelector('#learnFieldResourceLabel'),
+  learnFieldResourceUrl: document.querySelector('#learnFieldResourceUrl'),
+  learnFieldSections: document.querySelector('#learnFieldSections'),
+  learnFieldQuiz: document.querySelector('#learnFieldQuiz'),
+  learnFieldActive: document.querySelector('#learnFieldActive'),
+  learnFormFeedback: document.querySelector('#learnFormFeedback'),
+  learnFormSubmit: document.querySelector('#learnFormSubmit'),
+  learnFormCancel: document.querySelector('#learnFormCancel'),
+  adminConfirmDialog: document.querySelector('#adminConfirmDialog'),
+  adminConfirmTitle: document.querySelector('#adminConfirmTitle'),
+  adminConfirmDetail: document.querySelector('#adminConfirmDetail'),
+  adminConfirmCancel: document.querySelector('#adminConfirmCancel'),
+  adminConfirmSubmit: document.querySelector('#adminConfirmSubmit'),
+  gAccAir: document.querySelector('#gAccAir'),
+  gAccPupuk: document.querySelector('#gAccPupuk'),
+  gAccessAir: document.querySelector('#gAccessAir'),
+  gReviewAir: document.querySelector('#gReviewAir'),
+  gLearnPupuk: document.querySelector('#gLearnPupuk'),
+  gRatingAir: document.querySelector('#gRatingAir'),
+  gDecayDays: document.querySelector('#gDecayDays'),
+  gDecayGAir: document.querySelector('#gDecayGAir'),
+  gDecayGPupuk: document.querySelector('#gDecayGPupuk'),
+  gDecayCAir: document.querySelector('#gDecayCAir'),
+  gDecayCPupuk: document.querySelector('#gDecayCPupuk'),
+  gLevelBody: document.querySelector('#gLevelBody'),
+  gSaveButton: document.querySelector('#gSaveButton'),
+  gDefaultButton: document.querySelector('#gDefaultButton'),
+  gFeedback: document.querySelector('#gFeedback'),
   learningDialog: document.querySelector('#learningDialog'),
   learningDialogTitle: document.querySelector('#learningDialogTitle'),
   learningLessonContent: document.querySelector('#learningLessonContent'),
@@ -126,7 +199,10 @@ const PAGE_LABELS = {
   learning: 'Learning',
   sharing: 'Sharing',
   library: 'Perpustakaan',
-  admin: 'Review Admin',
+  admin: 'Pusat Admin',
+  review: 'Review Konten',
+  activity: 'Log Aktivitas',
+  learnadm: 'Kelola Learning',
   history: 'Riwayat',
 };
 const SHARING_STATUS_INFO = {
@@ -147,8 +223,17 @@ const SHARING_TYPE_LABELS = {
 let currentAccount = null;
 let state = null;
 let activeLearningModule = null;
+// Katalog Learning: awal dari katalog statis, diganti data server saat masuk.
+let learningModules = LEARNING_MODULES.map((entry) => ({ ...entry }));
+let learningAdminDialogMode = 'create';
+let learningAdminEditingId = null;
 let sharingQueueRenderId = 0;
 let adminReviewFilter = 'all';
+
+// Pupuk tersimpan dalam unit mesin (2 unit = 1 tampilan).
+function formatPupukDisplay(units) {
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(units / 2);
+}
 const ADMIN_FILTERS = [
   { key: 'all', label: 'Semua' },
   { key: 'pending', label: 'Menunggu' },
@@ -166,6 +251,9 @@ const PAGE_ACCESS = {
   sharing: ['user'],
   library: ['user'],
   admin: ['admin'],
+  review: ['admin'],
+  activity: ['admin'],
+  learnadm: ['admin'],
   history: ['user'],
 };
 
@@ -203,7 +291,7 @@ function navigateToPage(page, updateHistory = true) {
   const allowedPage = pageForRole(page);
   if (allowedPage !== page) {
     showToast(currentRole() === 'admin'
-      ? 'Halaman kebun khusus akun user; admin membuka Review Admin.'
+      ? 'Halaman kebumu tertangani di akun user; admin membuka Pusat Admin & Review Konten.'
       : 'Halaman ini khusus admin.', 'notice');
     page = allowedPage;
   }
@@ -221,6 +309,7 @@ function navigateToPage(page, updateHistory = true) {
     }
   });
   elements.currentPageLabel.textContent = PAGE_LABELS[page];
+  if (page === 'activity') loadAdminActivity();
   const menuWasOpen = elements.mobileMenuToggle.getAttribute('aria-expanded') === 'true';
   setMobileMenuOpen(false);
 
@@ -268,8 +357,17 @@ function setAuthMessage(message, tone = 'notice') {
   elements.authMessage.className = `auth-message${message ? ` auth-message-${tone}` : ''}`;
 }
 
-function enterApp(account, treeState = null, awardLogin = false) {
+// Terapkan parameter dari server ke mesin SEBELUM state diolah; urutan ini
+// penting bila admin mengubah ambang level (progress lama ikut diukur ulang).
+function applyServerSettings(settings) {
+  const normalized = setGamificationSettings(settings ?? null);
+  fillGamificationSettingsForm();
+  return normalized;
+}
+
+function enterApp(account, treeState = null, awardLogin = false, settings = null) {
   currentAccount = account;
+  applyServerSettings(settings);
   state = tickState(treeState ?? createInitialState());
   let loginRewarded = false;
   if (awardLogin) {
@@ -285,10 +383,12 @@ function enterApp(account, treeState = null, awardLogin = false) {
   saveState();
   render();
   navigateToPage(pageFromLocationHash(), false);
+  refreshLearningCatalog();
   if (awardLogin) {
+    const accessAir = getGamificationSettings().activityRewards.access;
     showToast(loginRewarded
-      ? 'Login valid: +1 Air masuk Storage. Gunakan Air pada pohon untuk menambah progres.'
-      : 'Login valid. Reward +1 Air hari ini sudah diterima; tidak ada Air tambahan.');
+      ? `Login valid: +${accessAir} Air masuk Storage. Gunakan Air pada pohon untuk menambah progres.`
+      : 'Login valid. Reward Air hari ini sudah diterima; tidak ada Air tambahan.');
   }
 }
 
@@ -635,12 +735,30 @@ function makeSvgIcon(symbolId, className = 'icon') {
   return svg;
 }
 
+// Katalog Learning dari server: modul terkelola memenangkan katalog statis.
+// Admin melihat juga modul draft; pengguna hanya modul aktif.
+function refreshLearningCatalog() {
+  apiLearning()
+    .then((modules) => {
+      if (Array.isArray(modules) && modules.length > 0) {
+        learningModules = modules;
+      }
+      renderRewardLabels();
+      renderLearningCatalog();
+      buildLearnAdmin(latestAdminAccounts);
+    })
+    .catch(() => {
+      // Katalog statis tetap dipakai bila server gagal.
+    });
+}
+
 function renderLearningCatalog() {
-  elements.learningProgressCount.textContent = `${state.completedLearningIds.length} / ${LEARNING_MODULES.length} selesai`;
-  elements.learningProgressCount.setAttribute('aria-label', `${state.completedLearningIds.length} dari ${LEARNING_MODULES.length} modul tuntas`);
+  elements.learningProgressCount.textContent = `${state.completedLearningIds.length} / ${learningModules.length} selesai`;
+  elements.learningProgressCount.setAttribute('aria-label', `${state.completedLearningIds.length} dari ${learningModules.length} modul tuntas`);
+  elements.learningModuleCount.textContent = `${learningModules.length} materi`;
   elements.learningCatalog.replaceChildren();
 
-  LEARNING_MODULES.forEach((module) => {
+  learningModules.forEach((module) => {
     const completed = state.completedLearningIds.includes(module.id);
     const rating = state.learningRatings[module.id];
     const card = makeElement('article', `learning-card${completed ? ' is-complete' : ''}`);
@@ -684,9 +802,9 @@ function renderLearningCatalog() {
         }
         const reward = makeElement('span', 'learning-rating-reward');
         reward.setAttribute('role', 'img');
-        reward.setAttribute('aria-label', 'Tambah 1 Air ke Storage');
-        reward.title = '+1 Air ke Storage';
-        reward.append(makeSvgIcon('icon-water'), makeElement('b', '', '+1 Air'));
+        reward.setAttribute('aria-label', `Tambah ${getGamificationSettings().learningRatingAir} Air ke Storage`);
+        reward.title = `+${getGamificationSettings().learningRatingAir} Air ke Storage`;
+        reward.append(makeSvgIcon('icon-water'), makeElement('b', '', `+${getGamificationSettings().learningRatingAir} Air`));
         ratedNote.append(stars, reward);
         card.append(ratedNote);
       } else {
@@ -709,8 +827,8 @@ function renderLearningCatalog() {
         }
         const rateButton = makeElement('button', 'learning-rate-button');
         rateButton.type = 'submit';
-        rateButton.setAttribute('aria-label', 'Kirim rating, tambah 1 Air ke Storage');
-        rateButton.append(makeSvgIcon('icon-water'), makeElement('b', '', '+1 Air'));
+        rateButton.setAttribute('aria-label', `Kirim rating, tambah ${getGamificationSettings().learningRatingAir} Air ke Storage`);
+        rateButton.append(makeSvgIcon('icon-water'), makeElement('b', '', `+${getGamificationSettings().learningRatingAir} Air`));
         ratingForm.append(starPicker, rateButton);
         card.append(ratingForm);
       }
@@ -792,13 +910,13 @@ function renderSharingQueue() {
 
 function renderContentStatusTable() {
   const submissions = state.sharingSubmissions;
-  elements.contentStatusCount.textContent = String(submissions.length);
+  elements.contentStatusCount.textContent = `${submissions.length} konten`;
   elements.contentStatusBody.replaceChildren();
 
   if (submissions.length === 0) {
     const emptyRow = document.createElement('tr');
     emptyRow.className = 'content-status-empty';
-    emptyRow.innerHTML = '<td colspan="4">Belum ada konten Sharing. Kirim kontribusi di halaman Sharing; statusnya tampil di sini.</td>';
+    emptyRow.innerHTML = '<td colspan="3"><strong>Belum ada konten Sharing.</strong>Kirim kontribusi di halaman Sharing — buah statusnya tampil di sini.</td>';
     elements.contentStatusBody.append(emptyRow);
     return;
   }
@@ -808,33 +926,35 @@ function renderContentStatusTable() {
     const row = document.createElement('tr');
     row.className = `content-status-row status-${submission.status}`;
 
+    // Materi: judul + chip jenis + ringkasan dalam satu sel.
     const material = document.createElement('td');
     material.className = 'content-status-material';
     material.append(makeElement('strong', '', submission.title));
+    material.append(makeElement('span', 'content-status-type', SHARING_TYPE_LABELS[submission.type] ?? submission.type));
     if (submission.summary) {
       material.append(makeElement('small', '', submission.summary));
     }
 
-    const type = document.createElement('td');
-    type.textContent = SHARING_TYPE_LABELS[submission.type] ?? submission.type;
-
+    // Dikirim: tanggal di atas, jam kecil di bawahnya.
     const sent = document.createElement('td');
-    sent.textContent = formatDate(submission.submittedAt);
+    sent.className = 'content-status-sent';
+    sent.append(makeElement('strong', '', formatDate(submission.submittedAt, { hour: undefined, minute: undefined })));
+    sent.append(makeElement('small', '', formatDate(submission.submittedAt, { day: undefined, month: undefined })));
 
+    // Kondisi: pill berwarna per status (+ hitungan laporan bila ada).
     const condition = document.createElement('td');
     condition.className = 'content-status-condition';
+    const pill = makeElement('span', `content-status-pill pill-${statusInfo?.dot ?? submission.status}`);
     const dot = makeElement('span', `fruit-dot ${statusInfo?.dot ?? submission.status}`);
     dot.setAttribute('aria-hidden', 'true');
-    condition.append(dot);
-    const conditionInfo = makeElement('span', 'content-status-label', statusInfo?.label ?? submission.status);
-    conditionInfo.title = statusInfo?.note ?? '';
-    condition.append(conditionInfo);
+    pill.append(dot, makeElement('span', '', statusInfo?.label ?? submission.status));
+    condition.append(pill);
     const reportCount = Array.isArray(submission.reports) ? submission.reports.length : 0;
     if (reportCount > 0) {
       condition.append(makeElement('span', 'admin-report-badge', `${reportCount} laporan`));
     }
 
-    row.append(material, type, sent, condition);
+    row.append(material, sent, condition);
     elements.contentStatusBody.append(row);
   });
 }
@@ -851,19 +971,987 @@ function makeAdminConditionButton(row, condition, label) {
 }
 
 let adminReviewRenderId = 0;
+let latestAdminAccounts = [];
+let latestActivityWeek = [];
+let adminActivityPage = 1;
+let adminActivityRequestId = 0;
+let adminActivitySearchTimer;
+
+const ADMIN_HISTORY_TYPE_LABELS = {
+  activity: 'Aktivitas',
+  sharing: 'Sharing',
+  care: 'Perawatan',
+  fruit: 'Buah',
+  decay: 'Penyusutan',
+  report: 'Laporan',
+  demo: 'Demo',
+};
+const TREE_CONDITION_LABELS = { healthy: 'Sehat', thirsty: 'Menguning', dead: 'Mati' };
+
+function formatPupukUnits(units) {
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format((units ?? 0) / 2);
+}
+
+function formatRelative(timestamp) {
+  if (!Number.isFinite(timestamp)) return '–';
+  const elapsed = Date.now() - timestamp;
+  if (elapsed < 60_000) return 'baru saja';
+  if (elapsed < 3_600_000) {
+    return `${new Intl.NumberFormat('id-ID').format(Math.floor(elapsed / 60_000))} mnt lalu`;
+  }
+  if (elapsed < 86_400_000) {
+    return `${new Intl.NumberFormat('id-ID').format(Math.floor(elapsed / 3_600_000))} jam lalu`;
+  }
+  if (elapsed < 7 * 86_400_000) {
+    return `${new Intl.NumberFormat('id-ID').format(Math.floor(elapsed / 86_400_000))} hari lalu`;
+  }
+  return formatDate(timestamp, { hour: undefined, minute: undefined });
+}
+
+function collectAdminTotals(accounts) {
+  const totals = {
+    users: 0,
+    admins: 0,
+    contents: 0,
+    pending: 0,
+    validated: 0,
+    stale: 0,
+    removed: 0,
+    reports: 0,
+    fruitsOnTree: 0,
+    fruitsInStorage: 0,
+    fruitsGround: 0,
+    fruitsGone: 0,
+  };
+  accounts.forEach((account) => {
+    if (account.role === 'admin') totals.admins += 1;
+    else totals.users += 1;
+    const submissions = Array.isArray(account.treeState?.sharingSubmissions) ? account.treeState.sharingSubmissions : [];
+    totals.contents += submissions.length;
+    submissions.forEach((submission) => {
+      if (submission.status === 'pending') totals.pending += 1;
+      else if (submission.status === 'validated') totals.validated += 1;
+      else if (submission.status === 'stale') totals.stale += 1;
+      else totals.removed += 1;
+      totals.reports += Array.isArray(submission.reports) ? submission.reports.length : 0;
+    });
+    (Array.isArray(account.treeState?.fruitLedger) ? account.treeState.fruitLedger : []).forEach((fruit) => {
+      if (fruit.placement === 'tree') totals.fruitsOnTree += 1;
+      else if (fruit.placement === 'storage') totals.fruitsInStorage += 1;
+      else if (fruit.placement === 'ground') totals.fruitsGround += 1;
+      else totals.fruitsGone += 1;
+    });
+  });
+  return totals;
+}
+
+function buildAdminStats(accounts) {
+  const totals = collectAdminTotals(accounts);
+  const cards = [
+    {
+      label: 'Akun',
+      value: `${formatRelativeNumber(totals.users + totals.admins)}`,
+      sub: `${totals.users} user · ${totals.admins} admin`,
+    },
+    {
+      label: 'Konten Sharing',
+      value: `${formatRelativeNumber(totals.contents)}`,
+      sub: `${totals.pending} menunggu · ${totals.validated} ACC`,
+    },
+    {
+      label: 'Laporan user',
+      value: `${formatRelativeNumber(totals.reports)}`,
+      sub: totals.reports > 0 ? 'tercatat pada konten Sharing' : 'belum ada laporan',
+    },
+    {
+      label: 'Buah pengetahuan',
+      value: `${formatRelativeNumber(totals.fruitsOnTree + totals.fruitsInStorage + totals.fruitsGround + totals.fruitsGone)}`,
+      sub: `${totals.fruitsOnTree} pohon · ${totals.fruitsInStorage} Storage · ${totals.fruitsGround} rebah · ${totals.fruitsGone} diangkat`,
+    },
+  ];
+
+  const grid = document.createElement('div');
+  grid.className = 'admin-stats-grid';
+  cards.forEach((card) => {
+    const cardElement = makeElement('div', 'admin-stat-card');
+    cardElement.append(
+      makeElement('small', 'admin-stat-label', card.label),
+      makeElement('strong', 'admin-stat-value', card.value),
+      makeElement('small', 'admin-stat-sub', card.sub),
+    );
+    grid.append(cardElement);
+  });
+  elements.adminStats.replaceChildren(grid);
+}
+
+function formatRelativeNumber(value) {
+  return new Intl.NumberFormat('id-ID').format(value ?? 0);
+}
+
+function buildAdminCharts(accounts) {
+  const grid = document.createElement('div');
+  grid.className = 'admin-charts-grid';
+  grid.append(
+    buildContentConditionChart(accounts),
+    buildFruitChart(accounts),
+    buildActivityWeekChart(latestActivityWeek),
+    buildLevelDistributionChart(accounts),
+  );
+  elements.adminCharts.replaceChildren(grid);
+}
+
+function makeAdminChartCard(title, sub, body, theme, explanation) {
+  const card = makeElement('div', 'admin-chart-card');
+  card.dataset.chartTheme = theme;
+  const head = document.createElement('div');
+  head.className = 'admin-chart-head';
+  head.append(makeElement('strong', 'admin-chart-title', title));
+  if (sub) head.append(makeElement('small', 'admin-chart-sub', sub));
+  card.append(head);
+  if (explanation) card.append(makeElement('p', 'admin-chart-description', explanation));
+  card.append(body);
+  return card;
+}
+
+function makeAdminChartEmpty(icon, title, detail) {
+  const empty = makeElement('div', 'admin-chart-empty');
+  empty.append(
+    makeElement('span', 'admin-chart-empty-icon', icon),
+    makeElement('strong', '', title),
+    makeElement('p', '', detail),
+  );
+  return empty;
+}
+
+function buildContentConditionChart(accounts) {
+  const totals = collectAdminTotals(accounts);
+  const segments = [
+    { key: 'pending', label: 'Menunggu', count: totals.pending, cls: 'seg-pending' },
+    { key: 'validated', label: 'ACC', count: totals.validated, cls: 'seg-validated' },
+    { key: 'stale', label: 'Basi', count: totals.stale, cls: 'seg-stale' },
+    { key: 'removed', label: 'Diangkat', count: totals.removed, cls: 'seg-removed' },
+  ];
+
+  const body = document.createElement('div');
+  body.className = 'admin-chart-body';
+
+  if (totals.contents === 0) {
+    body.append(makeAdminChartEmpty('✳', 'Belum ada konten Sharing', 'Status menunggu, ACC, dan hasil review akan muncul setelah pengguna mengirim konten.'));
+    return makeAdminChartCard('Status konten', '0 konten', body, 'content', 'Sudah berapa konten ditinjau admin?');
+  }
+
+  const bar = makeElement('div', 'admin-stack-bar');
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', segments.map((segment) => `${segment.label}: ${segment.count}`).join(', '));
+  segments.filter((segment) => segment.count > 0).forEach((segment) => {
+    const width = (segment.count / totals.contents) * 100;
+    const fill = makeElement('span', `admin-stack-seg ${segment.cls}`);
+    fill.style.width = `${width}%`;
+    fill.title = `${segment.label}: ${segment.count}`;
+    bar.append(fill);
+  });
+  body.append(bar);
+
+  const legend = makeElement('div', 'admin-stack-legend');
+  segments.forEach((segment) => {
+    const chip = makeElement('span', `seg-chip ${segment.cls}`,
+      `${segment.label} · ${formatRelativeNumber(segment.count)}`);
+    legend.append(chip);
+  });
+  body.append(legend);
+
+  return makeAdminChartCard('Status konten', `${formatRelativeNumber(totals.contents)} konten`, body, 'content', 'Warna menunjukkan hasil review setiap konten Sharing.');
+}
+
+function buildFruitChart(accounts) {
+  const totals = collectAdminTotals(accounts);
+  const bars = [
+    { label: 'Di pohon', count: totals.fruitsOnTree, cls: 'hbar-tree' },
+    { label: 'Di storage', count: totals.fruitsInStorage, cls: 'hbar-storage' },
+    { label: 'Rebah basi', count: totals.fruitsGround, cls: 'hbar-ground' },
+    { label: 'Hilang (diangkat)', count: totals.fruitsGone, cls: 'hbar-gone' },
+  ];
+  const max = Math.max(...bars.map((bar) => bar.count));
+
+  const body = document.createElement('div');
+  body.className = 'admin-chart-body';
+  if (max === 0) {
+    body.append(makeAdminChartEmpty('♧', 'Belum ada buah pengetahuan', 'Buah muncul setelah konten Sharing pertama kali di-ACC admin.'));
+    return makeAdminChartCard('Posisi buah', '0 buah', body, 'fruit', 'Buah dari konten Sharing yang sudah diputus.');
+  }
+  const totalFruits = bars.reduce((sum, bar) => sum + bar.count, 0);
+  bars.forEach((bar) => body.append(makeHbarRow(bar.label, bar.count, totalFruits, bar.cls)));
+  return makeAdminChartCard('Posisi buah', `${formatRelativeNumber(totalFruits)} buah`, body, 'fruit', 'Batang menunjukkan bagian dari total buah yang tercatat.');
+}
+
+function makeHbarRow(label, value, max, className, valueLabel = formatRelativeNumber(value)) {
+  const row = makeElement('div', 'admin-hbar-row');
+  row.append(makeElement('span', 'admin-hbar-label', label));
+  const track = makeElement('span', 'admin-hbar-track');
+  const fill = makeElement('span', `admin-hbar-fill ${className ?? 'hbar-neutral'}`);
+  fill.style.width = `${max > 0 ? Math.round((value / max) * 100) : 0}%`;
+  track.append(fill);
+  row.append(track, makeElement('span', 'admin-hbar-value', valueLabel));
+  return row;
+}
+
+function buildActivityWeekChart(activityWeek) {
+  const buckets = [];
+  const now = new Date();
+  const shortWeekday = new Intl.DateTimeFormat('id-ID', { weekday: 'short' });
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - offset);
+    buckets.push({
+      startMs: start.getTime(),
+      label: shortWeekday.format(start),
+      count: 0,
+    });
+  }
+
+  let total = 0;
+  activityWeek.forEach(({ dayIndex, count }) => {
+    if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= buckets.length) return;
+    buckets[dayIndex].count = count;
+    total += count;
+  });
+  const max = Math.max(...buckets.map((bucket) => bucket.count), 1);
+
+  const body = document.createElement('div');
+  body.className = 'admin-chart-body';
+  if (total === 0) {
+    body.append(makeAdminChartEmpty('↗', 'Belum ada aktivitas minggu ini', 'Aktivitas pengguna selama 7 hari terakhir akan ditampilkan per hari di sini.'));
+    return makeAdminChartCard('Aktivitas 7 hari', '0 aktivitas', body, 'activity', 'Simulasi dan penyusutan otomatis tidak dihitung.');
+  }
+  const columns = makeElement('div', 'admin-vchart');
+  buckets.forEach((bucket, index) => {
+    const column = makeElement('div', `admin-vcol${index === 6 ? ' is-today' : ''}${bucket.count === 0 ? ' is-empty' : ''}`);
+    const fill = makeElement('span', 'admin-vcol-fill');
+    fill.style.height = `${Math.round((bucket.count / max) * 100)}%`;
+    fill.title = `${bucket.label}: ${bucket.count} aktivitas`;
+    column.setAttribute('aria-label', `${bucket.label}: ${bucket.count} aktivitas`);
+    column.append(makeElement('span', 'admin-vcol-count', formatRelativeNumber(bucket.count)), fill, makeElement('span', 'admin-vcol-label', bucket.label));
+    columns.append(column);
+  });
+  body.append(columns);
+  return makeAdminChartCard('Aktivitas 7 hari', `${formatRelativeNumber(total)} aktivitas`, body, 'activity', 'Berapa aktivitas tercatat setiap hari? Simulasi dan penyusutan tidak dihitung.');
+}
+
+function buildLevelDistributionChart(accounts) {
+  const counts = new Array(8).fill(0);
+  const users = accounts.filter((account) => account.role !== 'admin');
+  users.forEach((account) => {
+    const level = Math.min(Math.max(Math.floor(account.treeState?.level ?? 0), 0), 7);
+    counts[level] += 1;
+  });
+  const totalAccounts = users.length;
+
+  const body = document.createElement('div');
+  body.className = 'admin-chart-body';
+  if (totalAccounts === 0) {
+    body.append(makeAdminChartEmpty('♧', 'Belum ada akun pengguna', 'Sebaran level akan terlihat setelah akun pengguna terdaftar.'));
+    return makeAdminChartCard('Level pohon pengguna', '0 pengguna', body, 'level', 'Hanya akun pengguna yang mempunyai pohon; admin tidak dihitung.');
+  }
+  for (let level = 0; level <= 7; level += 1) {
+    if (counts[level] === 0) continue;
+    body.append(makeHbarRow(`L${level} · ${STAGE_SHORT_NAMES[level]}`, counts[level], totalAccounts, `hbar-level-${level}`, `${formatRelativeNumber(counts[level])} · ${Math.round(counts[level] / totalAccounts * 100)}%`));
+  }
+  return makeAdminChartCard('Level pohon pengguna', `${formatRelativeNumber(totalAccounts)} pengguna`, body, 'level', 'Persentase dari seluruh akun pengguna. Level tanpa akun disembunyikan.');
+}
+
+function renderAdminTab() {
+  buildAdminReview(latestAdminAccounts);
+  buildAdminAccounts(latestAdminAccounts);
+  populateAdminActivityUsers(latestAdminAccounts);
+  buildLearnAdmin(latestAdminAccounts);
+  fillGamificationSettingsForm();
+}
 
 function renderAdminReview() {
   const renderId = ++adminReviewRenderId;
   apiAdminAccounts()
-    .then((accounts) => {
-      if (renderId === adminReviewRenderId) buildAdminReview(accounts);
+    .then(({ accounts, activityWeek }) => {
+      if (renderId !== adminReviewRenderId) return;
+      latestAdminAccounts = accounts;
+      latestActivityWeek = activityWeek ?? [];
+      buildAdminStats(accounts);
+      buildAdminCharts(accounts);
+      renderAdminTab();
     })
     .catch((error) => {
       if (renderId !== adminReviewRenderId) return;
+      adminActivityRequestId += 1;
+      latestAdminAccounts = [];
+      latestActivityWeek = [];
+      buildAdminStats([]);
+      elements.adminCharts.replaceChildren(buildAdminChartsError(error));
       elements.adminSummary.replaceChildren();
       elements.adminReviewList.replaceChildren();
+      elements.adminAccountsBody.replaceChildren();
+      elements.adminActivityList.replaceChildren();
+      elements.adminActivityCount.textContent = 'Aktivitas gagal dimuat.';
+      elements.adminActivityPagination.hidden = true;
       elements.adminReviewList.append(makeElement('div', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.'));
+      elements.adminActivityList.append(makeElement('li', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.'));
     });
+}
+
+// --- Kelola modul Learning (#8) ---
+
+// Agregat lintas-akun: berapa akun menuntaskan tiap modul & rata-rata ratingnya.
+function computeLearningAdminStats(accounts) {
+  const stats = new Map();
+  learningModules.forEach((module) => {
+    stats.set(module.id, { completed: 0, ratings: [] });
+  });
+  accounts.forEach((account) => {
+    const completed = account.treeState?.completedLearningIds;
+    const ratings = account.treeState?.learningRatings;
+    if (Array.isArray(completed)) {
+      completed.forEach((moduleId) => {
+        const entry = stats.get(moduleId);
+        if (entry) entry.completed += 1;
+      });
+    }
+    if (ratings && typeof ratings === 'object') {
+      Object.entries(ratings).forEach(([moduleId, rating]) => {
+        const entry = stats.get(moduleId);
+        if (entry && Number.isFinite(Number(rating))) entry.ratings.push(Number(rating));
+      });
+    }
+  });
+  return stats;
+}
+
+function buildLearnAdmin(accounts) {
+  if (!elements.learnAdminBody) return;
+  const stats = computeLearningAdminStats(accounts);
+  elements.learnAdminBody.replaceChildren();
+
+  if (learningModules.length === 0) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.className = 'admin-accounts-empty';
+    emptyRow.innerHTML = '<td colspan="6">Katalog Learning kosong. Gunakan "Tambah modul" untuk membuat modul pertama.</td>';
+    elements.learnAdminBody.append(emptyRow);
+    return;
+  }
+
+  learningModules.forEach((module) => {
+    const moduleStats = stats.get(module.id) ?? { completed: 0, ratings: [] };
+    const row = document.createElement('tr');
+
+    const titleCell = document.createElement('td');
+    titleCell.className = 'admin-account-cell';
+    const titleLine = document.createElement('span');
+    titleLine.className = 'admin-account-line';
+    titleLine.append(
+      makeElement('span', 'learn-module-avatar', module.category ? module.category.charAt(0).toLocaleUpperCase('id-ID') : 'L'),
+      makeElement('div', 'admin-account-info', [makeElement('strong', '', module.title), makeElement('small', '', module.id)]),
+    );
+    titleCell.append(titleLine);
+
+    const categoryCell = document.createElement('td');
+    categoryCell.className = 'admin-active-cell';
+    categoryCell.textContent = module.category || '—';
+
+    const statusCell = document.createElement('td');
+    statusCell.className = 'admin-active-cell';
+    const statusChip = makeElement('span', `learn-status-chip ${module.active ? 'is-active' : 'is-draft'}`, module.active ? 'Aktif' : 'Draft');
+    statusCell.append(statusChip);
+
+    const completedCell = document.createElement('td');
+    completedCell.className = 'admin-active-cell';
+    completedCell.textContent = `${moduleStats.completed} akun`;
+
+    const ratingCell = document.createElement('td');
+    ratingCell.className = 'admin-active-cell';
+    const ratingCount = moduleStats.ratings.length;
+    if (ratingCount > 0) {
+      const average = moduleStats.ratings.reduce((sum, value) => sum + value, 0) / ratingCount;
+      ratingCell.textContent = `${(new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(average))} / 5 · ${ratingCount} penilai`;
+    } else {
+      ratingCell.textContent = '—';
+    }
+
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'admin-account-actions';
+    const editButton = makeElement('button', 'admin-row-action action-role', 'Edit');
+    editButton.dataset.learnAction = 'edit';
+    editButton.dataset.moduleId = module.id;
+    const toggleButton = makeElement('button', `admin-row-action ${module.active ? 'action-delete' : 'action-role'}`, module.active ? 'Draft' : 'Aktifkan');
+    toggleButton.dataset.learnAction = 'toggle';
+    toggleButton.dataset.moduleId = module.id;
+    const deleteButton = makeElement('button', 'admin-row-action action-delete', 'Hapus');
+    deleteButton.dataset.learnAction = 'delete';
+    deleteButton.dataset.moduleId = module.id;
+    actionsCell.append(editButton, toggleButton, deleteButton);
+
+    row.append(titleCell, categoryCell, statusCell, completedCell, ratingCell, actionsCell);
+    elements.learnAdminBody.append(row);
+  });
+}
+
+function openLearningAdminDialog(mode, moduleId = null) {
+  learningAdminDialogMode = mode;
+  learningAdminEditingId = moduleId;
+  elements.learnFormFeedback.textContent = '';
+  elements.learnFormFeedback.className = 'learning-form-feedback';
+  if (mode === 'edit') {
+    const module = learningModules.find((entry) => entry.id === moduleId);
+    if (!module) {
+      showToast('Modul tidak ditemukan.', 'notice');
+      return;
+    }
+    elements.learnAdminDialogTitle.textContent = `Edit modul: ${module.title}`;
+    elements.learnFormSubmit.textContent = 'Simpan perubahan';
+    elements.learnFieldTitle.value = module.title;
+    elements.learnFieldCategory.value = module.category ?? '';
+    elements.learnFieldDuration.value = module.duration ?? '';
+    elements.learnFieldDescription.value = module.description ?? '';
+    elements.learnFieldResourceLabel.value = module.resourceLabel ?? '';
+    elements.learnFieldResourceUrl.value = module.resourceUrl ?? '';
+    elements.learnFieldSections.value = (module.sections ?? [])
+      .map((section) => [section.heading, ...(section.paragraphs ?? [])].filter(Boolean).join(' | '))
+      .join('\n');
+    elements.learnFieldQuiz.value = (module.quiz ?? []).map((item) => {
+      const lines = [item.prompt];
+      (item.answers ?? []).forEach((answer, index) => {
+        lines.push(`${Number(item.correctAnswer) === index ? '*' : '-'} ${answer}`);
+      });
+      return lines.join('\n');
+    }).join('\n\n');
+    elements.learnFieldActive.checked = module.active !== false;
+  } else {
+    elements.learnAdminDialogTitle.textContent = 'Form modul Learning';
+    elements.learnFormSubmit.textContent = 'Simpan modul';
+    elements.learningModuleForm.reset();
+    elements.learnFieldActive.checked = true;
+  }
+  elements.learningAdminDialog.showModal();
+  elements.learnFieldTitle.focus();
+}
+
+function closeLearningAdminDialog() {
+  elements.learningAdminDialog.close();
+}
+
+// Parsa textarea section: satu baris = satu section "Heading | Paragraf | ...".
+function parseLearningSections(text) {
+  return String(text ?? '').split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split('|').map((part) => part.trim()).filter(Boolean);
+      const [heading = '', ...paragraphs] = parts;
+      return { heading, paragraphs };
+    })
+    .filter((section) => section.heading || section.paragraphs.length > 0);
+}
+
+// Parsa textarea kuis: blok dipisah baris kosong; '*' menandai jawaban benar.
+function parseLearningQuiz(text) {
+  return String(text ?? '').split(/\n\s*\n/)
+    .map((block) => block.split('\n').map((line) => line.trim()).filter(Boolean))
+    .filter((lines) => lines.length >= 2)
+    .map((lines) => {
+      const [prompt, ...optionLines] = lines;
+      const answers = [];
+      let correctAnswer = 0;
+      optionLines.forEach((line) => {
+        if (line.startsWith('*')) {
+          answers.push(line.replace(/^\*\s*/, '').trim());
+          correctAnswer = answers.length - 1;
+        } else {
+          answers.push(line.replace(/^[-•]\s*/, '').trim());
+        }
+      });
+      return { prompt, answers: answers.filter(Boolean), correctAnswer };
+    })
+    .filter((item) => item.prompt && item.answers.length >= 2);
+}
+
+// Satu popup konfirmasi untuk seluruh perubahan admin. Tombol Batal maupun
+// Escape menutup tanpa memanggil API; pesan sukses/gagal tetap lewat toast.
+function confirmAdminAction({ title, detail, confirmLabel, destructive = false }) {
+  const dialog = elements.adminConfirmDialog;
+  if (dialog.open) return Promise.resolve(false);
+  elements.adminConfirmTitle.textContent = title;
+  elements.adminConfirmDetail.textContent = detail;
+  elements.adminConfirmSubmit.textContent = confirmLabel;
+  elements.adminConfirmSubmit.classList.toggle('is-destructive', destructive);
+  dialog.returnValue = '';
+
+  return new Promise((resolve) => {
+    const confirm = () => dialog.close('confirm');
+    const cancel = () => dialog.close('cancel');
+    const finish = () => {
+      elements.adminConfirmSubmit.removeEventListener('click', confirm);
+      elements.adminConfirmCancel.removeEventListener('click', cancel);
+      dialog.removeEventListener('close', finish);
+      resolve(dialog.returnValue === 'confirm');
+    };
+    elements.adminConfirmSubmit.addEventListener('click', confirm);
+    elements.adminConfirmCancel.addEventListener('click', cancel);
+    dialog.addEventListener('close', finish);
+    dialog.showModal();
+    elements.adminConfirmCancel.focus();
+  });
+}
+
+elements.learningModuleForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const title = elements.learnFieldTitle.value.trim();
+  if (title.length < 3) {
+    elements.learnFormFeedback.textContent = 'Judul modul minimal 3 karakter.';
+    elements.learnFormFeedback.className = 'learning-form-feedback is-error';
+    return;
+  }
+
+  const payload = {
+    id: learningAdminDialogMode === 'edit' ? learningAdminEditingId : undefined,
+    title,
+    category: elements.learnFieldCategory.value.trim(),
+    duration: elements.learnFieldDuration.value.trim(),
+    description: elements.learnFieldDescription.value.trim(),
+    resourceLabel: elements.learnFieldResourceLabel.value.trim(),
+    resourceUrl: elements.learnFieldResourceUrl.value.trim(),
+    sections: parseLearningSections(elements.learnFieldSections.value),
+    quiz: parseLearningQuiz(elements.learnFieldQuiz.value),
+    active: elements.learnFieldActive.checked,
+  };
+
+  if (!(await confirmAdminAction({
+    title: learningAdminDialogMode === 'edit' ? 'Simpan perubahan modul?' : 'Tambahkan modul Learning?',
+    detail: `Modul "${title}" akan ${learningAdminDialogMode === 'edit' ? 'diperbarui' : 'ditambahkan'} di server dan ${payload.active ? 'ditampilkan kepada pengguna' : 'disimpan sebagai draft'}.`,
+    confirmLabel: learningAdminDialogMode === 'edit' ? 'Simpan perubahan' : 'Tambah modul',
+  }))) return;
+
+  elements.learnFormSubmit.disabled = true;
+  try {
+    const savedModule = learningAdminDialogMode === 'edit'
+      ? await apiAdminUpdateLearning(payload)
+      : await apiAdminCreateLearning(payload);
+    const index = learningModules.findIndex((entry) => entry.id === savedModule.id);
+    if (index >= 0) {
+      learningModules[index] = savedModule;
+    } else {
+      learningModules.push(savedModule);
+    }
+    buildLearnAdmin(latestAdminAccounts);
+    renderLearningCatalog();
+    closeLearningAdminDialog();
+    showToast(learningAdminDialogMode === 'edit' ? `Modul "${savedModule.title}" diperbarui di server.` : `Modul "${savedModule.title}" tersimpan di server.`, 'success');
+  } catch (error) {
+    elements.learnFormFeedback.textContent = error?.message || 'Modul gagal tersimpan.';
+    elements.learnFormFeedback.className = 'learning-form-feedback is-error';
+  } finally {
+    elements.learnFormSubmit.disabled = false;
+  }
+});
+
+elements.learnFormCancel.addEventListener('click', () => closeLearningAdminDialog());
+elements.learnAdminDialogClose.addEventListener('click', () => closeLearningAdminDialog());
+
+elements.learnAdminBody.addEventListener('click', async (event) => {
+  const actionButton = event.target.closest('[data-learn-action]');
+  if (!actionButton) return;
+  const moduleId = actionButton.dataset.moduleId;
+  const action = actionButton.dataset.learnAction;
+  const module = learningModules.find((entry) => entry.id === moduleId);
+  if (!module) return;
+
+  if (action === 'edit') {
+    openLearningAdminDialog('edit', moduleId);
+    return;
+  }
+
+  if (action === 'toggle') {
+    if (!(await confirmAdminAction({
+      title: module.active ? 'Sembunyikan modul?' : 'Aktifkan modul?',
+      detail: `Modul "${module.title}" akan ${module.active ? 'menjadi draft dan tidak terlihat oleh pengguna' : 'tampil dalam katalog Learning pengguna'}.`,
+      confirmLabel: module.active ? 'Jadikan draft' : 'Aktifkan modul',
+    }))) return;
+    try {
+      const updated = await apiAdminUpdateLearning({ id: moduleId, active: !module.active });
+      const index = learningModules.findIndex((entry) => entry.id === moduleId);
+      if (index >= 0) learningModules[index] = updated;
+      buildLearnAdmin(latestAdminAccounts);
+      renderLearningCatalog();
+      showToast(`Modul "${updated.title}" sekarang ${updated.active ? 'aktif untuk semua akun' : 'draft (disembunyikan)'}.`, 'success');
+    } catch (error) {
+      showToast(error?.message || 'Status modul gagal diubah.', 'notice');
+    }
+    return;
+  }
+
+  if (action === 'delete') {
+    if (!(await confirmAdminAction({
+      title: 'Hapus modul Learning?',
+      detail: `Modul "${module.title}" akan dihapus permanen dari katalog server. Riwayat penyelesaian pengguna tidak dihapus.`,
+      confirmLabel: 'Hapus modul',
+      destructive: true,
+    }))) return;
+    try {
+      await apiAdminDeleteLearning(moduleId);
+      learningModules = learningModules.filter((entry) => entry.id !== moduleId);
+      buildLearnAdmin(latestAdminAccounts);
+      renderLearningCatalog();
+      showToast(`Modul "${module.title}" dihapus dari server.`, 'success');
+    } catch (error) {
+      showToast(error?.message || 'Hapus modul gagal.', 'notice');
+    }
+  }
+});
+
+elements.addLearningModuleButton.addEventListener('click', () => openLearningAdminDialog('create'));
+
+function buildAdminChartsError(error) {
+  const fallback = makeElement('div', 'admin-review-empty', error?.message || 'Grafik admin gagal dimuat dari server.');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'admin-charts-grid';
+  wrapper.append(fallback);
+  return wrapper;
+}
+
+function buildAdminAccounts(accounts) {
+  elements.adminAccountsBody.replaceChildren();
+  const query = elements.adminAccountSearch.value.trim().toLocaleLowerCase('id-ID');
+  const visibleAccounts = query
+    ? accounts.filter((account) => `${account.name ?? ''} ${account.email ?? ''}`.toLocaleLowerCase('id-ID').includes(query))
+    : accounts;
+  elements.adminAccountCount.textContent = query
+    ? `${formatRelativeNumber(visibleAccounts.length)} dari ${formatRelativeNumber(accounts.length)} akun ditemukan`
+    : `${formatRelativeNumber(accounts.length)} akun terdaftar`;
+
+  if (visibleAccounts.length === 0) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.className = 'admin-accounts-empty';
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.textContent = query ? 'Tidak ada akun yang cocok. Coba nama atau email lain.' : 'Belum ada akun terdaftar di server.';
+    emptyRow.append(cell);
+    elements.adminAccountsBody.append(emptyRow);
+    return;
+  }
+
+  visibleAccounts.forEach((account) => {
+    const treeState = account.treeState ?? {};
+    const submissions = Array.isArray(treeState.sharingSubmissions) ? treeState.sharingSubmissions : [];
+    const accCount = submissions.filter((s) => s.status === 'validated').length;
+    const pendingCount = submissions.filter((s) => s.status === 'pending').length;
+    const receivedReports = submissions.reduce((n, s) => n + (Array.isArray(s.reports) ? s.reports.length : 0), 0);
+    const condition = TREE_CONDITION_LABELS[getTreeCondition(treeState)] ?? 'Sehat';
+    const treeLedger = (Array.isArray(treeState.fruitLedger) ? treeState.fruitLedger : []);
+    const grounding = treeLedger.filter((f) => f.placement === 'ground').length;
+    const gone = treeLedger.filter((f) => f.placement === 'gone').length;
+    const isAdmin = account.role === 'admin';
+
+    const row = document.createElement('tr');
+
+    const accountCell = document.createElement('td');
+    accountCell.className = 'admin-account-cell';
+    const avatar = makeElement('span', 'admin-account-avatar', (account.name ?? '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
+    const accountInfo = document.createElement('span');
+    accountInfo.className = 'admin-account-info';
+    accountInfo.append(
+      makeElement('strong', '', account.name ?? ''),
+      makeElement('small', '', account.email ?? ''),
+    );
+    const roleBadge = makeElement('span', `admin-role-badge ${isAdmin ? 'role-admin' : 'role-user'}`, isAdmin ? 'admin' : 'user');
+    const accountWrap = document.createElement('span');
+    accountWrap.className = 'admin-account-line';
+    accountWrap.append(avatar, accountInfo, roleBadge);
+    accountCell.append(accountWrap);
+    if (receivedReports > 0) {
+      accountCell.append(makeElement('span', 'admin-report-badge', `${receivedReports} laporan diterima`));
+    }
+
+    const treeCell = document.createElement('td');
+    treeCell.append(makeElement('strong', '', `L${treeState.level ?? 0}`));
+    treeCell.append(makeElement('small', '', `${STAGES[treeState.level ?? 0]} · ${condition}`));
+    treeCell.classList.add(isAdmin ? 'admin-tree-idle' : `admin-tree-${getTreeCondition(treeState)}`);
+
+    const storageCell = document.createElement('td');
+    storageCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.air ?? 0)} air · ${formatPupukUnits(treeState.fertilizerUnits)} pupuk`));
+    storageCell.append(makeElement('small', '', `progres ${formatRelativeNumber(treeState.growthAir ?? 0)} / ${formatPupukUnits(treeState.growthFertilizerUnits)}`));
+
+    const fruitsCell = document.createElement('td');
+    fruitsCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.fruitsOnTree ?? 0)} pohon · ${formatRelativeNumber(treeState.fruitsInStorage ?? 0)} storage`));
+    fruitsCell.append(makeElement('small', '', `${grounding} rebah · ${gone} hilang`));
+
+    const contentsCell = document.createElement('td');
+    contentsCell.append(makeElement('strong', '', `${submissions.length} konten`));
+    contentsCell.append(makeElement('small', '', `${accCount} ACC · ${pendingCount} menunggu`));
+
+    const activeCell = document.createElement('td');
+    activeCell.className = 'admin-active-cell';
+    activeCell.textContent = formatRelative(treeState.lastValidActivityAt);
+
+    const isSelf = currentAccount?.email === account.email;
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'admin-account-actions';
+    [makeAdminRowActionButton('reset', 'Reset pohon', account, isSelf),
+     makeAdminRowActionButton('role', isAdmin ? 'Jadikan user' : 'Jadikan admin', account, isSelf),
+     makeAdminRowActionButton('delete', 'Hapus', account, isSelf)].filter(Boolean).forEach((button) => actionsCell.append(button));
+
+    row.append(accountCell, treeCell, storageCell, fruitsCell, contentsCell, activeCell, actionsCell);
+    elements.adminAccountsBody.append(row);
+  });
+}
+
+function makeAdminRowActionButton(action, label, account, isSelf) {
+  if (action === 'delete' && isSelf) return null; // tidak menghapus akun yang sedang dipakai
+  const button = makeElement('button', `admin-row-action action-${action}`, label);
+  button.type = 'button';
+  button.dataset.adminAction = action;
+  button.dataset.userId = String(account.id);
+  button.dataset.accountEmail = account.email;
+  if (isSelf) button.title = 'Aksi ini pada akunmu sendiri setelahnya dimuat ulang.';
+  return button;
+}
+
+async function applyAdminAccountAction(button) {
+  const action = button.dataset.adminAction;
+  const userId = Number(button.dataset.userId);
+  const email = button.dataset.accountEmail;
+  const isSelf = currentAccount?.email === email;
+
+  if (action === 'reset') {
+    if (!(await confirmAdminAction({
+      title: 'Reset pohon akun?',
+      detail: `Pohon dan seluruh riwayat akun ${email} akan kembali ke Level 0. Tindakan ini tidak dapat dibatalkan.`,
+      confirmLabel: 'Reset pohon',
+      destructive: true,
+    }))) return;
+    try {
+      await apiAdminResetAccount(userId);
+    } catch (error) {
+      showToast(error?.message || 'Reset pohon gagal.', 'notice');
+      return;
+    }
+    if (isSelf) {
+      const fresh = await apiMe().catch(() => null);
+      applyServerSettings(fresh?.settings);
+      state = tickState(fresh?.treeState ?? createInitialState());
+      render(true);
+    }
+    showToast(`Pohon akun ${email} kembali ke Level 0 di server.`, 'success');
+    renderAdminReview();
+    return;
+  }
+
+  if (action === 'role') {
+    const targetRole = button.textContent.includes('Jadikan admin') ? 'admin' : 'user';
+    if (!(await confirmAdminAction({
+      title: 'Ubah peran akun?',
+      detail: `Akun ${email} akan menjadi ${targetRole}. ${targetRole === 'admin' ? 'Akun ini akan mendapat akses ke semua halaman admin.' : 'Akun ini tidak lagi dapat membuka halaman admin.'}`,
+      confirmLabel: `Jadikan ${targetRole}`,
+    }))) return;
+    try {
+      await apiAdminUpdateAccount(userId, targetRole);
+    } catch (error) {
+      showToast(error?.message || 'Peran akun gagal diubah.', 'notice');
+      return;
+    }
+    if (isSelf) {
+      currentAccount.role = targetRole;
+      applySidebarRole();
+      navigateToPage(pageForRole(pageFromLocationHash()), false);
+    }
+    showToast(`Peran akun ${email} sekarang ${targetRole}.`, 'success');
+    renderAdminReview();
+    return;
+  }
+
+  if (action === 'delete') {
+    if (!(await confirmAdminAction({
+      title: 'Hapus akun permanen?',
+      detail: `Akun ${email}, pohon, konten, dan semua sesinya akan dihapus dari server. Tindakan ini tidak dapat dibatalkan.`,
+      confirmLabel: 'Hapus akun',
+      destructive: true,
+    }))) return;
+    try {
+      await apiAdminDeleteAccount(userId);
+    } catch (error) {
+      showToast(error?.message || 'Hapus akun gagal.', 'notice');
+      return;
+    }
+    if (isSelf) {
+      leaveApp('Akunmu telah dihapus dari server.');
+    } else {
+      showToast(`Akun ${email} dihapus dari server.`, 'success');
+      renderAdminReview();
+    }
+  }
+}
+
+function populateAdminActivityUsers(accounts) {
+  elements.adminActivityUsers.replaceChildren();
+  accounts.forEach((account) => {
+    const option = document.createElement('option');
+    option.value = account.email;
+    option.label = account.name;
+    elements.adminActivityUsers.append(option);
+  });
+}
+
+function renderAdminActivityPage({ items, page, pageSize, total, totalPages }) {
+  elements.adminActivityList.replaceChildren();
+  adminActivityPage = page;
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  elements.adminActivityCount.textContent = total === 0
+    ? 'Tidak ada aktivitas sesuai filter.'
+    : `Aktivitas ${formatRelativeNumber(start)}–${formatRelativeNumber(end)} dari ${formatRelativeNumber(total)} tersimpan · halaman ${formatRelativeNumber(page)} dari ${formatRelativeNumber(totalPages)}`;
+  renderAdminActivityPagination(page, totalPages);
+
+  if (items.length === 0) {
+    elements.adminActivityList.append(makeElement('li', 'admin-review-empty',
+      'Tidak ada hasil. Coba pengguna, jenis aktivitas, atau periode lain.'));
+    return;
+  }
+
+  let previousDay = null;
+  items.forEach(({ account, entry }) => {
+    const date = Number.isFinite(entry.at) ? new Date(entry.at) : null;
+    const day = date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : 'unknown';
+    if (day !== previousDay) {
+      const heading = makeElement('li', 'admin-activity-day');
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+      const yesterdayKey = `${yesterday.getFullYear()}-${yesterday.getMonth()}-${yesterday.getDate()}`;
+      heading.textContent = day === todayKey ? 'Hari ini' : day === yesterdayKey ? 'Kemarin'
+        : date ? new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)
+          : 'Waktu tidak tercatat';
+      elements.adminActivityList.append(heading);
+      previousDay = day;
+    }
+    const item = document.createElement('li');
+    item.className = 'admin-activity-row';
+
+    const avatar = makeElement('span', 'admin-account-avatar', (account.name ?? '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
+
+    const body = document.createElement('div');
+    body.className = 'admin-activity-body';
+    const who = makeElement('strong', '', account.name ?? account.email);
+    const email = makeElement('span', 'admin-activity-email', account.email ?? '');
+    const typeChip = makeElement('span', 'admin-activity-type', ADMIN_HISTORY_TYPE_LABELS[entry.type] ?? entry.type);
+    const meta = document.createElement('span');
+    meta.className = 'admin-activity-meta';
+    meta.append(who, email, typeChip);
+    body.append(meta);
+    body.append(makeElement('p', 'admin-activity-title', entry.title ?? ''));
+    if (entry.detail) {
+      body.append(makeElement('small', '', entry.detail));
+    }
+
+    const deltas = document.createElement('div');
+    deltas.className = 'admin-activity-deltas';
+    appendDeltaChip(deltas, 'air', entry.airDelta);
+    appendDeltaChip(deltas, 'pupuk', entry.fertilizerDeltaUnits, 0.5);
+    appendDeltaChip(deltas, 'buah', entry.fruitDelta);
+    if (deltas.childElementCount > 0) body.append(deltas);
+
+    const when = makeElement('time', 'admin-activity-when', formatRelative(entry.at));
+    if (date) {
+      when.dateTime = date.toISOString();
+      when.title = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short' }).format(date);
+    }
+
+    item.append(avatar, body, when);
+    elements.adminActivityList.append(item);
+  });
+}
+
+function renderAdminActivityPagination(page, totalPages) {
+  const nav = elements.adminActivityPagination;
+  nav.replaceChildren();
+  nav.hidden = totalPages <= 1;
+  if (totalPages <= 1) return;
+
+  const addButton = (label, targetPage, disabled = false, current = false) => {
+    const button = makeElement('button', `admin-activity-page-button${current ? ' is-current' : ''}`, label);
+    button.type = 'button';
+    button.dataset.activityPage = String(targetPage);
+    button.disabled = disabled;
+    if (current) button.setAttribute('aria-current', 'page');
+    button.setAttribute('aria-label', label === 'Sebelumnya' || label === 'Berikutnya' ? label : `Halaman ${label}`);
+    nav.append(button);
+  };
+  addButton('Sebelumnya', page - 1, page === 1);
+  const pages = [...new Set([1, totalPages, page - 1, page, page + 1].filter((value) => value >= 1 && value <= totalPages))].sort((a, b) => a - b);
+  pages.forEach((value, index) => {
+    if (index > 0 && value - pages[index - 1] > 1) nav.append(makeElement('span', 'admin-activity-page-gap', '…'));
+    addButton(String(value), value, false, value === page);
+  });
+  addButton('Berikutnya', page + 1, page === totalPages);
+}
+
+function loadAdminActivity() {
+  const requestId = ++adminActivityRequestId;
+  elements.adminActivityCount.textContent = 'Memuat aktivitas…';
+  elements.adminActivityList.replaceChildren(makeElement('li', 'admin-review-empty', 'Memuat aktivitas…'));
+  elements.adminActivityPagination.hidden = true;
+  apiAdminActivity({
+    page: adminActivityPage,
+    search: elements.adminActivitySearch.value.trim(),
+    type: elements.adminActivityType.value,
+    period: elements.adminActivityPeriod.value,
+  }).then((data) => {
+    if (requestId !== adminActivityRequestId || currentRole() !== 'admin') return;
+    renderAdminActivityPage(data);
+  }).catch((error) => {
+    if (requestId !== adminActivityRequestId) return;
+    elements.adminActivityCount.textContent = 'Aktivitas gagal dimuat.';
+    elements.adminActivityPagination.hidden = true;
+    elements.adminActivityList.replaceChildren(makeElement('li', 'admin-review-empty', error?.message || 'Coba muat ulang halaman.'));
+  });
+}
+
+Object.entries(ADMIN_HISTORY_TYPE_LABELS).forEach(([value, label]) => {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  elements.adminActivityType.append(option);
+});
+
+function resetAdminActivityPage() {
+  adminActivityPage = 1;
+  loadAdminActivity();
+}
+
+elements.adminActivitySearch.addEventListener('input', () => {
+  adminActivityRequestId += 1;
+  window.clearTimeout(adminActivitySearchTimer);
+  adminActivitySearchTimer = window.setTimeout(resetAdminActivityPage, 250);
+});
+elements.adminActivityType.addEventListener('change', resetAdminActivityPage);
+elements.adminActivityPeriod.addEventListener('change', resetAdminActivityPage);
+elements.adminActivityClear.addEventListener('click', () => {
+  window.clearTimeout(adminActivitySearchTimer);
+  elements.adminActivitySearch.value = '';
+  elements.adminActivityType.value = 'all';
+  elements.adminActivityPeriod.value = 'all';
+  resetAdminActivityPage();
+  elements.adminActivitySearch.focus();
+});
+elements.adminActivityPagination.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-activity-page]');
+  if (!button || button.disabled || button.getAttribute('aria-current') === 'page') return;
+  adminActivityPage = Number(button.dataset.activityPage);
+  loadAdminActivity();
+});
+
+function appendDeltaChip(container, unit, delta, scale = 1) {
+  const value = Number(delta ?? 0);
+  if (!Number.isFinite(value) || value === 0) return;
+  const magnitude = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(Math.abs(value) * scale);
+  const direction = value > 0 ? '+' : '−';
+  const chipClass = value > 0 ? 'delta-plus' : 'delta-minus';
+  container.append(makeElement('span', `admin-delta ${chipClass}`, `${direction}${magnitude} ${unit}`));
 }
 
 function buildAdminReview(accounts) {
@@ -938,6 +2026,13 @@ function buildAdminReview(accounts) {
     actions.append(makeAdminConditionButton(row, 'validated', 'ACC'));
     actions.append(makeAdminConditionButton(row, 'stale', 'Tandai Basi'));
     actions.append(makeAdminConditionButton(row, 'rejected', 'Tidak Relevan'));
+    actions.append(makeAdminConditionButton(row, 'duplicate', 'Duplikat'));
+    const deleteContentButton = makeElement('button', 'admin-content-delete', 'Hapus konten');
+    deleteContentButton.type = 'button';
+    deleteContentButton.dataset.adminDeleteContent = row.submission.id;
+    deleteContentButton.dataset.accountEmail = row.account.email;
+    deleteContentButton.title = 'Hapus konten beserta buahnya secara permanen (slot dikosongkan).';
+    actions.append(deleteContentButton);
     item.append(actions);
 
     elements.adminReviewList.append(item);
@@ -948,6 +2043,14 @@ async function applyAdminCondition(button) {
   const email = button.dataset.adminEmail;
   const submissionId = button.dataset.submissionId;
   const condition = button.dataset.adminCondition;
+  const label = { validated: 'ACC', stale: 'Basi', rejected: 'Tidak Relevan', duplicate: 'Duplikat' }[condition];
+  if (!label) return;
+  const title = button.closest('.admin-submission')?.querySelector('h5')?.textContent ?? 'konten ini';
+  if (!(await confirmAdminAction({
+    title: `Tetapkan status ${label}?`,
+    detail: `Konten "${title}" milik ${email} akan berstatus ${label}. Pemilik akan mendapat pemberitahuan dan kondisi buahnya ikut berubah.`,
+    confirmLabel: `Tetapkan ${label}`,
+  }))) return;
   // Keputusan dijalankan server: mesin gamifikasi juga hidup di backend.
   let result;
   try {
@@ -958,6 +2061,12 @@ async function applyAdminCondition(button) {
   }
 
   const owner = { name: result.owner?.name ?? email, email: result.owner?.email ?? email };
+
+  // Admin yang memutuskan kontennya sendiri: tampilkan pemberitahuannya segera.
+  if (result.ownerState && result.owner?.email === currentAccount?.email) {
+    state = tickState(result.ownerState);
+    saveState();
+  }
 
   renderAdminReview();
 
@@ -971,13 +2080,33 @@ async function applyAdminCondition(button) {
   const ownerLabel = isCurrentAccount ? 'akunmu' : `akun ${owner.name}`;
   const messages = {
     validated: result.rewarded
-      ? `ACC: +3 Air, +2 Pupuk untuk ${ownerLabel}; buah konten ini muncul di Storage, slotnya sudah tercatat.`
+      ? `ACC: +${getGamificationSettings().accReward.air} Air, +${formatPupukDisplay(getGamificationSettings().accReward.fertilizerUnits)} Pupuk untuk ${ownerLabel}; buah konten ini muncul di Storage, slotnya sudah tercatat.`
       : `ACC ulang: buah konten ini kembali pada slot lamanya di pohon ${ownerLabel}.`,
     stale: `Basi: buah konten ini jatuh dan rebah busuk di bawah pohon ${ownerLabel}.`,
     rejected: `Tidak relevan: buah konten ini diangkat — hilang dari pohon ${ownerLabel}, slotnya kosong.`,
     duplicate: `Duplikat: buah duplikat diangkat; buah konten asli tetap ada.`,
   };
   showToast(result.applied ? (messages[condition] ?? 'Kondisi konten diperbarui.') : 'Kondisi konten sudah seperti itu.', condition === 'validated' ? 'success' : 'notice');
+}
+
+async function applyAdminDeleteContent(button) {
+  const submissionId = button.dataset.adminDeleteContent;
+  const email = button.dataset.accountEmail;
+  const title = button.closest('.admin-submission')?.querySelector('h5')?.textContent ?? 'konten ini';
+  if (!(await confirmAdminAction({
+    title: 'Hapus konten permanen?',
+    detail: `Konten "${title}" milik ${email} beserta buahnya akan dihapus. Slotnya dikosongkan dan tindakan ini tidak dapat dibatalkan.`,
+    confirmLabel: 'Hapus konten',
+    destructive: true,
+  }))) return;
+
+  try {
+    const result = await apiAdminDeleteContent(submissionId);
+    showToast(`Konten milik ${result.owner?.name ?? email} dihapus dari server; buahnya ikut diangkat.`, 'success');
+  } catch (error) {
+    showToast(error?.message || 'Hapus konten gagal.', 'notice');
+  }
+  renderAdminReview();
 }
 
 // Perpustakaan: konten relevan (ACC) lintas-akun dari server; pengguna lain
@@ -1180,7 +2309,8 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
 }
 
 function renderClock() {
-  const nextDecayAt = state.lastDecayAt + WEEK_MS;
+  const decayIntervalMs = Math.max(24 * 60 * 60 * 1000, getGamificationSettings().decayIntervalDays * 24 * 60 * 60 * 1000);
+  const nextDecayAt = state.lastDecayAt + decayIntervalMs;
   const remaining = Math.max(0, nextDecayAt - state.clockMs);
   const totalHours = Math.ceil(remaining / (60 * 60 * 1000));
   const days = Math.floor(totalHours / 24);
@@ -1204,7 +2334,257 @@ function render(animate = false, previousLevel = state.level, previousCondition 
   renderHistory();
   renderActivities();
   renderClock();
+  renderNotifications();
+  renderRewardLabels();
 }
+
+// Pemberitahuan review konten: lonceng di topbar + panel daftar; membuka
+// panel menandai semua pemberitahuan terbaca (tersimpan ke server).
+function renderNotifications() {
+  if (!state) return;
+  const notifications = Array.isArray(state.notifications) ? state.notifications : [];
+  const unread = notifications.filter((entry) => !entry.read).length;
+  elements.notifyBadge.hidden = unread === 0;
+  elements.notifyBadge.textContent = unread > 9 ? '9+' : String(unread);
+  elements.notifyPanel.classList.toggle('has-items', notifications.length > 0);
+
+  elements.notifyList.replaceChildren();
+  if (notifications.length === 0) {
+    elements.notifyList.append(makeElement('li', 'notify-empty', 'Belum ada pemberitahuan. Hasil review admin kontenmu akan muncul di sini.'));
+    return;
+  }
+  notifications.slice(0, 12).forEach((entry) => {
+    const item = makeElement('li', `notify-item${entry.read ? '' : ' is-unread'}`);
+    const head = makeElement('div', 'notify-item-head');
+    head.append(
+      makeElement('strong', 'notify-item-title', entry.title ?? 'Pemberitahuan'),
+      makeElement('time', 'notify-item-time', formatRelative(entry.at)),
+    );
+    item.append(head, makeElement('p', 'notify-item-detail', entry.detail ?? ''));
+    elements.notifyList.append(item);
+  });
+}
+
+function toggleNotifyPanel(open) {
+  const shouldOpen = open ?? elements.notifyPanel.hidden;
+  elements.notifyPanel.hidden = !shouldOpen;
+  elements.notifyToggle.setAttribute('aria-expanded', String(shouldOpen));
+  if (shouldOpen && state) {
+    const notifications = state.notifications ?? [];
+    if (notifications.some((entry) => !entry.read)) {
+      state.notifications = notifications.map((entry) => ({ ...entry, read: true }));
+      saveState();
+      renderNotifications();
+    }
+  }
+}
+
+// Label reward yang mengikuti parameter admin (halaman Learning/Sharing,
+// tombol selesaikan Learning) dirender ulang saat pengaturan berubah.
+function renderRewardLabels() {
+  const settings = getGamificationSettings();
+  const pupuk = (units) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(units / 2);
+  const f = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(num);
+
+  if (elements.learningRewardComplete) {
+    const units = settings.learningRewardFertilizerUnits;
+    elements.learningRewardComplete.textContent = `Tuntas · +${pupuk(units)} Pupuk`;
+  }
+  if (elements.learningPageDescription) {
+    elements.learningPageDescription.textContent = `Materi tuntas memberi +${pupuk(settings.learningRewardFertilizerUnits)} Pupuk ke Storage; rating valid memberi +${f(settings.learningRatingAir)} Air ke Storage.`;
+  }
+  if (elements.learningRewardRating) {
+    const air = settings.learningRatingAir;
+    elements.learningRewardRating.textContent = `Rating · +${f(air)} Air`;
+  }
+  if (elements.sharingRewardPill) {
+    const acc = settings.accReward;
+    elements.sharingRewardPill.textContent = `Tervalidasi · +1 Buah · +${f(acc.air)} Air · +${pupuk(acc.fertilizerUnits)} Pupuk ke Storage`;
+  }
+  elements.completeLearningButton.textContent = `Selesaikan Learning · +${pupuk(settings.learningRewardFertilizerUnits)} Pupuk ke Storage`;
+  renderLevelKey();
+}
+
+// Daftar kebutuhan level ikut parameter aktif; dibangun ulang tiap render —
+// bila admin mengubah ambang, semua akun melihat angka yang baru.
+function renderLevelKey() {
+  if (!elements.levelKeyList) return;
+  const settings = getGamificationSettings();
+  const f = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(num);
+  elements.levelKeyList.replaceChildren();
+  settings.levels.forEach((requirement) => {
+    const item = makeElement('div', 'level-key-item');
+    item.setAttribute('role', 'listitem');
+    item.setAttribute('aria-label', `Level ${requirement.level}, ${requirement.name}: ${requirement.air} Air, ${f(requirement.fertilizerUnits / 2)} Pupuk`);
+    const airCell = makeElement('span', '');
+    airCell.append(makeSvgIcon('icon-water'), document.createTextNode(String(requirement.air)));
+    const pupukCell = makeElement('span', '');
+    pupukCell.append(makeSvgIcon('icon-sprout'), document.createTextNode(f(requirement.fertilizerUnits / 2)));
+    item.append(makeElement('strong', '', `L${requirement.level}`), airCell, pupukCell);
+    elements.levelKeyList.append(item);
+  });
+}
+
+// --- Parameter gamifikasi (#9): form admin tersimpan di server ---
+
+function readNumberInput(input) {
+  const value = Number(input?.value);
+  return Number.isFinite(value) ? value : NaN;
+}
+
+function fillGamificationSettingsForm() {
+  if (!elements.gSaveButton || !currentAccount || currentRole() !== 'admin') return;
+  const settings = getGamificationSettings();
+  const f = (num) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(num);
+  elements.gAccAir.value = String(settings.accReward.air);
+  elements.gAccPupuk.value = f(settings.accReward.fertilizerUnits / 2);
+  elements.gAccessAir.value = String(settings.activityRewards.access);
+  elements.gReviewAir.value = String(settings.activityRewards.review);
+  elements.gLearnPupuk.value = f(settings.learningRewardFertilizerUnits / 2);
+  elements.gRatingAir.value = f(settings.learningRatingAir);
+  elements.gDecayDays.value = String(settings.decayIntervalDays);
+  elements.gDecayGAir.value = String(settings.decayPerPeriod.growthAir);
+  elements.gDecayGPupuk.value = f(settings.decayPerPeriod.growthFertilizerUnits / 2);
+  elements.gDecayCAir.value = f(settings.decayPerPeriod.careAir);
+  elements.gDecayCPupuk.value = f(settings.decayPerPeriod.careFertilizerUnits / 2);
+
+  elements.gLevelBody.replaceChildren();
+  settings.levels.forEach((requirement) => {
+    const row = document.createElement('tr');
+    const levelCell = document.createElement('td');
+    levelCell.className = 'settings-level-name';
+    levelCell.textContent = `L${requirement.level} · ${requirement.name}`;
+    const airCell = document.createElement('td');
+    const airInput = document.createElement('input');
+    airInput.type = 'number';
+    airInput.min = '0';
+    airInput.step = '1';
+    airInput.value = String(requirement.air);
+    airInput.dataset.levelAir = String(requirement.level);
+    airCell.append(airInput);
+    const pupukCell = document.createElement('td');
+    const pupukInput = document.createElement('input');
+    pupukInput.type = 'number';
+    pupukInput.min = '0';
+    pupukInput.step = '0.5';
+    pupukInput.value = f(requirement.fertilizerUnits / 2);
+    pupukInput.dataset.levelPupuk = String(requirement.level);
+    pupukCell.append(pupukInput);
+    row.append(levelCell, airCell, pupukCell);
+    elements.gLevelBody.append(row);
+  });
+}
+
+function collectGamificationSettings() {
+  const levels = [];
+  let previousAir = -1;
+  let previousUnits = -1;
+  for (let level = 1; level <= 7; level += 1) {
+    const air = readNumberInput(elements.gLevelBody.querySelector(`input[data-level-air="${level}"]`));
+    const pupuk = readNumberInput(elements.gLevelBody.querySelector(`input[data-level-pupuk="${level}"]`));
+    if (!Number.isFinite(air) || !Number.isFinite(pupuk) || air < 0 || pupuk < 0) {
+      return { error: `Ambang Level ${level} tidak valid (angka minimal 0).` };
+    }
+    const units = Math.round(pupuk * 2);
+    if (air < previousAir || units < previousUnits) {
+      return { error: `Ambang level harus tidak menurun: Level ${level} lebih rendah dari level sebelumnya.` };
+    }
+    if (level === 1 && air < 1) {
+      return { error: 'Ambang Level 1 minimal 1 Air.' };
+    }
+    levels.push({ level, air, fertilizerUnits: units });
+    previousAir = air;
+    previousUnits = units;
+  }
+
+  const accAir = readNumberInput(elements.gAccAir);
+  const accPupuk = readNumberInput(elements.gAccPupuk);
+  const accessAir = readNumberInput(elements.gAccessAir);
+  const reviewAir = readNumberInput(elements.gReviewAir);
+  const learnPupuk = readNumberInput(elements.gLearnPupuk);
+  const ratingAir = readNumberInput(elements.gRatingAir);
+  const decayDays = readNumberInput(elements.gDecayDays);
+  const decayGAir = readNumberInput(elements.gDecayGAir);
+  const decayGPupuk = readNumberInput(elements.gDecayGPupuk);
+  const decayCAir = readNumberInput(elements.gDecayCAir);
+  const decayCPupuk = readNumberInput(elements.gDecayCPupuk);
+  const decayGPupukUnits = decayGPupuk * 2;
+  const decayCPupukUnits = decayCPupuk * 2;
+
+  if ([accAir, accPupuk, accessAir, reviewAir, learnPupuk, ratingAir, decayDays, decayGAir, decayGPupuk, decayCAir, decayCPupuk]
+    .some((value) => !Number.isFinite(value) || value < 0)) {
+    return { error: 'Semua parameter harus angka dan tidak boleh negatif.' };
+  }
+  if (decayDays < 1) return { error: 'Interval decay minimal 1 hari.' };
+
+  return {
+    settings: {
+      accReward: { air: Math.round(accAir), fertilizerUnits: Math.round(accPupuk * 2) },
+      activityRewards: { access: Math.round(accessAir), review: Math.round(reviewAir) },
+      learningRewardFertilizerUnits: Math.round(learnPupuk * 2),
+      learningRatingAir: Math.round(ratingAir),
+      decayIntervalDays: Math.round(decayDays),
+      decayPerPeriod: {
+        growthAir: Math.round(decayGAir),
+        growthFertilizerUnits: Math.round(decayGPupukUnits),
+        careAir: Math.round(decayCAir),
+        careFertilizerUnits: Math.round(decayCPupukUnits),
+      },
+      levels,
+    },
+  };
+}
+
+elements.gSaveButton.addEventListener('click', async () => {
+  const collected = collectGamificationSettings();
+  if (collected.error) {
+    elements.gFeedback.textContent = collected.error;
+    elements.gFeedback.className = 'settings-feedback is-error';
+    return;
+  }
+
+  if (!(await confirmAdminAction({
+    title: 'Simpan parameter gamifikasi?',
+    detail: 'Reward, decay, dan ambang level yang baru akan disimpan di server serta berlaku untuk seluruh akun.',
+    confirmLabel: 'Simpan parameter',
+  }))) return;
+
+  elements.gSaveButton.disabled = true;
+  try {
+    const settings = await apiAdminSaveSettings(collected.settings);
+    applyServerSettings(settings);
+    elements.gFeedback.textContent = 'Parameter tersimpan dan langsung dipakai mesin untuk semua akun.';
+    elements.gFeedback.className = 'settings-feedback is-ok';
+    showToast('Parameter gamifikasi tersimpan di server.', 'success');
+  } catch (error) {
+    elements.gFeedback.textContent = error?.message || 'Parameter gagal tersimpan.';
+    elements.gFeedback.className = 'settings-feedback is-error';
+  } finally {
+    elements.gSaveButton.disabled = false;
+  }
+});
+
+elements.gDefaultButton.addEventListener('click', async () => {
+  if (!(await confirmAdminAction({
+    title: 'Kembalikan parameter bawaan?',
+    detail: 'Semua pengaturan reward, decay, dan ambang level untuk seluruh akun akan kembali ke nilai bawaan prototipe.',
+    confirmLabel: 'Kembalikan bawaan',
+    destructive: true,
+  }))) return;
+  elements.gDefaultButton.disabled = true;
+  try {
+    const settings = await apiAdminSaveSettings(DEFAULT_GAMIFICATION_SETTINGS);
+    applyServerSettings(settings);
+    elements.gFeedback.textContent = 'Parameter kembali ke nilai bawaan prototipe.';
+    elements.gFeedback.className = 'settings-feedback is-ok';
+    showToast('Parameter dikembalikan ke bawaan.', 'success');
+  } catch (error) {
+    elements.gFeedback.textContent = error?.message || 'Parameter gagal tersimpan.';
+    elements.gFeedback.className = 'settings-feedback is-error';
+  } finally {
+    elements.gDefaultButton.disabled = false;
+  }
+});
 
 let toastTimer;
 function showToast(message, tone = 'success') {
@@ -1249,7 +2629,11 @@ function updateLearningQuizState() {
 }
 
 function openLearningModule(moduleId) {
-  const module = LEARNING_MODULES.find((entry) => entry.id === moduleId);
+  const module = learningModules.find((entry) => entry.id === moduleId);
+  if (!module) {
+    showToast('Modul tidak ditemukan pada katalog saat ini.', 'notice');
+    return;
+  }
   if (!module || state.completedLearningIds.includes(moduleId)) return;
 
   activeLearningModule = module;
@@ -1299,16 +2683,16 @@ elements.loginForm.addEventListener('submit', async (event) => {
   const formData = new FormData(elements.loginForm);
 
   try {
-    const { account, treeState } = await apiEntry({
+    const { account, treeState, settings } = await apiEntry({
       name: String(formData.get('name')),
       email: String(formData.get('email')),
       password: String(formData.get('password')),
     });
     elements.loginForm.reset();
     const isNew = account.isNew === true;
-    enterApp(account, treeState, true);
+    enterApp(account, treeState, true, settings);
     if (isNew) {
-      showToast('Kebun baru dibuat di server. Selamat menanam! +1 Air masuk Storage.', 'success');
+      showToast('Kebun baru dibuat di server. Selamat menanam!', 'success');
     }
   } catch (error) {
     setAuthMessage(error.message, 'error');
@@ -1317,6 +2701,17 @@ elements.loginForm.addEventListener('submit', async (event) => {
 
 elements.logoutButton.addEventListener('click', () => {
   leaveApp('Kamu sudah keluar dari akun demo.');
+});
+
+elements.notifyToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+  toggleNotifyPanel();
+});
+
+document.addEventListener('click', (event) => {
+  if (elements.notifyPanel.hidden) return;
+  if (event.target.closest('#notifyPanel') || event.target.closest('#notifyToggle')) return;
+  toggleNotifyPanel(false);
 });
 
 elements.pageLinks.forEach((link) => {
@@ -1398,7 +2793,7 @@ elements.learningQuizForm.addEventListener('submit', (event) => {
 
   const result = completeLearningModule(state, activeLearningModule.id, { title: activeLearningModule.title });
   if (result.awarded) {
-    updateWith(result.state, `Learning selesai: ${activeLearningModule.title}. +1 Pupuk masuk Storage; gunakan pada pohon untuk menambah progres.`);
+    updateWith(result.state, `Learning selesai: ${activeLearningModule.title}. +${formatPupukDisplay(getGamificationSettings().learningRewardFertilizerUnits)} Pupuk masuk Storage; gunakan pada pohon untuk menambah progres.`);
   }
   elements.learningDialog.close();
   activeLearningModule = null;
@@ -1409,7 +2804,7 @@ elements.learningCatalog.addEventListener('submit', (event) => {
   if (!ratingForm) return;
   event.preventDefault();
 
-  const module = LEARNING_MODULES.find((entry) => entry.id === ratingForm.dataset.learningRating);
+  const module = learningModules.find((entry) => entry.id === ratingForm.dataset.learningRating);
   if (!module) return;
   const rating = Number(new FormData(ratingForm).get('rating'));
   const result = rateLearningModule(state, module.id, rating, { title: module.title });
@@ -1418,7 +2813,7 @@ elements.learningCatalog.addEventListener('submit', (event) => {
     return;
   }
 
-  updateWith(result.state, `Rating ${rating}/5 tersimpan. +1 Air masuk Storage; gunakan pada pohon untuk menambah progres.`);
+  updateWith(result.state, `Rating ${rating}/5 tersimpan. +${getGamificationSettings().learningRatingAir} Air masuk Storage; gunakan pada pohon untuk menambah progres.`);
 });
 
 elements.sharingForm.addEventListener('submit', async (event) => {
@@ -1473,9 +2868,24 @@ elements.adminSummary.addEventListener('click', (event) => {
 
 elements.adminReviewList.addEventListener('click', (event) => {
   const conditionButton = event.target.closest('[data-admin-condition]');
-  if (!conditionButton) return;
+  if (conditionButton) {
+    applyAdminCondition(conditionButton);
+    return;
+  }
 
-  applyAdminCondition(conditionButton);
+  const deleteButton = event.target.closest('[data-admin-delete-content]');
+  if (deleteButton) {
+    applyAdminDeleteContent(deleteButton);
+  }
+});
+
+elements.adminAccountSearch.addEventListener('input', () => buildAdminAccounts(latestAdminAccounts));
+
+elements.adminAccountsBody.addEventListener('click', (event) => {
+  const actionButton = event.target.closest('[data-admin-action]');
+  if (!actionButton) return;
+
+  applyAdminAccountAction(actionButton);
 });
 
 elements.libraryList.addEventListener('click', (event) => {
@@ -1812,7 +3222,7 @@ elements.resetButton.addEventListener('click', () => {
 function initialize() {
   // Sesi tersimpan di server (cookie HttpOnly); pulihkan akun + pohnnya.
   apiMe()
-    .then(({ account, treeState }) => enterApp(account, treeState, false))
+    .then(({ account, treeState, settings }) => enterApp(account, treeState, false, settings))
     .catch(() => {
       // Tanpa sesi: layar masuk tetap tampil.
     });

@@ -23,6 +23,7 @@
       <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
       <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
       <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-4.8"/></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 16V11a6 6 0 1 0-12 0v5l-1.5 2.5h15L18 16Z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></symbol>
       <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
       <symbol id="icon-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
     </svg>
@@ -64,7 +65,10 @@
             <a class="nav-link" href="#learning" data-page-link data-page-target="learning" data-user-only><span class="nav-dot"></span><span>Learning</span></a>
             <a class="nav-link" href="#sharing" data-page-link data-page-target="sharing" data-user-only><span class="nav-dot"></span><span>Sharing</span></a>
             <a class="nav-link" href="#library" data-page-link data-page-target="library" data-user-only><span class="nav-dot"></span><span>Perpustakaan</span></a>
-            <a class="nav-link" href="#admin" data-page-link data-page-target="admin" data-admin-only><span class="nav-dot"></span><span>Review Admin</span></a>
+            <a class="nav-link" href="#admin" data-page-link data-page-target="admin" data-admin-only><span class="nav-dot"></span><span>Pusat Admin</span></a>
+            <a class="nav-link" href="#review" data-page-link data-page-target="review" data-admin-only><span class="nav-dot"></span><span>Review Konten</span></a>
+            <a class="nav-link" href="#activity" data-page-link data-page-target="activity" data-admin-only><span class="nav-dot"></span><span>Log Aktivitas</span></a>
+            <a class="nav-link" href="#learnadm" data-page-link data-page-target="learnadm" data-admin-only><span class="nav-dot"></span><span>Kelola Learning</span></a>
             <a class="nav-link" href="#history" data-page-link data-page-target="history" data-user-only><span class="nav-dot"></span><span>Riwayat</span></a>
           </nav>
           <div class="sidebar-footer"><span class="online-indicator"></span><span>Prototype siap</span><span class="version-tag">v0.1</span></div>
@@ -83,6 +87,13 @@
           </div>
           <div class="topbar-right">
             <span class="demo-chip"><span></span> MODE DEMO</span>
+            <div class="notify-wrap">
+              <button class="notify-button" id="notifyToggle" type="button" aria-label="Pemberitahuan review konten" aria-expanded="false" title="Pemberitahuan review konten"><svg class="icon"><use href="#icon-bell" /></svg><span class="notify-badge" id="notifyBadge" hidden>0</span></button>
+              <div class="notify-panel" id="notifyPanel" hidden>
+                <div class="notify-panel-head"><strong>Pemberitahuan</strong><small>Hasil review admin</small></div>
+                <ul class="notify-list" id="notifyList"></ul>
+              </div>
+            </div>
             <div class="user-avatar" id="userAvatar" aria-hidden="true">N</div>
             <div class="user-label"><strong id="currentUserName">Pengguna Demo</strong><span>Knowledge explorer</span></div>
             <button class="logout-button" id="logoutButton" type="button">Keluar</button>
@@ -168,25 +179,20 @@
             <div class="content-status-heading">
               <div>
                 <p class="eyebrow">KONDISI KONTEN SHARING</p>
-                <h3 id="contentStatusTitle">Status konten & warna buah</h3>
-                <p class="content-status-note">Satu buah = satu konten unik. Merah matang menggantung = ACC (relevan); coklat busuk rebah di tanah = basi; slot kosong = buah belum dipindah dari Storage atau sudah diangkat (tidak relevan/duplikat). Posisi buah tidak pernah bergeser mengisi celah.</p>
+                <h3 id="contentStatusTitle">Status konten kamu</h3>
+                <p class="content-status-note">Setiap konten Sharing punya satu buah sendiri — warnanya menunjukkan kondisinya.</p>
               </div>
-              <span class="content-status-count" id="contentStatusCount" title="Jumlah konten Sharing">0</span>
+              <span class="content-status-count" id="contentStatusCount" title="Jumlah konten Sharing">0 konten</span>
             </div>
             <div class="content-status-scroll">
               <table class="content-status-table">
                 <thead>
-                  <tr><th scope="col">Materi</th><th scope="col">Jenis</th><th scope="col">Dikirim</th><th scope="col">Kondisi</th></tr>
+                  <tr><th scope="col">Materi</th><th scope="col">Dikirim</th><th scope="col">Kondisi</th></tr>
                 </thead>
                 <tbody id="contentStatusBody"></tbody>
               </table>
             </div>
-            <div class="content-status-legend" aria-label="Legenda warna buah">
-              <span class="legend-item"><span class="fruit-dot validated"></span>Merah matang · ACC</span>
-              <span class="legend-item"><span class="fruit-dot pending"></span>Hijau muda · Menunggu</span>
-              <span class="legend-item"><span class="fruit-dot stale"></span>Coklat busuk · Basi (rebah)</span>
-              <span class="legend-item"><span class="fruit-dot rejected"></span>Kuning kusam · Diangkat</span>
-            </div>
+            <p class="content-status-footnote">Posisinya di pohon: merah matang menggantung (ACC) · coklat busuk rebah di tanah (basi) · kuning kusam diangkat — slotnya kosong dan tidak digeser buah lain.</p>
           </article>
 
           <details class="demo-details">
@@ -216,18 +222,18 @@
           <section class="page-view" id="learningPage" data-page-view="learning" aria-label="Halaman Learning" hidden>
             <section class="activity-page panel" id="learningContent" aria-labelledby="activities-title">
               <div class="panel-heading activity-page-heading">
-                  <div><p class="eyebrow">AKTIVITAS KMS · LEARNING</p><h2 id="activities-title">Pustaka pembelajaran</h2><p class="activity-page-description">Materi tuntas memberi 1 Pupuk ke Storage; rating valid memberi 1 Air ke Storage.</p></div>
+                  <div><p class="eyebrow">AKTIVITAS KMS · LEARNING</p><h2 id="activities-title">Pustaka pembelajaran</h2><p class="activity-page-description" id="learningPageDescription">Materi tuntas memberi reward Pupuk ke Storage; rating valid memberi reward Air ke Storage.</p></div>
               </div>
               <section class="learning-panel learning-page-panel" aria-labelledby="learning-title">
-                <div class="activity-section-heading"><h3 id="learning-title">Materi yang tersedia</h3><span class="learning-module-count">3 materi</span></div>
+                <div class="activity-section-heading"><h3 id="learning-title">Materi yang tersedia</h3><span class="learning-module-count" id="learningModuleCount">3 materi</span></div>
                 <div class="learning-overview">
                   <div class="learning-overview-progress" role="group" aria-label="Progres Learning">
                     <span class="learning-overview-icon"><svg class="icon"><use href="#icon-book" /></svg></span>
                     <strong id="learningProgressCount">0 / 3 selesai</strong>
                   </div>
                   <div class="learning-reward-icons" role="group" aria-label="Reward Learning">
-                    <span role="img" title="Tuntas: +1 Pupuk ke Storage" aria-label="Tuntas, tambah 1 Pupuk ke Storage"><svg class="icon"><use href="#icon-sprout" /></svg><b>Tuntas · +1 Pupuk</b></span>
-                    <span role="img" title="Rating: +1 Air ke Storage" aria-label="Rating, tambah 1 Air ke Storage"><svg class="icon"><use href="#icon-water" /></svg><b>Rating · +1 Air</b></span>
+                    <span role="img" title="Tuntas: reward Pupuk ke Storage" aria-label="Tuntas, tambah reward Pupuk ke Storage"><svg class="icon"><use href="#icon-sprout" /></svg><b id="learningRewardComplete">Tuntas · +1 Pupuk</b></span>
+                    <span role="img" title="Rating: reward Air ke Storage" aria-label="Rating, tambah reward Air ke Storage"><svg class="icon"><use href="#icon-water" /></svg><b id="learningRewardRating">Rating · +1 Air</b></span>
                   </div>
                 </div>
                 <div class="learning-grid" id="learningCatalog" aria-live="polite"></div>
@@ -239,7 +245,7 @@
             <section class="activity-page panel sharing-page" aria-labelledby="sharing-title">
               <div class="panel-heading activity-page-heading">
                 <div><p class="eyebrow">AKTIVITAS KMS · SHARING</p><h2 id="sharing-title">Bagikan pengetahuan</h2><p class="activity-page-description">Kirim materi untuk ditinjau admin: kondisinya bisa ACC (relevan), Basi, atau Tidak relevan. Video pendukung dapat diunggah secara opsional.</p></div>
-                <span class="sharing-reward-pill" title="Buah, Air, dan Pupuk masuk Storage. Gunakan tombol Buah untuk memindahkannya satu per satu ke pohon sehat Level 3+.">Tervalidasi · +1 Buah · +3 Air · +2 Pupuk ke Storage</span>
+                <span class="sharing-reward-pill" title="Reward tervalidasi mengikuti parameter admin" id="sharingRewardPill">Tervalidasi · +1 Buah · +3 Air · +2 Pupuk ke Storage</span>
               </div>
               <section class="sharing-panel sharing-page-panel" aria-label="Form Sharing dan antrean validasi">
                 <div class="sharing-section-heading"><div><p class="eyebrow">KIRIM KONTRIBUSI</p><h3>Materi Sharing</h3></div></div>
@@ -264,7 +270,7 @@
           <section class="page-view" id="libraryPage" data-page-view="library" aria-label="Halaman Perpustakaan" hidden>
             <section class="activity-page panel library-page" aria-labelledby="library-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">AKTIVITAS KMS · PERPUSTAKAAN</p><h2 id="library-title">Konten dari user lain</h2><p class="activity-page-description">Koleksi konten Sharing yang sudah di-ACC admin dari semua akun di browser ini. Menurutmu ada yang tidak relevan atau duplikat? Laporkan — admin yang memutuskan kondisinya secara manual.</p></div>
+                <div><p class="eyebrow">AKTIVITAS KMS · PERPUSTAKAAN</p><h2 id="library-title">Konten dari user lain</h2><p class="activity-page-description">Koleksi konten Sharing yang sudah di-ACC admin dari semua akun terdaftar di server. Menurutmu ada yang tidak relevan atau duplikat? Laporkan — admin yang memutuskan kondisinya secara manual.</p></div>
                 <span class="sharing-reward-pill library-pill" title="Satu akun satu laporan per konten">1 akun · 1 laporan per konten</span>
               </div>
               <div class="library-summary"><span class="library-count-badge" id="libraryCount" title="Jumlah konten relevan">0</span><span class="library-count-label">konten relevan terkumpul</span></div>
@@ -272,15 +278,113 @@
             </section>
           </section>
 
-          <section class="page-view" id="adminPage" data-page-view="admin" aria-label="Halaman Review Admin" hidden>
-            <section class="activity-page panel admin-page" aria-labelledby="admin-title">
+          <section class="page-view" id="dashboardPage" data-page-view="admin" aria-label="Halaman Pusat Admin" hidden>
+            <article class="activity-page panel admin-page admin-app" aria-labelledby="admin-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="admin-title">Review konten Sharing</h2><p class="activity-page-description">Tinjau konten dari semua akun di browser ini, lalu tentukan kondisinya: ACC (relevan), Basi (buah jatuh rebah di bawah pohon), atau Tidak relevan/duplikat (buah diangkat, slot kosong). Hitungan laporan pengguna tampil pada tiap konten; keputusan tetap di tanganmu.</p></div>
-                <span class="sharing-reward-pill admin-pill" title="Admin prototype lintas-akun">Admin · semua akun di browser</span>
+                <div><p class="eyebrow">MODE ADMIN · PUSAT KENDALI KMS</p><h2 id="admin-title">Pusat Admin</h2><p class="activity-page-description">Lihat kondisi kebun dan akun dalam satu tempat. Keputusan konten ada di Review Konten; riwayat pengguna ada di Log Aktivitas.</p></div>
+                <span class="sharing-reward-pill admin-pill" title="Admin prototype lintas-akun">Admin · lintas akun server</span>
+              </div>
+
+              <h3 class="admin-subsection-title">Ringkasan kebun</h3>
+              <div class="admin-stats" id="adminStats" aria-live="polite"></div>
+              <h3 class="admin-subsection-title">Apa yang terjadi di kebun?</h3>
+              <p class="admin-charts-intro">Empat ringkasan di bawah menjawab: bagaimana status konten, posisi buah, aktivitas pekan ini, dan level akun.</p>
+              <div class="admin-charts" id="adminCharts" aria-live="polite"></div>
+
+              <div class="admin-section-heading">
+                <div><h3 class="admin-subsection-title">Akun &amp; pohon</h3><p>Cari akun, lalu lihat kondisi pohon, saldo Storage, konten, dan aktivitasnya.</p></div>
+                <label class="admin-account-search"><span class="sr-only">Cari akun berdasarkan nama atau email</span><input id="adminAccountSearch" type="search" placeholder="Cari nama atau email…" autocomplete="off" /></label>
+              </div>
+              <p class="admin-result-count" id="adminAccountCount" role="status" aria-live="polite"></p>
+              <div class="admin-accounts-scroll" role="region" aria-label="Tabel akun dan pohon, geser ke samping untuk melihat semua kolom" tabindex="0">
+                <table class="admin-accounts-table admin-dashboard-table">
+                  <thead>
+                    <tr><th scope="col">Akun</th><th scope="col">Pohon</th><th scope="col">Storage</th><th scope="col">Buah</th><th scope="col">Konten</th><th scope="col">Aktif</th><th scope="col">Aksi</th></tr>
+                  </thead>
+                  <tbody id="adminAccountsBody"></tbody>
+                </table>
+              </div>
+
+              <details class="admin-settings-details">
+                <summary><span>Parameter gamifikasi</span><small>Atur reward, decay, dan ambang level untuk semua akun</small></summary>
+              <div class="gamification-settings" id="gamificationSettingsBox" aria-live="polite">
+                <p class="gamification-settings-note">Nilai di sini dipakai mesin untuk semua akun (tersimpan di server). Pupuk ditulis dalam unit tampilan; 2 unit tampilan = 1 unit mesin.</p>
+                <div class="settings-grid">
+                  <label class="settings-field"><span>Reward ACC · Air</span><input id="gAccAir" type="number" min="0" max="20" step="1" /></label>
+                  <label class="settings-field"><span>Reward ACC · Pupuk</span><input id="gAccPupuk" type="number" min="0" max="25" step="0.5" /></label>
+                  <label class="settings-field"><span>Reward Login valid · Air</span><input id="gAccessAir" type="number" min="0" max="10" step="1" /></label>
+                  <label class="settings-field"><span>Reward Review · Air</span><input id="gReviewAir" type="number" min="0" max="10" step="1" /></label>
+                  <label class="settings-field"><span>Reward Learning · Pupuk</span><input id="gLearnPupuk" type="number" min="0" max="25" step="0.5" /></label>
+                  <label class="settings-field"><span>Reward Rating · Air</span><input id="gRatingAir" type="number" min="0" max="10" step="1" /></label>
+                  <label class="settings-field"><span>Interval Decay (hari)</span><input id="gDecayDays" type="number" min="1" max="90" step="1" /></label>
+                  <label class="settings-field"><span>Decay · Progress Air</span><input id="gDecayGAir" type="number" min="0" max="10" step="1" /></label>
+                  <label class="settings-field"><span>Decay · Progress Pupuk</span><input id="gDecayGPupuk" type="number" min="0" max="10" step="0.5" /></label>
+                  <label class="settings-field"><span>Decay · Maintenance Air</span><input id="gDecayCAir" type="number" min="0" max="10" step="1" /></label>
+                  <label class="settings-field"><span>Decay · Maintenance Pupuk</span><input id="gDecayCPupuk" type="number" min="0" max="10" step="0.5" /></label>
+                </div>
+                <table class="settings-level-table">
+                  <thead><tr><th scope="col">Level</th><th scope="col">Threshold Air</th><th scope="col">Threshold Pupuk</th></tr></thead>
+                  <tbody id="gLevelBody"></tbody>
+                </table>
+                <div class="settings-actions">
+                  <button class="settings-save-button" id="gSaveButton" type="button">Simpan parameter</button>
+                  <button class="settings-default-button" id="gDefaultButton" type="button">Kembalikan bawaan</button>
+                </div>
+                <p class="settings-feedback" id="gFeedback" role="status" aria-live="polite"></p>
+              </div>
+              </details>
+            </article>
+          </section>
+
+          <section class="page-view" id="adminActivityPage" data-page-view="activity" aria-label="Halaman Log Aktivitas Admin" hidden>
+            <article class="activity-page panel admin-page admin-app admin-log-page" aria-labelledby="admin-activity-title">
+              <div class="panel-heading activity-page-heading">
+                <div><p class="eyebrow">MODE ADMIN · RIWAYAT LINTAS AKUN</p><h2 id="admin-activity-title">Log Aktivitas</h2><p class="activity-page-description">Telusuri aktivitas yang tersimpan per pengguna, jenis, dan periode. Setiap akun menyimpan hingga 30 aktivitas terakhir.</p></div>
+              </div>
+              <div class="admin-activity-controls" role="group" aria-label="Saring aktivitas pengguna">
+                <label>Cari pengguna
+                  <input id="adminActivitySearch" type="search" placeholder="Nama atau email…" list="adminActivityUsers" autocomplete="off" />
+                  <datalist id="adminActivityUsers"></datalist>
+                </label>
+                <label>Jenis aktivitas
+                  <select id="adminActivityType"><option value="all">Semua jenis</option></select>
+                </label>
+                <label>Periode
+                  <select id="adminActivityPeriod"><option value="all">Semua waktu tersimpan</option><option value="7">7 hari terakhir</option><option value="30">30 hari terakhir</option></select>
+                </label>
+                <button id="adminActivityClear" type="button">Reset filter</button>
+              </div>
+              <p class="admin-activity-count" id="adminActivityCount" role="status" aria-live="polite"></p>
+              <ul class="admin-activity-list" id="adminActivityList" aria-live="polite"></ul>
+              <nav class="admin-activity-pagination" id="adminActivityPagination" aria-label="Halaman aktivitas" hidden></nav>
+            </article>
+          </section>
+
+          <section class="page-view" id="reviewPage" data-page-view="review" aria-label="Halaman Review Konten" hidden>
+            <article class="activity-page panel admin-page" aria-labelledby="review-title">
+              <div class="panel-heading activity-page-heading">
+                <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="review-title">Review konten Sharing</h2><p class="activity-page-description">Tentukan kondisi konten dari semua akun terdaftar: ACC (relevan), Basi (buah jatuh rebah di bawah pohon), atau Tidak relevan/duplikat (buah diangkat, slot kosong). Hitungan laporan pengguna tampil pada tiap konten; keputusan tetap manual.</p></div>
               </div>
               <div class="admin-summary" id="adminSummary" role="group" aria-label="Ringkasan dan saringan status konten"></div>
               <div class="admin-review-list" id="adminReviewList" aria-live="polite"></div>
-            </section>
+            </article>
+          </section>
+
+          <section class="page-view" id="learnAdminPage" data-page-view="learnadm" aria-label="Halaman Kelola Learning" hidden>
+            <article class="activity-page panel admin-page" aria-labelledby="learnadm-title">
+              <div class="panel-heading activity-page-heading">
+                <div><p class="eyebrow">MODE ADMIN · KATALOG BELAJAR</p><h2 id="learnadm-title">Kelola modul Learning</h2><p class="activity-page-description">Modul yang tersimpan di server dipakai semua akun; katalog bawaan dipakai bila daftar masih kosong. Rekap penyelesaian dan rating dihitung dari seluruh akun terdaftar.</p></div>
+                <button class="learning-admin-add" id="addLearningModuleButton" type="button">Tambah modul</button>
+              </div>
+              <div class="admin-accounts-scroll">
+                <table class="admin-accounts-table learn-admin-table">
+                  <thead>
+                    <tr><th scope="col">Modul</th><th scope="col">Kategori</th><th scope="col">Status</th><th scope="col">Selesai</th><th scope="col">Rating</th><th scope="col">Aksi</th></tr>
+                  </thead>
+                  <tbody id="learnAdminBody"></tbody>
+                </table>
+              </div>
+            </article>
           </section>
 
           <section class="page-view" id="historyPage" data-page-view="history" hidden>
@@ -305,8 +409,42 @@
         <fieldset id="learningQuiz" class="learning-quiz"></fieldset>
         <label class="learning-read-check"><input id="learningReadCheck" type="checkbox" /> <span>Saya sudah mempelajari materi di atas.</span></label>
         <p class="learning-feedback" id="learningFeedback" role="status" aria-live="polite">Pilih jawaban kuis dan konfirmasi materi untuk menyelesaikan Learning.</p>
-        <button class="learning-complete-button" id="completeLearningButton" type="submit" disabled>Selesaikan Learning · +1 Pupuk ke Storage</button>
+        <button class="learning-complete-button" id="completeLearningButton" type="submit" disabled>Selesaikan Learning</button>
       </form>
+    </dialog>
+
+    <dialog class="learning-dialog learning-admin-dialog" id="learningAdminDialog" aria-labelledby="learnAdminDialogTitle">
+      <div class="learning-dialog-header">
+        <div><p class="eyebrow">KELOLA LEARNING</p><h2 id="learnAdminDialogTitle">Form modul Learning</h2></div>
+        <button class="dialog-close" id="learnAdminDialogClose" type="button" aria-label="Tutup form modul">×</button>
+      </div>
+      <form id="learningModuleForm" class="learning-module-form">
+        <div class="settings-grid">
+          <label class="settings-field"><span>Judul modul</span><input id="learnFieldTitle" type="text" maxlength="120" required /></label>
+          <label class="settings-field"><span>Kategori (mis. Video + bacaan)</span><input id="learnFieldCategory" type="text" maxlength="60" /></label>
+          <label class="settings-field"><span>Durasi</span><input id="learnFieldDuration" type="text" maxlength="40" placeholder="7 menit" /></label>
+          <label class="settings-field"><span>Resource label</span><input id="learnFieldResourceLabel" type="text" maxlength="80" /></label>
+        </div>
+        <label class="settings-field"><span>Resource URL</span><input id="learnFieldResourceUrl" type="url" maxlength="500" placeholder="https://" /></label>
+        <label class="settings-field"><span>Deskripsi singkat</span><textarea id="learnFieldDescription" rows="2" maxlength="300"></textarea></label>
+        <label class="settings-field"><span>Isi materi — satu baris per section: <b>Judul heading | Paragraf 1 | Paragraf 2</b></span><textarea id="learnFieldSections" rows="5" placeholder="Alur KMS | KMS menangkap pengalaman tim | Tuliskan paragraf kedua di sini"></textarea></label>
+        <label class="settings-field"><span>Kuis — satu blok per pertanyaan, dipisah baris kosong; tanda <b>*</b> menandakan jawaban benar</span><textarea id="learnFieldQuiz" rows="5" placeholder="Apa inti KMS?&#10;- Menyimpan berkas saja&#10;* Mengelola pengetahuan bersama&#10;&#10;Reward Learning?&#10;- +1 Buah&#10;* +1 Pupuk"></textarea></label>
+        <label class="learning-module-active"><input id="learnFieldActive" type="checkbox" checked /> <span>Modul aktif (terlihat semua akun)</span></label>
+        <p class="learning-form-feedback" id="learnFormFeedback" role="status" aria-live="polite"></p>
+        <div class="learning-module-actions">
+          <button class="settings-save-button" id="learnFormSubmit" type="submit">Simpan modul</button>
+          <button class="settings-default-button" id="learnFormCancel" type="button">Batal</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="admin-confirm-dialog" id="adminConfirmDialog" aria-labelledby="adminConfirmTitle" aria-describedby="adminConfirmDetail">
+      <div class="admin-confirm-heading"><span class="admin-confirm-symbol" aria-hidden="true">?</span><h2 id="adminConfirmTitle">Konfirmasi tindakan</h2></div>
+      <p id="adminConfirmDetail"></p>
+      <div class="admin-confirm-actions">
+        <button id="adminConfirmCancel" type="button">Batal</button>
+        <button id="adminConfirmSubmit" type="button">Lanjutkan</button>
+      </div>
     </dialog>
 
     <div class="care-drag-layer" id="careDragLayer" aria-hidden="true" hidden></div>
