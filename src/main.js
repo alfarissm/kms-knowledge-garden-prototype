@@ -1,10 +1,14 @@
 import './styles.css';
 import {
-  enterGarden,
-  logoutAccount,
-  readSessionAccount,
-  saveAccountTreeState,
-} from './auth.js';
+  apiAdminAccounts,
+  apiAdminCondition,
+  apiEntry,
+  apiLibrary,
+  apiLogout,
+  apiMe,
+  apiReport,
+  apiSaveState,
+} from './api.js';
 import {
   advanceDemoDays,
   addDemoResource,
@@ -15,10 +19,10 @@ import {
   applyDemoLevelDecrease,
   completeLearningModule,
   createInitialState,
+  getFruitView,
   getNextLevelRequirement,
   getTreeCondition,
   rateLearningModule,
-  reviewSharingMaterial,
   simulateDemoTreeCondition,
   STAGES,
   submitSharingMaterial,
@@ -80,6 +84,12 @@ const elements = {
   sharingVideoSelection: document.querySelector('#sharingVideoSelection'),
   sharingQueue: document.querySelector('#sharingQueue'),
   sharingQueueCount: document.querySelector('#sharingQueueCount'),
+  contentStatusBody: document.querySelector('#contentStatusBody'),
+  contentStatusCount: document.querySelector('#contentStatusCount'),
+  adminReviewList: document.querySelector('#adminReviewList'),
+  adminSummary: document.querySelector('#adminSummary'),
+  libraryList: document.querySelector('#libraryList'),
+  libraryCount: document.querySelector('#libraryCount'),
   learningDialog: document.querySelector('#learningDialog'),
   learningDialogTitle: document.querySelector('#learningDialogTitle'),
   learningLessonContent: document.querySelector('#learningLessonContent'),
@@ -115,22 +125,88 @@ const PAGE_LABELS = {
   tree: 'Pohon',
   learning: 'Learning',
   sharing: 'Sharing',
+  library: 'Perpustakaan',
+  admin: 'Review Admin',
   history: 'Riwayat',
+};
+const SHARING_STATUS_INFO = {
+  pending: { label: 'Menunggu review admin', dot: 'pending' },
+  validated: { label: 'ACC · Relevan', dot: 'validated' },
+  stale: { label: 'Basi', dot: 'stale' },
+  rejected: { label: 'Tidak relevan', dot: 'rejected' },
+  duplicate: { label: 'Duplikat', dot: 'duplicate' },
+};
+const SHARING_TYPE_LABELS = {
+  video: 'Video',
+  article: 'Artikel',
+  document: 'Dokumen / panduan',
+  podcast: 'Podcast',
+  link: 'Tautan lainnya',
 };
 
 let currentAccount = null;
 let state = null;
 let activeLearningModule = null;
 let sharingQueueRenderId = 0;
+let adminReviewFilter = 'all';
+const ADMIN_FILTERS = [
+  { key: 'all', label: 'Semua' },
+  { key: 'pending', label: 'Menunggu' },
+  { key: 'validated', label: 'ACC' },
+  { key: 'stale', label: 'Basi' },
+  { key: 'rejected', label: 'Tidak relevan' },
+  { key: 'duplicate', label: 'Duplikat' },
+];
 const sharingVideoObjectUrls = new Map();
+// Admin = peran tersendiri: hanya konsol Review Admin. User kebun tidak
+// melihat/membuka halaman admin, dan admin tidak memakai kebun user.
+const PAGE_ACCESS = {
+  tree: ['user'],
+  learning: ['user'],
+  sharing: ['user'],
+  library: ['user'],
+  admin: ['admin'],
+  history: ['user'],
+};
+
+function currentRole() {
+  return currentAccount?.role ?? 'user';
+}
+
+function pageForRole(page) {
+  const role = currentRole();
+  const allowed = PAGE_ACCESS[page]?.includes(role);
+  return allowed ? page : (role === 'admin' ? 'admin' : 'tree');
+}
+
+function applySidebarRole() {
+  const role = currentRole();
+  document.querySelectorAll('[data-admin-only]').forEach((element) => {
+    element.hidden = role !== 'admin';
+  });
+  document.querySelectorAll('[data-user-only]').forEach((element) => {
+    element.hidden = role === 'admin';
+  });
+}
 
 function pageFromLocationHash() {
   const page = window.location.hash.slice(1);
-  return Object.hasOwn(PAGE_LABELS, page) ? page : 'tree';
+  if (!Object.hasOwn(PAGE_LABELS, page)) {
+    return currentRole() === 'admin' ? 'admin' : 'tree';
+  }
+  return page;
 }
 
 function navigateToPage(page, updateHistory = true) {
   if (!Object.hasOwn(PAGE_LABELS, page)) return;
+
+  const allowedPage = pageForRole(page);
+  if (allowedPage !== page) {
+    showToast(currentRole() === 'admin'
+      ? 'Halaman kebun khusus akun user; admin membuka Review Admin.'
+      : 'Halaman ini khusus admin.', 'notice');
+    page = allowedPage;
+  }
 
   elements.pageViews.forEach((view) => {
     view.hidden = view.dataset.pageView !== page;
@@ -181,8 +257,10 @@ setMobileMenuOpen(false);
 function saveState() {
   if (!currentAccount || !state) return;
 
-  saveAccountTreeState(currentAccount.email, state);
-  currentAccount.treeState = state;
+  // State disinkronkan ke backend; local state tetap sumber render.
+  apiSaveState(state).catch((error) => {
+    showToast(error?.message || 'Pohon gagal tersimpan ke server.', 'notice');
+  });
 }
 
 function setAuthMessage(message, tone = 'notice') {
@@ -190,9 +268,9 @@ function setAuthMessage(message, tone = 'notice') {
   elements.authMessage.className = `auth-message${message ? ` auth-message-${tone}` : ''}`;
 }
 
-function enterApp(account, awardLogin = false) {
+function enterApp(account, treeState = null, awardLogin = false) {
   currentAccount = account;
-  state = tickState(account.treeState ?? createInitialState());
+  state = tickState(treeState ?? createInitialState());
   let loginRewarded = false;
   if (awardLogin) {
     const airBeforeLogin = state.air;
@@ -201,6 +279,7 @@ function enterApp(account, awardLogin = false) {
   }
   elements.currentUserName.textContent = account.name;
   elements.userAvatar.textContent = account.name.trim().charAt(0).toLocaleUpperCase('id-ID');
+  applySidebarRole();
   elements.authScreen.hidden = true;
   elements.appShell.hidden = false;
   saveState();
@@ -216,7 +295,9 @@ function enterApp(account, awardLogin = false) {
 function leaveApp(message = '') {
   sharingQueueRenderId += 1;
   clearSharingVideoPreviews();
-  logoutAccount();
+  apiLogout().catch(() => {
+    // Sesi lokal sudah dibersihkan; kegagalan mencabut cookie localhost diabaikan.
+  });
   currentAccount = null;
   state = null;
   if (elements.learningDialog.open) {
@@ -254,15 +335,18 @@ function formatDate(timestamp, options = {}) {
   }).format(new Date(timestamp));
 }
 
-function makeTreeSvg(level, condition, fruits) {
+function makeTreeSvg(level, condition, fruitView) {
   const palettes = {
     healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', trunkLight: '#c16b35', branch: '#84391f' },
     thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', trunkLight: '#bd9366', branch: '#916441' },
     dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', trunkLight: '#a57e5c', branch: '#805c49' },
   };
   const colors = palettes[condition];
-  const fruitCount = Math.max(0, Math.floor(Number(fruits) || 0));
-  const svgStart = `<svg class="tree-svg stage-${level} ${condition}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon">`;
+  // Buah terikat konten: tampil per slot; basi rebah busuk di tanah.
+  const boundTreeFruits = fruitView.tree;
+  const fallenFruits = [...fruitView.ground].sort((a, b) => a.slot - b.slot);
+  const fruitCount = boundTreeFruits.length;
+  const svgStart = `<svg class="tree-svg stage-${level} ${condition}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon${fallenFruits.length ? `, ${fallenFruits.length} Buah busuk rebah di tanah` : ''}">`;
   // Three-blob crowns computed symmetrically, sides tucked against the center
   // like the reference (slight overlap ~0.8x, bumps stay visible via wobble).
   const blobTriplet = (cy, rCenter, spreadX, dySide, rSide) => [
@@ -370,22 +454,55 @@ function makeTreeSvg(level, condition, fruits) {
   const fruitPositions = level === 3 || level === 4
     ? [[188, 157], [218, 151], [164, 184], [236, 184], [198, 190], [202, 145], [224, 198]]
     : [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
-  const visibleFruit = Math.min(fruitCount, MAX_VISIBLE_FRUIT);
-  // Rare golden apple drawn around the origin; scaled per level with the tree.
+  // Slot > 7 tidak punya titik mahkota; selisihnya tampil sebagai penanda +n.
+  const lyingPositions = [
+    [92, 398, 68], [140, 394, -72], [208, 399, 64], [246, 402, -55],
+    [352, 395, 70], [416, 394, -64], [472, 399, 55],
+  ];
+  const visibleTreeSlots = boundTreeFruits
+    .filter((entry) => entry.slot >= 1 && entry.slot <= MAX_VISIBLE_FRUIT)
+    .map((entry) => entry.slot);
+  const overflowTreeCount = boundTreeFruits.length - visibleTreeSlots.length;
+  const lyingVisible = fallenFruits.slice(0, MAX_VISIBLE_FRUIT);
+  const overflowGroundCount = Math.max(0, fallenFruits.length - lyingVisible.length);
+  // Realistic apple skin per admin-decided content condition: ripe red = ACC
+  // (menggantung), rotten brown with spots = stale rebah di tanah. Buah yang
+  // diangkat (tidak relevan / duplikat) tidak tergambar apa pun — slot kosong.
   const fruitScaleByLevel = { 3: 0.7, 4: 0.8, 5: 0.9, 6: 0.95, 7: 1 };
   const fruitScale = fruitScaleByLevel[level] ?? 1;
-  const fruitDefs = `<defs><radialGradient id="rareHalo" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe9a8" stop-opacity=".85"/><stop offset="100%" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient><linearGradient id="rareApple" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a62"/><stop offset=".55" stop-color="#e23b3b"/><stop offset="1" stop-color="#a41623"/></linearGradient></defs>`;
-  const rareApple = `<circle cx="0" cy="0" r="13" fill="url(#rareHalo)"/><circle cx="0" cy="0" r="8.5" fill="url(#rareApple)" stroke="#7d101b" stroke-width="1.5"/><path d="M0 -8q1-7 7-8" fill="none" stroke="#3f7a3d" stroke-width="2.5" stroke-linecap="round"/><path d="M7 -15q6-3 9 2q-5 4-9-2Z" fill="#4ca947"/><ellipse cx="-3" cy="-3.5" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 -3 -3.5)"/><path d="M0 -6L1.8 -1.8 6 0 1.8 1.8 0 6 -1.8 1.8 -6 0 -1.8 -1.8Z" fill="#fff" opacity=".9" transform="translate(4 -4) scale(.5)"/>`;
-  const fruitMarkup = fruitPositions.slice(0, visibleFruit).map(([x, y], index) => `<g class="tree-fruit" style="--fruit-index:${index}" transform="translate(${x} ${y}) scale(${fruitScale})">${rareApple}</g>`).join('');
+  const fruitStylesByStatus = {
+    pending: { gradient: 'appleUnripe', stroke: '#4a6b28', stem: '#4a6b28', leaf: '#6f9c38', spots: false },
+    validated: { gradient: 'appleRipe', stroke: '#7a150f', stem: '#3f7a3d', leaf: '#4ca947', spots: false },
+    stale: { gradient: 'appleRotten', stroke: '#3a2312', stem: '#6b5230', leaf: '#8a6a3f', spots: true },
+    rejected: { gradient: 'appleSallow', stroke: '#4f4630', stem: '#7a6d4a', leaf: '#9a8a5a', spots: false },
+    duplicate: { gradient: 'appleDup', stroke: '#3d3833', stem: '#6f6558', leaf: '#8a8177', spots: false },
+  };
+  const fruitDefs = `<defs><linearGradient id="appleRipe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2593d"/><stop offset=".5" stop-color="#cc3327"/><stop offset="1" stop-color="#8f1c13"/></linearGradient><linearGradient id="appleUnripe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cbe47f"/><stop offset=".55" stop-color="#97c24f"/><stop offset="1" stop-color="#5f8734"/></linearGradient><linearGradient id="appleRotten" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b08455"/><stop offset=".45" stop-color="#7c5430"/><stop offset="1" stop-color="#45280f"/></linearGradient><linearGradient id="appleSallow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9b57e"/><stop offset=".45" stop-color="#a08e57"/><stop offset="1" stop-color="#6b5c36"/></linearGradient><linearGradient id="appleDup" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a89c8c"/><stop offset=".45" stop-color="#837767"/><stop offset="1" stop-color="#565046"/></linearGradient></defs>`;
+  const appleSpots = '<ellipse cx="-2.5" cy="1.5" rx="2" ry="1.4" fill="#5a3820" opacity=".55"/><ellipse cx="3" cy="3" rx="1.6" ry="1.1" fill="#4a2b12" opacity=".5"/>';
+  const appleByStatus = (statusKey) => {
+    const style = fruitStylesByStatus[statusKey] ?? fruitStylesByStatus.validated;
+    return `<circle cx="0" cy="0" r="8.5" fill="url(#${style.gradient})" stroke="${style.stroke}" stroke-width="1.5"/><path d="M0 -8q1-7 7-8" fill="none" stroke="${style.stem}" stroke-width="2.5" stroke-linecap="round"/><path d="M7 -15q6-3 9 2q-5 4-9-2Z" fill="${style.leaf}"/><ellipse cx="-3" cy="-3.5" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 -3 -3.5)"/>${style.spots ? appleSpots : ''}`;
+  };
+  // Slot mengikuti urutannya; slot tanpa buah (belum dipindah/hilang) = celah.
+  const fruitMarkup = visibleTreeSlots.map((slot) => {
+    const [x, y] = fruitPositions[slot - 1];
+    return `<g class="tree-fruit fruit-validated" style="--fruit-index:${slot - 1}" transform="translate(${x} ${y}) scale(${fruitScale})">${appleByStatus('validated')}</g>`;
+  }).join('');
+  const lyingMarkup = lyingVisible.map((entry, index) => {
+    const [x, y, angle] = lyingPositions[index];
+    return `<g class="tree-fruit fruit-ground-lying" transform="translate(${x} ${y}) rotate(${angle}) scale(${fruitScale * 0.95})">${appleByStatus('stale')}</g>`;
+  }).join('');
+  const fruitCounter = overflowTreeCount > 0 ? `<text x="286" y="149" class="extra-fruit-label">+${overflowTreeCount}</text>` : '';
+  const groundCounter = overflowGroundCount > 0 ? `<text x="212" y="392" class="extra-fruit-label extra-fruit-ground-label">+${overflowGroundCount}</text>` : '';
   const fallingLeaves = condition === 'dead'
     ? '<ellipse class="falling-leaf fall-one" cx="134" cy="223" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-two" cx="263" cy="246" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-three" cx="156" cy="257" rx="6" ry="3" fill="#d7a66b"/>'
     : '';
   const leafDrops = level >= 2 && condition !== 'dead'
     ? `<ellipse class="leaf-drop drop-one" cx="150" cy="232" rx="6.5" ry="2.8" fill="${colors.leaf}"/><ellipse class="leaf-drop drop-two" cx="252" cy="238" rx="6" ry="2.6" fill="${colors.leafDark}"/>`
     : '';
-  const fruitCounter = fruitCount > MAX_VISIBLE_FRUIT ? `<text x="286" y="149" class="extra-fruit-label">+${fruitCount - MAX_VISIBLE_FRUIT}</text>` : '';
+  const hasVisibleFruit = visibleTreeSlots.length > 0 || overflowTreeCount > 0 || lyingVisible.length > 0;
 
-  return `${svgStart}${visibleFruit ? fruitDefs : ''}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}</svg>`;
+  return `${svgStart}${hasVisibleFruit ? fruitDefs : ''}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}${lyingMarkup}${groundCounter}</svg>`;
 }
 
 function renderStageTrack() {
@@ -622,28 +739,15 @@ function renderSharingQueue() {
     return;
   }
 
-  const statusLabels = {
-    pending: 'Menunggu validasi',
-    validated: 'Tervalidasi · reward diberikan',
-    rejected: 'Ditolak · tanpa reward',
-    duplicate: 'Duplikat · tanpa reward',
-  };
-
   state.sharingSubmissions.slice(0, 5).forEach((submission) => {
     const item = makeElement('article', `sharing-item status-${submission.status}`);
     const header = makeElement('div', 'sharing-item-header');
     const heading = makeElement('h5', '', submission.title);
-    const status = makeElement('span', 'sharing-status-badge', statusLabels[submission.status] ?? submission.status);
+    const statusInfo = SHARING_STATUS_INFO[submission.status];
+    const status = makeElement('span', 'sharing-status-badge', statusInfo?.label ?? submission.status);
     header.append(heading, status);
 
-    const typeLabels = {
-      video: 'Video',
-      article: 'Artikel',
-      document: 'Dokumen / panduan',
-      podcast: 'Podcast',
-      link: 'Tautan lainnya',
-    };
-    const meta = makeElement('div', 'sharing-item-meta', `${typeLabels[submission.type] ?? submission.type} · dikirim ${formatDate(submission.submittedAt)}`);
+    const meta = makeElement('div', 'sharing-item-meta', `${SHARING_TYPE_LABELS[submission.type] ?? submission.type} · dikirim ${formatDate(submission.submittedAt)}`);
     const summary = makeElement('p', 'sharing-item-summary', submission.summary);
     item.append(header, meta);
 
@@ -676,14 +780,6 @@ function renderSharingQueue() {
 
     item.append(summary);
 
-    if (submission.status === 'pending') {
-      const reviewActions = makeElement('div', 'sharing-review-actions');
-      reviewActions.append(makeReviewButton(submission.id, 'validated', 'Validasi'));
-      reviewActions.append(makeReviewButton(submission.id, 'rejected', 'Tolak'));
-      reviewActions.append(makeReviewButton(submission.id, 'duplicate', 'Tandai duplikat'));
-      item.append(reviewActions);
-    }
-
     elements.sharingQueue.append(item);
   });
 
@@ -692,6 +788,292 @@ function renderSharingQueue() {
       void restoreSharingVideoPreview(submission, renderId);
     }
   });
+}
+
+function renderContentStatusTable() {
+  const submissions = state.sharingSubmissions;
+  elements.contentStatusCount.textContent = String(submissions.length);
+  elements.contentStatusBody.replaceChildren();
+
+  if (submissions.length === 0) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.className = 'content-status-empty';
+    emptyRow.innerHTML = '<td colspan="4">Belum ada konten Sharing. Kirim kontribusi di halaman Sharing; statusnya tampil di sini.</td>';
+    elements.contentStatusBody.append(emptyRow);
+    return;
+  }
+
+  submissions.forEach((submission) => {
+    const statusInfo = SHARING_STATUS_INFO[submission.status];
+    const row = document.createElement('tr');
+    row.className = `content-status-row status-${submission.status}`;
+
+    const material = document.createElement('td');
+    material.className = 'content-status-material';
+    material.append(makeElement('strong', '', submission.title));
+    if (submission.summary) {
+      material.append(makeElement('small', '', submission.summary));
+    }
+
+    const type = document.createElement('td');
+    type.textContent = SHARING_TYPE_LABELS[submission.type] ?? submission.type;
+
+    const sent = document.createElement('td');
+    sent.textContent = formatDate(submission.submittedAt);
+
+    const condition = document.createElement('td');
+    condition.className = 'content-status-condition';
+    const dot = makeElement('span', `fruit-dot ${statusInfo?.dot ?? submission.status}`);
+    dot.setAttribute('aria-hidden', 'true');
+    condition.append(dot);
+    const conditionInfo = makeElement('span', 'content-status-label', statusInfo?.label ?? submission.status);
+    conditionInfo.title = statusInfo?.note ?? '';
+    condition.append(conditionInfo);
+    const reportCount = Array.isArray(submission.reports) ? submission.reports.length : 0;
+    if (reportCount > 0) {
+      condition.append(makeElement('span', 'admin-report-badge', `${reportCount} laporan`));
+    }
+
+    row.append(material, type, sent, condition);
+    elements.contentStatusBody.append(row);
+  });
+}
+
+function makeAdminConditionButton(row, condition, label) {
+  const button = makeElement('button', `admin-condition-button condition-${condition}`, label);
+  button.type = 'button';
+  button.dataset.adminEmail = row.account.email;
+  button.dataset.submissionId = row.submission.id;
+  button.dataset.adminCondition = condition;
+  button.setAttribute('aria-label', `${label} konten "${row.submission.title}" dari ${row.account.name}`);
+  button.disabled = row.submission.status === condition;
+  return button;
+}
+
+let adminReviewRenderId = 0;
+
+function renderAdminReview() {
+  const renderId = ++adminReviewRenderId;
+  apiAdminAccounts()
+    .then((accounts) => {
+      if (renderId === adminReviewRenderId) buildAdminReview(accounts);
+    })
+    .catch((error) => {
+      if (renderId !== adminReviewRenderId) return;
+      elements.adminSummary.replaceChildren();
+      elements.adminReviewList.replaceChildren();
+      elements.adminReviewList.append(makeElement('div', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.'));
+    });
+}
+
+function buildAdminReview(accounts) {
+  const rows = accounts.flatMap((account) => {
+    const submissions = Array.isArray(account.treeState?.sharingSubmissions) ? account.treeState.sharingSubmissions : [];
+    return submissions.map((submission) => ({ account, submission }));
+  });
+
+  // Satu chip = statistik sekaligus saringan: klik untuk memisahkan daftar.
+  const counts = { all: rows.length };
+  ADMIN_FILTERS.slice(1).forEach((filter) => {
+    counts[filter.key] = rows.filter((row) => row.submission.status === filter.key).length;
+  });
+  elements.adminSummary.replaceChildren();
+  ADMIN_FILTERS.forEach((filter) => {
+    const chip = makeElement('button', `admin-summary-button condition-${filter.key}${adminReviewFilter === filter.key ? ' is-active' : ''}`, filter.label);
+    chip.type = 'button';
+    chip.dataset.adminFilter = filter.key;
+    if (counts[filter.key] > 0) {
+      chip.append(makeElement('span', 'chip-count', String(counts[filter.key])));
+    }
+    elements.adminSummary.append(chip);
+  });
+
+  const visibleRows = adminReviewFilter === 'all' ? rows : rows.filter((row) => row.submission.status === adminReviewFilter);
+  elements.adminReviewList.replaceChildren();
+
+  if (visibleRows.length === 0) {
+    const emptyText = adminReviewFilter === 'all'
+      ? 'Belum ada konten Sharing untuk direview. Materi dari halaman Sharing (akun mana pun di browser ini) tampil di sini.'
+      : `Tidak ada konten berstatus ${SHARING_STATUS_INFO[adminReviewFilter]?.label ?? adminReviewFilter}.`;
+    elements.adminReviewList.append(makeElement('div', 'admin-review-empty', emptyText));
+    return;
+  }
+
+  visibleRows.forEach((row) => {
+    const item = makeElement('article', `admin-submission status-${row.submission.status}`);
+    const submissionReports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
+    const owner = makeElement('div', 'admin-owner');
+    owner.append(makeElement('strong', '', row.account.name), makeElement('small', '', row.account.email));
+    const statusInfo = SHARING_STATUS_INFO[row.submission.status];
+
+    const header = makeElement('div', 'admin-item-header');
+    header.append(owner, makeElement('span', 'sharing-status-badge', statusInfo?.label ?? row.submission.status));
+    if (submissionReports.length > 0) {
+      header.append(makeElement('span', 'admin-report-badge', `${submissionReports.length} laporan`));
+    }
+    item.append(header);
+
+    item.append(makeElement('h5', '', row.submission.title));
+    item.append(makeElement('div', 'sharing-item-meta', [
+      `${SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type}`,
+      `dikirim ${formatDate(row.submission.submittedAt)}`,
+      row.submission.reviewedAt ? `diputus ${formatDate(row.submission.reviewedAt)}` : 'belum diputus',
+      submissionReports.length ? `dilaporkan ${submissionReports.length}×` : '',
+      row.submission.url ? 'tautan' : (row.submission.attachment ? 'video terlampir' : ''),
+    ].filter(Boolean).join(' · ')));
+
+    if (row.submission.url) {
+      const link = makeElement('a', 'sharing-material-link', row.submission.url);
+      link.href = row.submission.url;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      item.append(link);
+    } else if (row.submission.attachment?.name) {
+      item.append(makeElement('span', 'sharing-material-file', row.submission.attachment.name));
+    }
+
+    item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
+
+    const actions = makeElement('div', 'admin-condition-actions');
+    actions.append(makeAdminConditionButton(row, 'validated', 'ACC'));
+    actions.append(makeAdminConditionButton(row, 'stale', 'Tandai Basi'));
+    actions.append(makeAdminConditionButton(row, 'rejected', 'Tidak Relevan'));
+    item.append(actions);
+
+    elements.adminReviewList.append(item);
+  });
+}
+
+async function applyAdminCondition(button) {
+  const email = button.dataset.adminEmail;
+  const submissionId = button.dataset.submissionId;
+  const condition = button.dataset.adminCondition;
+  // Keputusan dijalankan server: mesin gamifikasi juga hidup di backend.
+  let result;
+  try {
+    result = await apiAdminCondition(submissionId, condition);
+  } catch (error) {
+    showToast(error?.message || 'Kondisi konten gagal diperbarui.', 'notice');
+    return;
+  }
+
+  const owner = { name: result.owner?.name ?? email, email: result.owner?.email ?? email };
+
+  renderAdminReview();
+
+  const isCurrentAccount = currentAccount?.email === owner.email;
+  if (isCurrentAccount) {
+    state = result.ownerState ?? state;
+    currentAccount.treeState = state;
+    render(true);
+  }
+
+  const ownerLabel = isCurrentAccount ? 'akunmu' : `akun ${owner.name}`;
+  const messages = {
+    validated: result.rewarded
+      ? `ACC: +3 Air, +2 Pupuk untuk ${ownerLabel}; buah konten ini muncul di Storage, slotnya sudah tercatat.`
+      : `ACC ulang: buah konten ini kembali pada slot lamanya di pohon ${ownerLabel}.`,
+    stale: `Basi: buah konten ini jatuh dan rebah busuk di bawah pohon ${ownerLabel}.`,
+    rejected: `Tidak relevan: buah konten ini diangkat — hilang dari pohon ${ownerLabel}, slotnya kosong.`,
+    duplicate: `Duplikat: buah duplikat diangkat; buah konten asli tetap ada.`,
+  };
+  showToast(result.applied ? (messages[condition] ?? 'Kondisi konten diperbarui.') : 'Kondisi konten sudah seperti itu.', condition === 'validated' ? 'success' : 'notice');
+}
+
+// Perpustakaan: konten relevan (ACC) lintas-akun dari server; pengguna lain
+// dapat melaporkan konten yang menurutnya tidak relevan. Satu akun satu
+// laporan per konten; keputusan tetap di tangan admin.
+let libraryRenderId = 0;
+
+function renderLibrary() {
+  const renderId = ++libraryRenderId;
+  apiLibrary()
+    .then((rows) => {
+      if (renderId === libraryRenderId) buildLibrary(rows);
+    })
+    .catch((error) => {
+      if (renderId !== libraryRenderId) return;
+      elements.libraryCount.textContent = '–';
+      elements.libraryList.replaceChildren();
+      elements.libraryList.append(makeElement('div', 'library-empty', error?.message || 'Perpustakaan gagal dimuat dari server.'));
+    });
+}
+
+function buildLibrary(rows) {
+  elements.libraryCount.textContent = String(rows.length);
+  elements.libraryList.replaceChildren();
+
+  if (rows.length === 0) {
+    elements.libraryList.append(makeElement('div', 'library-empty', 'Belum ada konten relevan yang di-ACC. Konten yang lulus review admin dari akun mana pun akan tampil di sini.'));
+    return;
+  }
+
+  rows.forEach((row) => {
+    const item = makeElement('article', 'library-item');
+    const reports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
+    const isOwn = currentAccount?.email === row.account.email;
+    const alreadyReported = reports.some((report) => report?.by === currentAccount?.email);
+
+    const header = makeElement('div', 'library-item-header');
+    header.append(makeElement('span', 'library-owner', row.account.name));
+    header.append(makeElement('span', 'sharing-status-badge', 'ACC · relevan'));
+    item.append(header);
+
+    item.append(makeElement('h5', '', row.submission.title));
+    item.append(makeElement('div', 'sharing-item-meta', [
+      `${SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type}`,
+      `dikirim ${formatDate(row.submission.submittedAt)}`,
+      reports.length ? `${reports.length} laporan menunggu keputusan admin` : '',
+    ].filter(Boolean).join(' · ')));
+
+    if (row.submission.url) {
+      const link = makeElement('a', 'sharing-material-link', row.submission.url);
+      link.href = row.submission.url;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      item.append(link);
+    }
+    if (row.submission.summary) {
+      item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
+    }
+
+    const reportButton = makeElement('button', 'library-report-button', isOwn ? 'Konten milikmu' : (alreadyReported ? 'Sudah kamu laporkan' : 'Laporkan tidak relevan'));
+    reportButton.type = 'button';
+    reportButton.disabled = isOwn || alreadyReported || !currentAccount;
+    if (isOwn) {
+      reportButton.title = 'Tidak bisa melaporkan kontenmu sendiri.';
+    } else if (alreadyReported) {
+      reportButton.title = 'Satu akun satu laporan per konten.';
+    } else if (currentAccount) {
+      reportButton.dataset.libraryEmail = row.account.email;
+      reportButton.dataset.submissionId = row.submission.id;
+      reportButton.title = 'Laporanmu tampil untuk admin; admin yang memutuskan kondisinya.';
+    }
+    item.append(reportButton);
+    elements.libraryList.append(item);
+  });
+}
+
+async function applyLibraryReport(button) {
+  const submissionId = button.dataset.submissionId;
+  if (!submissionId || !currentAccount) return;
+
+  let result;
+  try {
+    result = await apiReport(submissionId);
+  } catch (error) {
+    showToast(error?.message || 'Laporan gagal dikirim.', 'notice');
+    return;
+  }
+
+  if (result.added) {
+    showToast(`Laporan tersimpan di server (total ${result.reports}). Admin yang memutuskan kondisinya.`, 'success');
+  } else {
+    showToast('Kamu sudah pernah melaporkan konten ini.', 'notice');
+  }
+
+  renderAdminReview();
+  renderLibrary();
 }
 
 function clearSharingVideoPreviews() {
@@ -741,17 +1123,12 @@ function renderSelectedVideo() {
     : '';
 }
 
-function makeReviewButton(submissionId, action, label) {
-  const button = makeElement('button', `sharing-review-button review-${action}`, label);
-  button.type = 'button';
-  button.dataset.sharingReview = action;
-  button.dataset.submissionId = submissionId;
-  return button;
-}
-
 function renderActivities() {
   renderLearningCatalog();
   renderSharingQueue();
+  renderContentStatusTable();
+  renderAdminReview();
+  renderLibrary();
 }
 
 function renderTree(animate = false, previousLevel = state.level, previousCondition = getTreeCondition(state)) {
@@ -762,18 +1139,26 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
   const conditionChanged = previousCondition !== condition;
 
   const levelValue = String(state.level);
-  const fruitValue = String(state.fruitsOnTree);
+  // Buah terikat konten: tiap buah memegang slot tetapnya. Slot kosong =
+  // buah belum dipindah dari Storage atau sudah diangkat; buah basi rebah
+  // di tanah. Buah lain tidak pernah bergeser mengisi celah.
+  const fruitView = getFruitView(state);
+  const fruitValue = [
+    fruitView.maxSlot,
+    `T${fruitView.tree.map((entry) => entry.slot).join(',')}`,
+    `G${fruitView.ground.map((entry) => entry.slot).join(',')}`,
+  ].join('|');
   const visualChanged = elements.treeCanvas.dataset.level !== levelValue
     || elements.treeCanvas.dataset.condition !== condition
     || elements.treeCanvas.dataset.fruits !== fruitValue;
 
   if (visualChanged) {
-    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, state.fruitsOnTree);
+    elements.treeCanvas.innerHTML = makeTreeSvg(state.level, condition, fruitView);
     elements.treeCanvas.dataset.level = levelValue;
     elements.treeCanvas.dataset.condition = condition;
     elements.treeCanvas.dataset.fruits = fruitValue;
   }
-  elements.treeCanvas.setAttribute('aria-label', `Pohon Level ${state.level}, ${STAGES[state.level]}, ${state.fruitsOnTree} Buah di pohon, kondisi ${conditionInfo.title}`);
+  elements.treeCanvas.setAttribute('aria-label', `Pohon Level ${state.level}, ${STAGES[state.level]}, ${state.fruitsOnTree} Buah di pohon${fruitView.ground.length ? `, ${fruitView.ground.length} buah busuk rebah di tanah` : ''}, kondisi ${conditionInfo.title}`);
   elements.treePanel.classList.remove('is-healthy', 'is-thirsty', 'is-dead');
   elements.treePanel.classList.add(sceneClass);
   elements.treeScene.classList.toggle('is-advanced-stage', state.level >= 7 && condition === 'healthy');
@@ -914,14 +1299,16 @@ elements.loginForm.addEventListener('submit', async (event) => {
   const formData = new FormData(elements.loginForm);
 
   try {
-    const { account, isNew } = await enterGarden({
+    const { account, treeState } = await apiEntry({
       name: String(formData.get('name')),
       email: String(formData.get('email')),
+      password: String(formData.get('password')),
     });
     elements.loginForm.reset();
-    enterApp(account, true);
+    const isNew = account.isNew === true;
+    enterApp(account, treeState, true);
     if (isNew) {
-      showToast('Kebun baru dibuat. Selamat menanam! +1 Air masuk Storage.', 'success');
+      showToast('Kebun baru dibuat di server. Selamat menanam! +1 Air masuk Storage.', 'success');
     }
   } catch (error) {
     setAuthMessage(error.message, 'error');
@@ -1076,23 +1463,26 @@ elements.sharingVideoFile.addEventListener('change', () => {
   renderSelectedVideo();
 });
 
-elements.sharingQueue.addEventListener('click', (event) => {
-  const reviewButton = event.target.closest('[data-sharing-review]');
-  if (!reviewButton) return;
+elements.adminSummary.addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-admin-filter]');
+  if (!chip) return;
 
-  const validation = reviewButton.dataset.sharingReview;
-  const result = reviewSharingMaterial(state, reviewButton.dataset.submissionId, validation);
-  if (!result.applied) {
-    showToast('Materi ini sudah pernah divalidasi.', 'notice');
-    return;
-  }
+  adminReviewFilter = chip.dataset.adminFilter;
+  renderAdminReview();
+});
 
-  const messages = {
-    validated: 'Sharing tervalidasi: +3 Air dan +2 Pupuk masuk Storage; +1 Buah disimpan atau ditampilkan sesuai kondisi pohon.',
-    rejected: 'Sharing ditolak. Tidak ada reward yang diberikan.',
-    duplicate: 'Sharing ditandai duplikat. Tidak ada reward yang diberikan.',
-  };
-  updateWith(result.state, messages[validation], validation === 'validated' ? 'success' : 'notice');
+elements.adminReviewList.addEventListener('click', (event) => {
+  const conditionButton = event.target.closest('[data-admin-condition]');
+  if (!conditionButton) return;
+
+  applyAdminCondition(conditionButton);
+});
+
+elements.libraryList.addEventListener('click', (event) => {
+  const reportButton = event.target.closest('[data-library-email][data-submission-id]');
+  if (!reportButton) return;
+
+  applyLibraryReport(reportButton);
 });
 
 elements.learningDialogClose.addEventListener('click', () => elements.learningDialog.close());
@@ -1167,7 +1557,7 @@ function careForTree(resourceType) {
 
   if (result.applied) {
     if (resourceType === 'fruit') {
-      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon. Progres dan perawatan tidak berubah.', 'success', { animateTree: false });
+      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon — menggantung di slot kontennya. Progres dan perawatan tidak berubah.', 'success', { animateTree: false });
       return;
     }
 
@@ -1420,10 +1810,12 @@ elements.resetButton.addEventListener('click', () => {
 });
 
 function initialize() {
-  const account = readSessionAccount();
-  if (account) {
-    enterApp(account);
-  }
+  // Sesi tersimpan di server (cookie HttpOnly); pulihkan akun + pohnnya.
+  apiMe()
+    .then(({ account, treeState }) => enterApp(account, treeState, false))
+    .catch(() => {
+      // Tanpa sesi: layar masuk tetap tampil.
+    });
 }
 
 initialize();

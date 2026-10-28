@@ -24,6 +24,9 @@ a { color: inherit; text-decoration: none; }
 .icon-library { position: absolute; width: 0; height: 0; overflow: hidden; }
 .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
 .app-shell { min-height: 100vh; }
+/* Berkas role menyembunyikan menu via atribut hidden; display milik
+   .nav-link dan kawan-kawan tidak boleh menimpanya. */
+[hidden] { display: none !important; }
 
 .sidebar {
   position: fixed;
@@ -384,6 +387,8 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .auth-submit { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; border: 0; border-radius: 9px; color: #fff; background: #43805a; font-size: 10px; font-weight: 700; transition: background .2s, transform .2s; }.auth-submit:hover { transform: translateY(-1px); background: #326d49; }.auth-submit .icon { width: 15px; height: 15px; }
 .auth-message { min-height: 16px; margin: 12px 0 0; color: #a46b4f; font-size: 9px; line-height: 1.5; text-align: center; }.auth-message-success { color: #4e875b; }.auth-message-error { color: #b26451; }
 .auth-disclaimer { margin: 5px 0 0; color: #a5aea5; font-size: 7px; line-height: 1.5; text-align: center; }
+.auth-hint { margin: 4px 0 0; color: #9aa69c; font-size: 7px; line-height: 1.6; text-align: center; }
+.auth-hint code { padding: 0 3px; border-radius: 4px; background: #edf3ea; color: #5f7a60; font-size: 7px; }
 .auth-card-simple { display: block; width: min(400px, 100%); min-height: 0; padding: 30px 28px 22px; text-align: center; }
 .auth-card-simple .auth-logo { display: grid; width: 48px; height: 48px; place-items: center; margin: 0 auto 12px; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #2879c4, #0a968e); box-shadow: 0 10px 24px rgba(34, 85, 178, .28); }
 .auth-card-simple .auth-logo .icon { width: 24px; height: 24px; }
@@ -1154,12 +1159,113 @@ body { color: #294b7d; background: #f0f3f7; }
 .sharing-material-file small, .sharing-no-attachment { color: #8799ae; font-size: 7px; }
 .sharing-no-attachment { display: block; margin-top: 5px; }
 .sharing-item-summary { margin: 5px 0 0; color: #758ba5; font-size: 7px; line-height: 1.45; }
-.sharing-review-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.sharing-review-button { min-height: 25px; padding: 0 7px; border: 1px solid #dce7f0; border-radius: 6px; color: #5f7896; background: #fff; font-size: 7px; font-weight: 600; }
-.sharing-review-button:hover { background: #f1f6fa; }
-.sharing-review-button.review-validated { border-color: #cee7dc; color: #147d72; background: #f0faf5; }
-.sharing-review-button.review-rejected { color: #8a6d6a; }
-.sharing-review-button.review-duplicate { color: #8c784e; }
+
+/* Fruit-condition machinery: real fruit colors keyed to the admin-decided
+   content status (ACC/Basi/Tidak relevan), shared by table, legend, and tree. */
+.fruit-dot { display: inline-block; width: 11px; height: 11px; flex: 0 0 auto; border: 1px solid rgba(30, 28, 24, .3); border-radius: 50%; background: linear-gradient(180deg, #e2593d 0%, #cc3327 55%, #8f1c13 100%); }
+.fruit-dot.pending { background: linear-gradient(180deg, #cbe47f 0%, #97c24f 55%, #5f8734 100%); border-color: rgba(74, 107, 40, .45); }
+.fruit-dot.stale { background: linear-gradient(180deg, #b08455 0%, #7c5430 45%, #45280f 100%); border-color: rgba(58, 35, 18, .45); }
+.fruit-dot.rejected { background: linear-gradient(180deg, #c9b57e 0%, #a08e57 45%, #6b5c36 100%); border-color: rgba(79, 70, 48, .45); }
+.fruit-dot.duplicate { background: linear-gradient(180deg, #a89c8c 0%, #837767 45%, #565046 100%); border-color: rgba(61, 56, 51, .45); }
+.status-pending .sharing-status-badge { color: #4e7228; background: #eef4e0; }
+.status-stale .sharing-status-badge { color: #7a4e28; background: #f6ede2; }
+.status-duplicate .sharing-status-badge { color: #58514a; }
+
+.content-status-card { margin-top: 15px; padding: 14px; border: 1px solid #e3ebf3; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgba(34, 62, 111, .08); }
+.content-status-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.content-status-heading h3 { margin: 2px 0 4px; color: #234f80; font-size: 12px; }
+.content-status-note { margin: 0; max-width: 660px; color: #7b90a8; font-size: 7px; line-height: 1.5; }
+.content-status-count { display: grid; min-width: 26px; height: 26px; padding: 0 7px; place-items: center; border-radius: 8px; color: #8a6116; background: #fbf3dc; font-size: 10px; font-weight: 800; }
+.content-status-scroll { max-height: 265px; overflow: auto; border: 1px solid #e8eef5; border-radius: 10px; }
+.content-status-table { width: 100%; min-width: 430px; border-collapse: collapse; font-size: 7.5px; }
+.content-status-table thead th { position: sticky; top: 0; z-index: 1; padding: 7px 9px; color: #55759c; background: #f4f8fc; border-bottom: 1px solid #e2ebf3; font-size: 7px; font-weight: 800; text-align: left; text-transform: uppercase; letter-spacing: .4px; }
+.content-status-table tbody td { padding: 7px 9px; border-bottom: 1px solid #edf2f7; vertical-align: top; color: #6c84a0; }
+.content-status-table tbody tr:last-child td { border-bottom: 0; }
+.content-status-table tbody tr:nth-child(even) { background: #fbfcfe; }
+.content-status-row.status-validated td { background: #fffdf4; }
+.content-status-row.status-validated td:first-child { box-shadow: inset 3px 0 0 #e0b23a; }
+.content-status-row.status-pending td:first-child { box-shadow: inset 3px 0 0 #8fbf52; }
+.content-status-row.status-stale td { background: #fdfaf5; }
+.content-status-row.status-stale td:first-child { box-shadow: inset 3px 0 0 #96683c; }
+.content-status-row.status-rejected td:first-child, .content-status-row.status-duplicate td:first-child { box-shadow: inset 3px 0 0 #9aa598; }
+.content-status-material { min-width: 180px; max-width: 340px; }
+.content-status-material strong { display: block; color: #33587f; font-weight: 700; line-height: 1.5; }
+.content-status-material small { display: block; margin-top: 2px; color: #8ba0b6; font-size: 7px; line-height: 1.45; }
+.content-status-condition { display: flex; min-width: 122px; align-items: center; gap: 6px; white-space: nowrap; }
+.content-status-label { font-weight: 700; }
+.content-status-row.status-validated .content-status-label { color: #8a6116; }
+.content-status-row.status-pending .content-status-label { color: #4e7228; }
+.content-status-row.status-stale .content-status-label { color: #7a4e28; }
+.content-status-row.status-rejected .content-status-label, .content-status-row.status-duplicate .content-status-label { color: #5f6b69; }
+.content-status-empty td { color: #8b9db1; text-align: center; }
+.content-status-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 9px; color: #5f7896; font-size: 7px; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+
+/* Admin review: cross-account validation of shared content. */
+.admin-page .admin-review-list { display: grid; max-height: 660px; gap: 8px; overflow-y: auto; padding-right: 2px; }
+.admin-review-empty { margin: 0; padding: 14px; border: 1px dashed #d5e2ee; border-radius: 10px; color: #8b9db1; background: rgba(255,255,255,.72); font-size: 8px; line-height: 1.55; text-align: center; }
+.admin-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8eef5; }
+.admin-summary-button { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 9px; border: 1px solid #dce7f0; border-radius: 8px; color: #5f7896; background: #fff; font-size: 7px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
+.admin-summary-button:hover:enabled { background: #f5f9fc; }
+.admin-summary-button.condition-validated { border-color: #dcc287; color: #8a6116; background: #fdf6e0; }
+.admin-summary-button.condition-pending { border-color: #c9d8c4; color: #4e7228; background: #f2f7ea; }
+.admin-summary-button.condition-stale { border-color: #d8b894; color: #7a4e28; background: #faf3ea; }
+.admin-summary-button.condition-rejected { border-color: #d4c9a4; color: #7d6f3c; background: #f8f5ea; }
+.admin-summary-button.condition-duplicate { border-color: #c9c4bc; color: #58514a; background: #f5f4f1; }
+.admin-summary-button.is-active { box-shadow: 0 0 0 2.5px rgba(28, 100, 173, .22); border-color: #1c64ad; color: #1c64ad; background: #eef5fd; }
+.admin-summary-button .chip-count { display: grid; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 50%; color: #fff; background: rgba(28, 84, 140, .78); font-size: 6.5px; }
+.admin-summary-button.condition-validated .chip-count { background: #b8860b; }
+.admin-summary-button.condition-pending .chip-count { background: #5f8734; }
+.admin-summary-button.condition-stale .chip-count { background: #7c5430; }
+.admin-summary-button.condition-rejected .chip-count { background: #a08e57; }
+.admin-summary-button.condition-duplicate .chip-count { background: #837767; }
+.admin-summary-button.is-active .chip-count { background: #1c64ad; }
+.admin-submission { min-width: 0; padding: 10px; border: 1px solid #e3ebf3; border-radius: 10px; background: #fff; }
+.admin-submission.status-validated { border-color: #e5d3a8; background: #fffdf4; }
+.admin-submission.status-pending { border-color: #dbe6dc; }
+.admin-submission.status-stale { border-color: #dfc9b4; background: #fdf9f4; }
+.admin-submission.status-rejected, .admin-submission.status-duplicate { border-color: #ebebe8; background: #fbfbfa; }
+.admin-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; margin-bottom: 4px; }
+.admin-owner { min-width: 0; }
+.admin-owner strong { display: block; color: #2c5b86; font-size: 8px; }
+.admin-owner small { display: block; color: #93a5b9; font-size: 7px; }
+.admin-submission h5 { margin: 2px 0 0; color: #36577f; font-size: 8.5px; font-weight: 700; line-height: 1.45; }
+.admin-condition-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.admin-condition-button { min-height: 26px; padding: 0 9px; border: 1px solid #dce7f0; border-radius: 7px; color: #5f7896; background: #fff; font-size: 7px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
+.admin-condition-button:hover:enabled { transform: translateY(-1px); }
+.admin-condition-button:disabled { cursor: default; opacity: .45; }
+.admin-condition-button.condition-validated { border-color: #dcc287; color: #8a6116; background: #fdf6e0; }
+.admin-condition-button.condition-stale { border-color: #d8b894; color: #7a4e28; background: #faf3ea; }
+.admin-condition-button.condition-rejected { border-color: #cdd6d0; color: #5f6b69; background: #f3f5f4; }
+.admin-pill { color: #6a5a2f; background: #f7efe0; }
+/* Badge jumlah laporan pengguna pada konsol admin & tabel status konten. */
+.admin-report-badge { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #f0c9a4; border-radius: 999px; color: #a15c24; background: #fdf3e5; font-size: 7px; font-weight: 800; letter-spacing: .3px; white-space: nowrap; }
+
+/* Perpustakaan: konten relevan (ACC) lintas-akun + tombol laporan pengguna. */
+.library-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; }
+.library-count-badge { display: inline-flex; min-width: 22px; justify-content: center; padding: 4px 9px; border-radius: 999px; color: #fff; background: linear-gradient(100deg, #189790, #1d64ad); font-size: 10px; font-weight: 800; }
+.library-count-label { color: #7f93a9; font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+.library-pill { color: #5b6d84; background: #eef4f9; }
+.library-list { display: grid; gap: 9px; max-height: 640px; overflow-y: auto; padding-right: 2px; }
+.library-empty { padding: 28px 4px; color: #8b9db2; font-size: 9.5px; text-align: center; }
+.library-item { min-width: 0; padding: 11px; border: 1px solid #e2ebf3; border-radius: 11px; background: #fff; }
+.library-item-header { display: flex; align-items: center; gap: 7px; }
+.library-owner { color: #2c5b86; font-size: 8.5px; font-weight: 800; }
+.library-item h5 { margin: 4px 0 0; color: #36577f; font-size: 10.5px; font-weight: 700; line-height: 1.4; }
+.library-report-button { min-height: 27px; margin-top: 8px; padding: 0 10px; border: 1px solid #eec9c4; border-radius: 8px; color: #a63d33; background: #fdf4f2; font-size: 7.5px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
+.library-report-button:hover:enabled { transform: translateY(-1px); }
+.library-report-button:disabled { cursor: default; opacity: .55; border-color: #e3e8ee; color: #7d8fa4; background: #f6f9fb; }
+
+/* Buah basi rebah busuk di bawah pohon + penanda kelebihan buah di tanah. */
+.fruit-ground-lying { transform-box: fill-box; transform-origin: center; filter: saturate(.92); }
+.extra-fruit-ground-label { fill: #96844f; }
+
+@media (max-width: 900px) {
+  .content-status-scroll { max-height: 220px; }
+  .content-status-card { padding: 12px; }
+  .admin-page .admin-review-list { max-height: 520px; }
+  .library-list { max-height: 420px; }
+}
 .learning-dialog { display: flex; width: min(660px, calc(100vw - 28px)); max-width: none; max-height: min(90vh, 850px); flex-direction: column; padding: 21px; border: 1px solid #d7e5f2; border-radius: 17px; color: #35577f; background: #fff; box-shadow: 0 25px 80px rgba(35, 68, 122, .24); }
 .learning-dialog:not([open]) { display: none; }
 .learning-dialog::backdrop { background: rgba(31, 53, 84, .42); backdrop-filter: blur(3px); }

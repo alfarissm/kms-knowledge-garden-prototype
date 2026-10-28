@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceDemoDays,
   addDemoResource,
+  addSharingReport,
   applyActivity,
   applyCare,
   applyDemoBoost,
@@ -9,10 +10,11 @@ import {
   applyDemoLevelDecrease,
   completeLearningModule,
   createInitialState,
+  getFruitView,
   getTreeCondition,
   getLevelForProgress,
   rateLearningModule,
-  reviewSharingMaterial,
+  setSharingCondition,
   simulateDemoTreeCondition,
   submitSharingMaterial,
 } from '../src/gamification.js';
@@ -109,7 +111,7 @@ describe('gamification prototype logic', () => {
       summary: 'Panduan kerja untuk anggota baru.',
     };
     const pending = submitSharingMaterial(start, material, { wallNow: 2_000 });
-    const validated = reviewSharingMaterial(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
+    const validated = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
 
     expect(pending.submission.status).toBe('pending');
     expect(pending.state.air).toBe(start.air);
@@ -136,7 +138,7 @@ describe('gamification prototype logic', () => {
       type: 'article',
       summary: 'Cara berbagi pengetahuan di KMS.',
     }, { wallNow: 2_000 });
-    const validated = reviewSharingMaterial(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
+    const validated = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
 
     expect(validated.state.air).toBe(mature.air + 3);
     expect(validated.state.fertilizerUnits).toBe(mature.fertilizerUnits + 4);
@@ -171,7 +173,7 @@ describe('gamification prototype logic', () => {
     expect(duplicateVideo.state.air).toBe(start.air);
   });
 
-  it('does not reward pending, rejected, or duplicate Sharing and prevents a second review', () => {
+  it('records admin re-marks (basi / tidak relevan) without extra rewards', () => {
     const start = createInitialState(1_000);
     const material = {
       title: 'Panduan orientasi',
@@ -180,22 +182,34 @@ describe('gamification prototype logic', () => {
       summary: 'Panduan kerja untuk anggota baru.',
     };
     const pending = submitSharingMaterial(start, material, { wallNow: 2_000 });
-    const rejected = reviewSharingMaterial(pending.state, pending.submission.id, 'rejected', { wallNow: 3_000 });
+    const rejected = setSharingCondition(pending.state, pending.submission.id, 'rejected', { wallNow: 3_000 });
     const duplicate = submitSharingMaterial(rejected.state, {
       ...material,
       title: 'Salinan panduan',
       url: 'https://EXAMPLE.com/panduan/#ringkasan',
     }, { wallNow: 4_000 });
-    const duplicateReview = reviewSharingMaterial(duplicate.state, duplicate.submission.id, 'validated', { wallNow: 5_000 });
+    const duplicateReAcc = setSharingCondition(duplicate.state, duplicate.submission.id, 'validated', { wallNow: 5_000 });
 
+    // Reject dan duplikat tidak pernah memberi reward.
     expect(rejected.state.air).toBe(start.air);
     expect(rejected.state.fertilizerUnits).toBe(start.fertilizerUnits);
     expect(duplicate.submission.status).toBe('duplicate');
     expect(duplicate.state.air).toBe(start.air);
-    expect(duplicate.state.fertilizerUnits).toBe(start.fertilizerUnits);
     expect(duplicate.state.fruitsInStorage).toBe(0);
-    expect(duplicateReview.applied).toBe(false);
-    expect(duplicateReview.state.air).toBe(start.air);
+    // Admin dapat menandai ulang, tetapi reward pertama hanya dari pending.
+    expect(duplicateReAcc.applied).toBe(true);
+    expect(duplicateReAcc.rewarded).toBe(false);
+    expect(duplicateReAcc.state.air).toBe(start.air);
+
+    const stale = setSharingCondition(duplicateReAcc.state, duplicate.submission.id, 'stale', { wallNow: 6_000 });
+    expect(stale.applied).toBe(true);
+    expect(stale.rewarded).toBe(false);
+    expect(stale.state.air).toBe(start.air);
+    expect(stale.state.sharingSubmissions[0].status).toBe('stale');
+    expect(stale.state.history[0].title).toBe('Konten basi: Salinan panduan');
+
+    const unchanged = setSharingCondition(stale.state, duplicate.submission.id, 'stale', { wallNow: 7_000 });
+    expect(unchanged.applied).toBe(false);
   });
 
   it('allows one Air reward for rating a completed Learning module only once', () => {
@@ -404,7 +418,7 @@ describe('gamification prototype logic', () => {
         url: `https://example.com/panduan-${index + 1}`,
         summary: 'Materi pengetahuan untuk pengujian demo.',
       }, { wallNow: 1_000 });
-      state = reviewSharingMaterial(pending.state, pending.submission.id, 'validated', { wallNow: 1_000 }).state;
+      state = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 1_000 }).state;
     }
 
     expect(state.level).toBe(0);
@@ -705,5 +719,164 @@ describe('gamification prototype logic', () => {
     expect(Number.isFinite(decayed.growthFertilizerUnits)).toBe(true);
     expect(decayed.growthAir).toBe(0);
     expect(decayed.growthFertilizerUnits).toBe(0);
+  });
+});
+
+describe('buah terikat konten dan laporan pengguna', () => {
+  const MATERI = { title: 'Panduan berbagi', type: 'article', url: 'https://example.com/berbagi', summary: 'Cara berbagi pengetahuan.' };
+
+  function matureHealthy() {
+    const state = createInitialState(1_000);
+    state.level = 3;
+    return state;
+  }
+
+  it('menautkan satu buah ke satu konten: slot dicatat sejak ACC dan tetap saat dipindah ke pohon', () => {
+    const start = matureHealthy();
+    const pending = submitSharingMaterial(start, MATERI, { wallNow: 2_000 });
+    const validated = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
+
+    // Buah reward ACC adalah buah konten itu sendiri, terikat sejak lahir.
+    expect(validated.state.fruitLedger).toHaveLength(1);
+    expect(validated.state.fruitLedger[0].submissionId).toBe(pending.submission.id);
+    expect(validated.state.fruitLedger[0].placement).toBe('storage');
+    expect(validated.state.fruitLedger[0].slot).toBe(1);
+
+    const moved = applyCare(validated.state, 'fruit', { wallNow: 4_000 });
+    expect(moved.state.fruitsOnTree).toBe(1);
+    expect(moved.state.fruitsInStorage).toBe(0);
+    expect(moved.state.fruitLedger[0].placement).toBe('tree');
+    expect(moved.state.fruitLedger[0].slot).toBe(1);
+    expect(moved.state.history[0].detail).toContain('Panduan berbagi');
+
+    const view = getFruitView(moved.state);
+    expect(view.fruitsOnTree).toBe(1);
+    expect(view.tree).toHaveLength(1);
+    expect(view.tree[0].slot).toBe(1);
+    expect(view.tree[0].title).toBe('Panduan berbagi');
+    expect(view.ground).toHaveLength(0);
+  });
+
+  it('buah yang diangkat tidak menggeser buah lain: slot kosong tetap di tempatnya', () => {
+    const start = matureHealthy();
+    const a = submitSharingMaterial(start, MATERI, { wallNow: 2_000 });
+    const aAcc = setSharingCondition(a.state, a.submission.id, 'validated', { wallNow: 3_000 });
+    const b = submitSharingMaterial(aAcc.state, {
+      ...MATERI,
+      title: 'Panduan lain',
+      url: 'https://example.com/lain',
+    }, { wallNow: 4_000 });
+    const bAcc = setSharingCondition(b.state, b.submission.id, 'validated', { wallNow: 5_000 });
+    expect(bAcc.state.fruitLedger.map((entry) => entry.slot)).toEqual([1, 2]);
+
+    const placed1 = applyCare(bAcc.state, 'fruit', { wallNow: 6_000 });
+    const placed2 = applyCare(placed1.state, 'fruit', { wallNow: 6_500 });
+    expect(placed2.state.fruitsOnTree).toBe(2);
+
+    // Konten pertama diangkat (tidak relevan): buahnya hilang, konten kedua
+    // tetap menggantung di slot 2 — tidak ada yang bergeser mengisi celah.
+    const removed = setSharingCondition(placed2.state, a.submission.id, 'rejected', { wallNow: 7_000 });
+    const removedEntry = removed.state.fruitLedger.find((entry) => entry.submissionId === a.submission.id);
+    expect(removedEntry.placement).toBe('gone');
+    expect(removed.state.fruitsOnTree).toBe(1);
+    expect(removed.state.air).toBe(placed2.state.air);
+    expect(removed.state.fertilizerUnits).toBe(placed2.state.fertilizerUnits);
+
+    const view = getFruitView(removed.state);
+    expect(view.maxSlot).toBe(2);
+    expect(view.tree.map((item) => item.slot)).toEqual([2]);
+    expect(view.tree[0].title).toBe('Panduan lain');
+  });
+
+  it('buah basi jatuh rebah di tanah, Admin re-ACC menumbuhkannya kembali di slot sama', () => {
+    const start = matureHealthy();
+    const pending = submitSharingMaterial(start, MATERI, { wallNow: 2_000 });
+    const acc = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
+    const placed = applyCare(acc.state, 'fruit', { wallNow: 4_000 });
+
+    // Basi: buah jatuh dan rebah busuk di bawah pohon; slotnya tetap dicatat.
+    const stale = setSharingCondition(placed.state, pending.submission.id, 'stale', { wallNow: 7_000 });
+    const staleEntry = stale.state.fruitLedger[0];
+    expect(staleEntry.placement).toBe('ground');
+    expect(staleEntry.fellAt).toBe(stale.state.clockMs);
+    expect(staleEntry.slot).toBe(1);
+    expect(stale.state.fruitsOnTree).toBe(0);
+    expect(getFruitView(stale.state).ground.map((item) => item.slot)).toEqual([1]);
+
+    // ACC ulang: buah tumbuh lagi di slot yang sama tanpa reward kedua.
+    const revived = setSharingCondition(stale.state, pending.submission.id, 'validated', { wallNow: 8_000 });
+    expect(revived.applied).toBe(true);
+    expect(revived.rewarded).toBe(false);
+    expect(revived.state.air).toBe(stale.state.air);
+    expect(revived.state.fertilizerUnits).toBe(stale.state.fertilizerUnits);
+    expect(revived.state.fruitLedger[0].placement).toBe('tree');
+    expect(revived.state.fruitLedger[0].slot).toBe(1);
+    expect(getFruitView(revived.state).tree[0].slot).toBe(1);
+
+    // Pohon belum Level 3: buah basi lalu di-ACC ulang menunggu di Storage,
+    // tetap memegang slot lamanya.
+    const youngStart = createInitialState(1_000);
+    const youngPending = submitSharingMaterial(youngStart, MATERI, { wallNow: 2_000 });
+    const youngAcc = setSharingCondition(youngPending.state, youngPending.submission.id, 'validated', { wallNow: 3_000 });
+    const youngStale = setSharingCondition(youngAcc.state, youngPending.submission.id, 'stale', { wallNow: 4_000 });
+    expect(youngStale.state.fruitLedger[0].placement).toBe('ground');
+
+    const youngRevive = setSharingCondition(youngStale.state, youngPending.submission.id, 'validated', { wallNow: 5_000 });
+    expect(youngRevive.state.fruitLedger[0].placement).toBe('storage');
+    expect(youngRevive.state.fruitLedger[0].slot).toBe(1);
+    expect(youngRevive.state.fruitsOnTree).toBe(0);
+  });
+
+  it('konten duplikat yang kini relevan melahirkan buah tanpa reward Air/Pupuk', () => {
+    const start = matureHealthy();
+    const pending = submitSharingMaterial(start, MATERI, { wallNow: 2_000 });
+    const rejected = setSharingCondition(pending.state, pending.submission.id, 'rejected', { wallNow: 3_000 });
+    const duplicate = submitSharingMaterial(rejected.state, {
+      ...MATERI,
+      title: 'Salinan panduan',
+      url: 'https://EXAMPLE.com/berbagi/#ringkasan',
+    }, { wallNow: 4_000 });
+    expect(duplicate.submission.status).toBe('duplicate');
+
+    const validated = setSharingCondition(duplicate.state, duplicate.submission.id, 'validated', { wallNow: 5_000 });
+    expect(validated.applied).toBe(true);
+    expect(validated.rewarded).toBe(false);
+    expect(validated.state.air).toBe(start.air);
+    expect(validated.state.fertilizerUnits).toBe(start.fertilizerUnits);
+    expect(validated.state.fruitsInStorage).toBe(1);
+    expect(validated.state.fruitLedger).toHaveLength(1);
+    expect(validated.state.fruitLedger[0].submissionId).toBe(duplicate.submission.id);
+
+    // Diputus duplikat lagi: buahnya diangkat, tidak menyisakan buah.
+    const unfruit = setSharingCondition(validated.state, duplicate.submission.id, 'duplicate', { wallNow: 6_000 });
+    expect(unfruit.state.fruitLedger[0].placement).toBe('gone');
+    expect(unfruit.state.fruitsInStorage).toBe(0);
+    expect(unfruit.state.fruitsOnTree).toBe(0);
+  });
+
+  it('laporan pengguna: satu akun satu laporan per konten, riwayat dicatat untuk admin', () => {
+    const start = createInitialState(1_000);
+    const pending = submitSharingMaterial(start, MATERI, { wallNow: 2_000 });
+    const accd = setSharingCondition(pending.state, pending.submission.id, 'validated', { wallNow: 3_000 });
+    expect(accd.state.sharingSubmissions[0].reports).toEqual([]);
+
+    const first = addSharingReport(accd.state, pending.submission.id, '  Nadia@Example.COM ', { wallNow: 4_000 });
+    expect(first.added).toBe(true);
+    expect(first.reports).toBe(1);
+    expect(first.state.sharingSubmissions[0].reports[0].by).toBe('nadia@example.com');
+    expect(accd.state.sharingSubmissions[0].reports).toEqual([]);
+
+    // Laporan ganda dari reporter sama tidak ditambahkan dua kali.
+    const again = addSharingReport(first.state, pending.submission.id, 'nadia@example.com', { wallNow: 5_000 });
+    expect(again.added).toBe(false);
+    expect(again.reports).toBe(1);
+
+    const secondReporter = addSharingReport(again.state, pending.submission.id, 'Budi@Example.com', { wallNow: 6_000 });
+    expect(secondReporter.added).toBe(true);
+    expect(secondReporter.reports).toBe(2);
+    expect(secondReporter.state.history[0].title).toBe('Konten dilaporkan: Panduan berbagi');
+    expect(secondReporter.state.history[0].detail).toContain('budi@example.com');
+
+    expect(() => addSharingReport(accd.state, 'konten-tak-ada', 'nadia@example.com')).toThrow('tidak ditemukan');
   });
 });

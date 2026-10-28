@@ -27,6 +27,11 @@ const ACTIVITY_REWARDS = {
   review: { air: 1, fertilizerUnits: 0, fruit: 0, label: 'Review valid' },
 };
 const SHARING_TYPES = new Set(['video', 'article', 'document', 'podcast', 'link']);
+const FRUIT_PLACEMENTS = new Set(['storage', 'tree', 'ground', 'gone']);
+
+// Buah = konten: satu buah terikat unik ke satu konten Sharing (atau anonim
+// dari tool demo), memegang slot tempat yang tidak pernah berpindah.
+// placement: 'storage' | 'tree' | 'ground' (basi jatuh) | 'gone' (tidak relevan/duplikat).
 
 function getLocalDayKey(timestamp) {
   const date = new Date(timestamp);
@@ -66,6 +71,8 @@ function cloneState(state) {
   if (usesLegacyLevels && clonedState.level >= 5) clonedState.level = 7;
   clonedState.level = Math.max(clonedState.level, getLevelForProgress(clonedState.growthAir, clonedState.growthFertilizerUnits));
   clonedState.levelSystemVersion = LEVEL_SYSTEM_VERSION;
+  // Counter buah tetap dibaca dari bentuk lama sebagai angka mentah; ledger
+  // yang akan menegaskan nilai final (lihat normalizeFruitLedger).
   clonedState.fruitsInStorage = Number.isFinite(clonedState.fruitsInStorage) ? Math.max(0, clonedState.fruitsInStorage) : 0;
   clonedState.fruitsOnTree = Number.isFinite(clonedState.fruitsOnTree) ? Math.max(0, clonedState.fruitsOnTree) : 0;
   clonedState.clockMs = Number.isFinite(clonedState.clockMs) ? clonedState.clockMs : now;
@@ -75,7 +82,9 @@ function cloneState(state) {
   clonedState.lastValidActivityAt = Number.isFinite(clonedState.lastValidActivityAt)
     ? clonedState.lastValidActivityAt
     : clonedState.clockMs;
-  clonedState.lastCareAt = Number.isFinite(clonedState.lastCareAt) ? clonedState.lastCareAt : null;
+  clonedState.lastCareAt = clonedState.lastCareAt !== undefined && clonedState.lastCareAt !== null && Number.isFinite(clonedState.lastCareAt)
+    ? clonedState.lastCareAt
+    : null;
   clonedState.lastDecayResetAt = Number.isFinite(clonedState.lastDecayResetAt)
     ? clonedState.lastDecayResetAt
     : Math.max(clonedState.lastValidActivityAt, clonedState.lastCareAt ?? clonedState.lastValidActivityAt);
@@ -89,6 +98,12 @@ function cloneState(state) {
   clonedState.sharingSubmissions = Array.isArray(clonedState.sharingSubmissions)
     ? clonedState.sharingSubmissions
     : [];
+  for (const submission of clonedState.sharingSubmissions) {
+    submission.reports = Array.isArray(submission.reports)
+      ? submission.reports.filter((report) => report && typeof report.by === 'string')
+      : [];
+  }
+  normalizeFruitLedger(clonedState);
   clonedState.history = Array.isArray(clonedState.history) ? clonedState.history : [];
   clonedState.lastAccessRewardDay = /^\d{4}-\d{2}-\d{2}$/.test(clonedState.lastAccessRewardDay ?? '')
     ? clonedState.lastAccessRewardDay
@@ -129,6 +144,7 @@ export function createInitialState(now = Date.now()) {
     careFertilizerUnits: 2,
     fruitsInStorage: 0,
     fruitsOnTree: 0,
+    fruitLedger: [],
     growthAir: 0,
     growthFertilizerUnits: 0,
     clockMs: now,
@@ -176,29 +192,150 @@ export function getTreeCondition(state) {
   return 'healthy';
 }
 
+function deriveFruitCounters(state) {
+  let onTree = 0;
+  let inStorage = 0;
+  for (const entry of state.fruitLedger) {
+    if (entry.placement === 'tree') onTree += 1;
+    else if (entry.placement === 'storage') inStorage += 1;
+  }
+  state.fruitsOnTree = onTree;
+  state.fruitsInStorage = inStorage;
+}
+
+function nextFruitSlot(state) {
+  let slot = 0;
+  for (const entry of state.fruitLedger) {
+    if (Number.isFinite(entry?.slot) && entry.slot > slot) slot = entry.slot;
+  }
+  return slot + 1;
+}
+
+function makeFruitEntry(state, submissionId, at) {
+  const entry = {
+    submissionId: submissionId ?? null,
+    slot: nextFruitSlot(state),
+    placement: 'storage',
+    placedAt: at,
+    fellAt: null,
+  };
+  state.fruitLedger.push(entry);
+  return entry;
+}
+
+function boundFruitTitle(state, submissionId) {
+  return state.sharingSubmissions.find((submission) => submission.id === submissionId)?.title ?? null;
+}
+
+function findLedgerEntry(state, submissionId) {
+  return state.fruitLedger.find((entry) => entry.submissionId === submissionId) ?? null;
+}
+
+// Proyeksikan buah bentuk lama (counter anonim) ke ledger terikat konten —
+// jalankan hanya saat state belum punya ledger sama sekali.
+function importLegacyFruits(state) {
+  const decided = [...state.sharingSubmissions]
+    .filter((submission) => typeof submission?.status === 'string' && submission.status !== 'pending')
+    .reverse(); // terbaru dulu: slot 1 = pairing tampilan lama.
+  const legacyTree = Number.isFinite(state.fruitsOnTree) ? Math.max(0, state.fruitsOnTree) : 0;
+  const legacyStorage = Number.isFinite(state.fruitsInStorage) ? Math.max(0, state.fruitsInStorage) : 0;
+  const boundCount = Math.min(legacyTree + legacyStorage, decided.length);
+
+  state.fruitLedger = decided.slice(0, boundCount).map((submission, index) => ({
+    submissionId: submission.id,
+    slot: index + 1,
+    placement: index < legacyTree ? 'tree' : 'storage',
+    placedAt: state.clockMs,
+    fellAt: null,
+  }));
+  const boundTree = Math.min(legacyTree, boundCount);
+  for (let index = 0; index < boundTree; index += 1) {
+    state.fruitLedger[index].placedAt = state.clockMs;
+  }
+  deriveFruitCounters(state);
+  let guard = 0;
+  while (state.fruitsOnTree < legacyTree && guard < 500) {
+    makeFruitEntry(state, null, state.clockMs).placement = 'tree';
+    deriveFruitCounters(state);
+    guard += 1;
+  }
+  guard = 0;
+  while (state.fruitsInStorage < legacyStorage && guard < 500) {
+    makeFruitEntry(state, null, state.clockMs);
+    deriveFruitCounters(state);
+    guard += 1;
+  }
+}
+
+function normalizeFruitLedger(state) {
+  if (!Array.isArray(state.fruitLedger)) {
+    importLegacyFruits(state);
+  } else {
+    const usedSlots = new Set();
+    for (const entry of state.fruitLedger) {
+      if (!FRUIT_PLACEMENTS.has(entry?.placement)) {
+        entry.placement = 'storage';
+      }
+      if (!Number.isFinite(entry.slot) || entry.slot < 1 || usedSlots.has(entry.slot)) {
+        entry.slot = nextFruitSlot(state);
+      }
+      usedSlots.add(entry.slot);
+      if (!Number.isFinite(entry.placedAt)) entry.placedAt = state.clockMs;
+      if (!Number.isFinite(entry.fellAt)) entry.fellAt = null;
+    }
+  }
+
+  // State uji/bentuk lama memasang counter lebih besar dari isi ledger:
+  // isi selisihnya dengan buah anonim agar angka tampilan tetap benar.
+  const wantTree = Number.isFinite(state.fruitsOnTree) ? state.fruitsOnTree : 0;
+  const wantStorage = Number.isFinite(state.fruitsInStorage) ? state.fruitsInStorage : 0;
+  deriveFruitCounters(state);
+  let guard = 0;
+  while (state.fruitsOnTree < wantTree && guard < 500) {
+    makeFruitEntry(state, null, state.clockMs).placement = 'tree';
+    deriveFruitCounters(state);
+    guard += 1;
+  }
+  guard = 0;
+  while (state.fruitsInStorage < wantStorage && guard < 500) {
+    makeFruitEntry(state, null, state.clockMs);
+    deriveFruitCounters(state);
+    guard += 1;
+  }
+}
+
+// Buah di pohon otomatis kembali ke Storage saat pohon tidak sehat atau
+// belum Level 3; konten "menggantung slotnya" kosong sampai buah dipindah lagi.
 function syncFruitPlacement(state, at) {
   const condition = getTreeCondition(state);
   const canShowFruit = state.level >= 3 && condition === 'healthy';
 
-  if (!canShowFruit && state.fruitsOnTree > 0) {
-    const movedFruit = state.fruitsOnTree;
-    state.fruitsInStorage += movedFruit;
-    state.fruitsOnTree = 0;
+  if (!canShowFruit) {
+    let movedFruit = 0;
+    for (const entry of state.fruitLedger) {
+      if (entry.placement !== 'tree') continue;
+      entry.placement = 'storage';
+      entry.fellAt = null;
+      movedFruit += 1;
+    }
 
-    const reason = condition === 'thirsty'
-      ? 'pohon sedang menguning'
-      : condition === 'dead'
-        ? 'pohon sedang mati'
-        : 'pohon belum mencapai Level 3';
-    state.history.unshift(makeHistoryEntry(state, {
-      at,
-      type: 'fruit',
-      title: 'Buah kembali ke Storage',
-      detail: `${movedFruit} Buah disimpan sementara karena ${reason}.`,
-      status: 'fruit',
-    }));
+    if (movedFruit > 0) {
+      const reason = condition === 'thirsty'
+        ? 'pohon sedang menguning'
+        : condition === 'dead'
+          ? 'pohon sedang mati'
+          : 'pohon belum mencapai Level 3';
+      state.history.unshift(makeHistoryEntry(state, {
+        at,
+        type: 'fruit',
+        title: 'Buah kembali ke Storage',
+        detail: `${movedFruit} Buah disimpan sementara karena ${reason}.`,
+        status: 'fruit',
+      }));
+    }
   }
 
+  deriveFruitCounters(state);
   state.history = state.history.slice(0, 30);
 }
 
@@ -258,12 +395,16 @@ function updateTreeLevel(state, at) {
   return state.level > previousLevel;
 }
 
-function addReward(state, reward, at, label) {
+function addReward(state, reward, at, label, options = {}) {
   state.air += reward.air;
   state.fertilizerUnits += reward.fertilizerUnits;
 
   if (reward.fruit > 0) {
-    state.fruitsInStorage += reward.fruit;
+    // Reward Buah berbentuk buah nyata di ledger; saat Sharing di-ACC, buah
+    // pembawa reward itu terikat langsung ke kontennya.
+    for (let index = 0; index < reward.fruit; index += 1) {
+      makeFruitEntry(state, options.boundSubmissionId ?? null, at);
+    }
   }
 
   syncFruitPlacement(state, at);
@@ -444,6 +585,7 @@ export function submitSharingMaterial(currentState, material, options = {}) {
     status: isDuplicate ? 'duplicate' : 'pending',
     submittedAt: state.clockMs,
     reviewedAt: null,
+    reports: [],
   };
 
   state.sharingSubmissions.unshift(submission);
@@ -459,9 +601,20 @@ export function submitSharingMaterial(currentState, material, options = {}) {
   return { state, submission };
 }
 
-export function reviewSharingMaterial(currentState, submissionId, validation, options = {}) {
-  if (!['validated', 'rejected', 'duplicate'].includes(validation)) {
-    throw new Error('Status validasi Sharing tidak dikenal.');
+// Admin lintas-akun: kondisi konten dapat ditandai ulang kapan pun
+// (ACC / Basi / Tidak relevan / Duplikat). Reward hanya diberikan sekali,
+// yaitu saat konten berstatus pending di-ACC untuk pertama kalinya.
+//
+// Aturan buah (1 buah = 1 konten unik):
+// - ACC            → buah konten muncul (Storage dulu, slotnya sudah dicatat).
+// - Basi           → buah jatuh dan rebah busuk di bawah pohon (arsip).
+// - Tidak relevan  → buah diangkat: hilang, slot kosong permanen.
+// - Duplikat       → buah duplikatnya diangkat; buah konten asli tetap.
+// - ACC ulang      → buah tumbuh/balik pada slot yang sama; Air/Pupuk tidak
+//                    diberikan lagi dan tidak pernah ditarik.
+export function setSharingCondition(currentState, submissionId, condition, options = {}) {
+  if (!['validated', 'stale', 'rejected', 'duplicate'].includes(condition)) {
+    throw new Error('Kondisi konten Sharing tidak dikenal.');
   }
 
   const state = cloneState(currentState);
@@ -470,33 +623,153 @@ export function reviewSharingMaterial(currentState, submissionId, validation, op
 
   const submission = state.sharingSubmissions.find((entry) => entry.id === submissionId);
   if (!submission) {
-    throw new Error('Materi Sharing tidak ditemukan.');
+    throw new Error('Konten Sharing tidak ditemukan.');
   }
 
-  if (submission.status !== 'pending') {
-    return { state, applied: false, reason: 'already-reviewed' };
+  const previousStatus = submission.status;
+  if (previousStatus === condition) {
+    return { state, applied: false, reason: 'condition-unchanged', rewarded: false };
   }
 
-  submission.status = validation;
+  submission.status = condition;
   submission.reviewedAt = state.clockMs;
 
-  if (validation === 'validated') {
-    addReward(state, { air: 3, fertilizerUnits: 4, fruit: 1 }, state.clockMs, `Sharing tervalidasi: ${submission.title}`);
-    recordValidActivity(state);
-    return { state, applied: true };
+  const entry = findLedgerEntry(state, submission.id);
+  const treeReady = state.level >= 3 && getTreeCondition(state) === 'healthy';
+
+  if (condition === 'validated') {
+    if (entry) {
+      // Buah kembali di slot yang sama; slot tidak pernah bergeser.
+      entry.placement = treeReady ? 'tree' : 'storage';
+      entry.fellAt = null;
+      entry.placedAt = state.clockMs;
+    }
+  } else if (condition === 'stale') {
+    if (entry) {
+      entry.placement = 'ground';
+      entry.fellAt = state.clockMs;
+    }
+  } else if (entry) {
+    // Tidak relevan / duplikat: buahnya diangkat, slotnya kosong permanen.
+    entry.placement = 'gone';
+    entry.fellAt = null;
   }
 
-  const statusTitle = validation === 'rejected' ? 'Sharing ditolak' : 'Sharing duplikat';
+  if (condition === 'validated' && previousStatus === 'pending') {
+    // Reward ACC pertama: +3 Air, +2 Pupuk, dan buah konten itu sendiri.
+    addReward(state, { air: 3, fertilizerUnits: 4, fruit: 1 }, state.clockMs, `Sharing di-ACC: ${submission.title}`, { boundSubmissionId: submission.id });
+    recordValidActivity(state);
+    return { state, applied: true, rewarded: true };
+  }
+
+  if (condition === 'validated' && !entry) {
+    // Duplikat lama yang diputus relevan: buah pasangannya muncul, tanpa
+    // reward Air/Pupuk (reward hanya untuk ACC pertama kali).
+    makeFruitEntry(state, submission.id, state.clockMs);
+  }
+
+  const conditionSummaries = {
+    validated: treeReady
+      ? 'Konten kembali relevan; buah kembali menggantung di slot lamanya.'
+      : 'Konten kembali relevan; buah kembali ke Storage di slot lamanya.',
+    stale: 'Laporan dinyatakan; buah jatuh rebah busuk di bawah pohon.',
+    rejected: 'Konten tidak relevan; buahnya diangkat dan hilang dari pohon.',
+    duplicate: 'Konten duplikat; buahnya diangkat, buah konten asli tetap.',
+  };
+  const conditionTitles = {
+    validated: 'Konten kembali di-ACC',
+    stale: 'Konten basi',
+    rejected: 'Konten tidak relevan',
+    duplicate: 'Konten duplikat',
+  };
   recordActivity(state, {
     at: state.clockMs,
     type: 'sharing',
-    title: statusTitle,
-    detail: `${submission.title} · tidak mendapat reward`,
-    status: validation,
+    title: `${conditionTitles[condition]}: ${submission.title}`,
+    detail: conditionSummaries[condition],
+    status: condition,
     metadata: { submissionId: submission.id },
   });
 
-  return { state, applied: true };
+  syncFruitPlacement(state, state.clockMs);
+  return { state, applied: true, rewarded: false };
+}
+
+// Pengguna lain melaporkan konten yang tak lagi relevan. Satu akun hanya
+// melapor satu kali per konten; keputusan tetap di tangan admin (manual).
+export function addSharingReport(currentState, submissionId, reporterEmail, options = {}) {
+  const reporter = String(reporterEmail ?? '').trim().toLocaleLowerCase('en-US');
+  if (!reporter) {
+    throw new Error('Pelapor tidak dikenal.');
+  }
+
+  const state = cloneState(currentState);
+  const wallNow = options.wallNow ?? Date.now();
+  syncActivityClock(state, wallNow);
+
+  const submission = state.sharingSubmissions.find((entry) => entry.id === submissionId);
+  if (!submission) {
+    throw new Error('Konten Sharing tidak ditemukan.');
+  }
+
+  submission.reports = Array.isArray(submission.reports) ? submission.reports : [];
+  if (submission.reports.some((report) => report?.by === reporter)) {
+    return { state, added: false, reason: 'already-reported', reports: submission.reports.length };
+  }
+
+  submission.reports.push({ by: reporter, at: state.clockMs });
+  recordActivity(state, {
+    at: state.clockMs,
+    type: 'report',
+    title: `Konten dilaporkan: ${submission.title}`,
+    detail: `Dilaporkan oleh ${reporter} (total ${submission.reports.length}). Admin yang menentukan kondisinya.`,
+    status: 'reported',
+    metadata: { submissionId: submission.id },
+  });
+
+  return { state, added: true, reports: submission.reports.length };
+}
+
+// Peta buah untuk rendering: baris slot di pohon, buah busuk yang rebah di
+// tanah, dan jumlah slot (agar buah yang hilang meninggalkan celah kosong).
+export function getFruitView(currentState) {
+  const submissionsById = new Map();
+  for (const submission of currentState.sharingSubmissions ?? []) {
+    submissionsById.set(submission.id, submission);
+  }
+
+  const tree = [];
+  const ground = [];
+  const gone = [];
+  let maxSlot = 0;
+
+  for (const entry of currentState.fruitLedger ?? []) {
+    if (!Number.isFinite(entry?.slot)) continue;
+    maxSlot = Math.max(maxSlot, entry.slot);
+    const submission = entry.submissionId ? submissionsById.get(entry.submissionId) : null;
+    const viewItem = {
+      slot: entry.slot,
+      submissionId: entry.submissionId ?? null,
+      title: submission?.title ?? null,
+      statusKey: 'validated',
+    };
+
+    if (entry.placement === 'tree') {
+      tree.push({ ...viewItem, title: submission?.title ?? null });
+    } else if (entry.placement === 'ground') {
+      ground.push({ ...viewItem, fellAt: Number.isFinite(entry.fellAt) ? entry.fellAt : null });
+    } else if (entry.placement === 'gone') {
+      gone.push({ slot: entry.slot, submissionId: entry.submissionId ?? null, title: submission?.title ?? null });
+    }
+  }
+
+  return {
+    tree,
+    ground,
+    gone,
+    maxSlot,
+    fruitsOnTree: tree.length,
+  };
 }
 
 export function applyActivity(currentState, type, options = {}) {
@@ -552,7 +825,11 @@ export function applyCare(currentState, resourceType, options = {}) {
   }
 
   if (resourceType === 'fruit') {
-    if (state.fruitsInStorage < 1) {
+    const storageFruits = state.fruitLedger
+      .filter((entry) => entry.placement === 'storage')
+      .sort((a, b) => a.slot - b.slot);
+
+    if (storageFruits.length < 1) {
       state.history.unshift(makeHistoryEntry(state, {
         at: state.clockMs,
         type: 'fruit',
@@ -579,13 +856,18 @@ export function applyCare(currentState, resourceType, options = {}) {
       return { state, applied: false, resourceType, reason: 'tree-not-ready' };
     }
 
-    state.fruitsInStorage -= 1;
-    state.fruitsOnTree += 1;
+    const placedFruit = storageFruits[0];
+    placedFruit.placement = 'tree';
+    placedFruit.fellAt = null;
+    placedFruit.placedAt = state.clockMs;
+    const placedTitle = placedFruit.submissionId ? boundFruitTitle(state, placedFruit.submissionId) : null;
+    deriveFruitCounters(state);
+
     state.history.unshift(makeHistoryEntry(state, {
       at: state.clockMs,
       type: 'fruit',
       title: 'Buah dipindahkan ke pohon',
-      detail: '−1 Buah dari Storage · +1 Buah di pohon; progres dan perawatan tidak berubah.',
+      detail: `−1 Buah dari Storage · +1 Buah menggantung di pohon; progres dan perawatan tidak berubah.${placedTitle ? ` Buah milik konten "${placedTitle}" (slot ${placedFruit.slot}).` : ''}`,
       status: 'fruit',
     }));
     state.history = state.history.slice(0, 30);
@@ -711,7 +993,9 @@ export function addDemoResource(currentState, resourceType, amount, options = {}
     state.fertilizerUnits += fertilizerUnits;
     storageDelta.fertilizerUnits = fertilizerUnits;
   } else {
-    state.fruitsInStorage += quantity;
+    for (let index = 0; index < quantity; index += 1) {
+      makeFruitEntry(state, null, state.clockMs);
+    }
     storageDelta.fruit = quantity;
   }
 
@@ -771,7 +1055,7 @@ export function applyDemoBoost(currentState, wallNow = Date.now()) {
   applyElapsedDecay(state);
   state.air += 10;
   state.fertilizerUnits += 12;
-  state.fruitsInStorage += 1;
+  makeFruitEntry(state, null, state.clockMs);
   syncFruitPlacement(state, state.clockMs);
   recordActivity(state, {
     at: state.clockMs,

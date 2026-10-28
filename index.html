@@ -32,16 +32,18 @@
         <span class="auth-logo" aria-hidden="true"><svg class="icon"><use href="#icon-leaf" /></svg></span>
         <p class="eyebrow">KEBUNKU · PROTOTYPE</p>
         <h1>Masuk ke kebunmu</h1>
-        <p class="auth-description">Cukup nama dan email. Akun baru dibuat otomatis di browser ini.</p>
+        <p class="auth-description">Nama, email, dan kata sandi. Akun baru dibuat otomatis saat masuk pertama, datanya tersimpan di server demo.</p>
         <form id="loginForm" class="auth-form">
           <label for="loginName">Nama</label>
           <input id="loginName" name="name" type="text" autocomplete="name" placeholder="Nama kamu" minlength="2" required />
           <label for="loginEmail">Email</label>
           <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
-          <button class="auth-submit" type="submit">Masuk <svg class="icon"><use href="#icon-arrow" /></svg></button>
+          <label for="loginPassword">Kata sandi</label>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" minlength="6" required />
+          <button class="auth-submit" type="submit">Masuk / Daftar <svg class="icon"><use href="#icon-arrow" /></svg></button>
         </form>
         <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
-        <p class="auth-disclaimer">Data tersimpan di browser ini saja, bukan akun KMS.</p>
+        <p class="auth-hint">Masuk dengan email diawali <code>admin@</code> untuk konsol Admin; email lain untuk kebun user.</p>
       </div>
     </section>
 
@@ -57,11 +59,13 @@
         <div class="sidebar-menu" id="sidebarMenu">
           <p class="workspace-label">MENU KEBUN</p>
           <nav class="side-nav" aria-label="Navigasi utama">
-            <a class="nav-link active" href="#tree" data-page-link data-page-target="tree" aria-current="page"><span class="nav-dot"></span><span>Pohon</span></a>
-            <span class="nav-group-title">Aktivitas KMS</span>
-            <a class="nav-link" href="#learning" data-page-link data-page-target="learning"><span class="nav-dot"></span><span>Learning</span></a>
-            <a class="nav-link" href="#sharing" data-page-link data-page-target="sharing"><span class="nav-dot"></span><span>Sharing</span></a>
-            <a class="nav-link" href="#history" data-page-link data-page-target="history"><span class="nav-dot"></span><span>Riwayat</span></a>
+            <a class="nav-link active" href="#tree" data-page-link data-page-target="tree" data-user-only aria-current="page"><span class="nav-dot"></span><span>Pohon</span></a>
+            <span class="nav-group-title" data-user-only>Aktivitas KMS</span>
+            <a class="nav-link" href="#learning" data-page-link data-page-target="learning" data-user-only><span class="nav-dot"></span><span>Learning</span></a>
+            <a class="nav-link" href="#sharing" data-page-link data-page-target="sharing" data-user-only><span class="nav-dot"></span><span>Sharing</span></a>
+            <a class="nav-link" href="#library" data-page-link data-page-target="library" data-user-only><span class="nav-dot"></span><span>Perpustakaan</span></a>
+            <a class="nav-link" href="#admin" data-page-link data-page-target="admin" data-admin-only><span class="nav-dot"></span><span>Review Admin</span></a>
+            <a class="nav-link" href="#history" data-page-link data-page-target="history" data-user-only><span class="nav-dot"></span><span>Riwayat</span></a>
           </nav>
           <div class="sidebar-footer"><span class="online-indicator"></span><span>Prototype siap</span><span class="version-tag">v0.1</span></div>
         </div>
@@ -160,6 +164,31 @@
             </details>
           </article>
 
+          <article class="content-status-card panel" id="contentStatusCard" aria-labelledby="contentStatusTitle">
+            <div class="content-status-heading">
+              <div>
+                <p class="eyebrow">KONDISI KONTEN SHARING</p>
+                <h3 id="contentStatusTitle">Status konten & warna buah</h3>
+                <p class="content-status-note">Satu buah = satu konten unik. Merah matang menggantung = ACC (relevan); coklat busuk rebah di tanah = basi; slot kosong = buah belum dipindah dari Storage atau sudah diangkat (tidak relevan/duplikat). Posisi buah tidak pernah bergeser mengisi celah.</p>
+              </div>
+              <span class="content-status-count" id="contentStatusCount" title="Jumlah konten Sharing">0</span>
+            </div>
+            <div class="content-status-scroll">
+              <table class="content-status-table">
+                <thead>
+                  <tr><th scope="col">Materi</th><th scope="col">Jenis</th><th scope="col">Dikirim</th><th scope="col">Kondisi</th></tr>
+                </thead>
+                <tbody id="contentStatusBody"></tbody>
+              </table>
+            </div>
+            <div class="content-status-legend" aria-label="Legenda warna buah">
+              <span class="legend-item"><span class="fruit-dot validated"></span>Merah matang · ACC</span>
+              <span class="legend-item"><span class="fruit-dot pending"></span>Hijau muda · Menunggu</span>
+              <span class="legend-item"><span class="fruit-dot stale"></span>Coklat busuk · Basi (rebah)</span>
+              <span class="legend-item"><span class="fruit-dot rejected"></span>Kuning kusam · Diangkat</span>
+            </div>
+          </article>
+
           <details class="demo-details">
             <summary>Kontrol khusus demo <span>Boost · Kondisi · Variabel · Reset</span></summary>
             <div class="demo-bar">
@@ -180,7 +209,7 @@
 
           <details class="assumption-details">
             <summary>Aturan gamifikasi prototype</summary>
-            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, L5 52/30, L6 77/42, dan L7 101/54. Kenaikan dari L4 ke L7 dibagi menjadi +25/+12, +25/+12, lalu +24/+12. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Pindahkan Buah satu per satu dengan tombol klik atau drag-and-drop ke pohon sehat Level 3+; Buah di pohon otomatis kembali ke Storage jika kondisinya memburuk.</p>
+            <p>Ambang level bersifat kumulatif: L1 1 Air/1 Pupuk, L2 3/2, L3 9/6, L4 27/18, L5 52/30, L6 77/42, dan L7 101/54. Kenaikan dari L4 ke L7 dibagi menjadi +25/+12, +25/+12, lalu +24/+12. Login valid memberi +1 Air ke Storage maksimal sekali per hari; reward aktivitas lain juga menambah Storage. Air/Pupuk yang dipakai ke pohon mengisi progres dan perawatan. Setiap 7 hari tanpa Access, Learning, Sharing, atau perawatan, progres serta perawatan berkurang maksimal 1 Air/0,5 Pupuk; Review memberi 1 Air tetapi tidak mereset decay. Saldo Storage dan level tidak turun karena decay. Air perawatan 0 membuat pohon menguning, Pupuk perawatan 0 membuatnya mati. Pindahkan Buah satu per satu (klik atau drag-and-drop) ke pohon sehat Level 3+; Buah di pohon otomatis kembali ke Storage jika kondisinya memburuk. Setiap konten Sharing punya satu buah pasangannya sendiri: ACC pertama memberi +3 Air/+2 Pupuk dan melahirkan buah konten itu di Storage dengan slot yang langsung dicatat, basi membuat buahnya jatuh rebah busuk di bawah pohon (arsip), sedangkan tidak relevan/duplikat mengangkat buahnya — hilang dan menyisakan slot kosong yang tidak digeser buah lain. Admin yang menandai konten kembali ACC membuat buah tumbuh lagi di slot lamanya; Air/Pupuk tidak diberikan dua kali dan tidak pernah ditarik. Pengguna lain juga dapat melaporkan konten di halaman Perpustakaan (satu akun satu laporan per konten); jumlah laporan tampil di Review Admin dan admin yang memutuskan secara manual. Semua keputusan diambil di halaman Review Admin (lintas-akun) dan statusnya terlihat pada tabel di bawah pohon.</p>
           </details>
           </section>
 
@@ -209,7 +238,7 @@
           <section class="page-view" id="sharingPage" data-page-view="sharing" aria-label="Halaman Sharing" hidden>
             <section class="activity-page panel sharing-page" aria-labelledby="sharing-title">
               <div class="panel-heading activity-page-heading">
-                <div><p class="eyebrow">AKTIVITAS KMS · SHARING</p><h2 id="sharing-title">Bagikan pengetahuan</h2><p class="activity-page-description">Kirim materi untuk divalidasi. Video pendukung dapat diunggah secara opsional.</p></div>
+                <div><p class="eyebrow">AKTIVITAS KMS · SHARING</p><h2 id="sharing-title">Bagikan pengetahuan</h2><p class="activity-page-description">Kirim materi untuk ditinjau admin: kondisinya bisa ACC (relevan), Basi, atau Tidak relevan. Video pendukung dapat diunggah secara opsional.</p></div>
                 <span class="sharing-reward-pill" title="Buah, Air, dan Pupuk masuk Storage. Gunakan tombol Buah untuk memindahkannya satu per satu ke pohon sehat Level 3+.">Tervalidasi · +1 Buah · +3 Air · +2 Pupuk ke Storage</span>
               </div>
               <section class="sharing-panel sharing-page-panel" aria-label="Form Sharing dan antrean validasi">
@@ -226,9 +255,31 @@
                      <button class="sharing-submit" type="submit"><svg class="icon"><use href="#icon-share" /></svg> Submit</button>
                     <p class="sharing-form-hint">Video disimpan di browser ini saja. Reward diberikan setelah materi tervalidasi.</p>
                   </form>
-                  <div class="sharing-queue-heading"><h4>Antrean validasi demo</h4><span id="sharingQueueCount">0</span></div>
+                  <div class="sharing-queue-heading"><h4>Status konten kamu</h4><span id="sharingQueueCount" title="Menunggu review admin">0</span></div>
                   <div class="sharing-queue" id="sharingQueue" aria-live="polite"></div>
               </section>
+            </section>
+          </section>
+
+          <section class="page-view" id="libraryPage" data-page-view="library" aria-label="Halaman Perpustakaan" hidden>
+            <section class="activity-page panel library-page" aria-labelledby="library-title">
+              <div class="panel-heading activity-page-heading">
+                <div><p class="eyebrow">AKTIVITAS KMS · PERPUSTAKAAN</p><h2 id="library-title">Konten dari user lain</h2><p class="activity-page-description">Koleksi konten Sharing yang sudah di-ACC admin dari semua akun di browser ini. Menurutmu ada yang tidak relevan atau duplikat? Laporkan — admin yang memutuskan kondisinya secara manual.</p></div>
+                <span class="sharing-reward-pill library-pill" title="Satu akun satu laporan per konten">1 akun · 1 laporan per konten</span>
+              </div>
+              <div class="library-summary"><span class="library-count-badge" id="libraryCount" title="Jumlah konten relevan">0</span><span class="library-count-label">konten relevan terkumpul</span></div>
+              <div class="library-list" id="libraryList" aria-live="polite"></div>
+            </section>
+          </section>
+
+          <section class="page-view" id="adminPage" data-page-view="admin" aria-label="Halaman Review Admin" hidden>
+            <section class="activity-page panel admin-page" aria-labelledby="admin-title">
+              <div class="panel-heading activity-page-heading">
+                <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="admin-title">Review konten Sharing</h2><p class="activity-page-description">Tinjau konten dari semua akun di browser ini, lalu tentukan kondisinya: ACC (relevan), Basi (buah jatuh rebah di bawah pohon), atau Tidak relevan/duplikat (buah diangkat, slot kosong). Hitungan laporan pengguna tampil pada tiap konten; keputusan tetap di tanganmu.</p></div>
+                <span class="sharing-reward-pill admin-pill" title="Admin prototype lintas-akun">Admin · semua akun di browser</span>
+              </div>
+              <div class="admin-summary" id="adminSummary" role="group" aria-label="Ringkasan dan saringan status konten"></div>
+              <div class="admin-review-list" id="adminReviewList" aria-live="polite"></div>
             </section>
           </section>
 

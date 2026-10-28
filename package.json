@@ -5,10 +5,17 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:api": "wrangler dev --port 8787",
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "vite": "^8.0.0",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "wrangler": "^4.153.0"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.15.3",
+    "hono": "^4.10.9"
   }
 }
