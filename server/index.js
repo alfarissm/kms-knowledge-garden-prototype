@@ -10,8 +10,8 @@ import { addSharingReport, setSharingCondition } from '../src/gamification.js';
 const SESSION_COOKIE = 'kg_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-// PBKDF2-SHA256 (WebCrypto, tersedia di Workers maupun Node).
-const PBKDF2_ITERATIONS = 120_000;
+// PBKDF2-SHA256 (WebCrypto). Workers membatasi iterasi PBKDF2 maksimal 100.000.
+const PBKDF2_ITERATIONS = 100_000;
 
 function encoder() {
   return new TextEncoder();
