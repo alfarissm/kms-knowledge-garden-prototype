@@ -57,6 +57,7 @@ describe('gamification prototype logic', () => {
     expect(state.growthAir).toBe(0);
     expect(state.growthFertilizerUnits).toBe(0);
     expect(getTreeCondition(state)).toBe('healthy');
+    expect(state.stateRev).toBe(0);
   });
 
   it('awards valid activity resources to Storage without changing tree progress', () => {

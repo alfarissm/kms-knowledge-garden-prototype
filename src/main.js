@@ -10,9 +10,11 @@ import {
   apiAdminSaveSettings,
   apiAdminUpdateAccount,
   apiAdminUpdateLearning,
-  apiEntry,
+  apiLogin,
+  apiRegister,
   apiLearning,
   apiLibrary,
+  apiLoadState,
   apiLogout,
   apiMe,
   apiReport,
@@ -37,11 +39,13 @@ import {
   setGamificationSettings,
   simulateDemoTreeCondition,
   STAGES,
+  SHARING_REPORT_REASONS,
   submitSharingMaterial,
   tickState,
 } from './gamification.js';
 import { LEARNING_MODULES } from './learning-catalog.js';
 import { getSharingVideo, saveSharingVideo } from './video-storage.js';
+import { positionReviewMenu } from './menu-position.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_VISIBLE_FRUIT = 7;
@@ -345,12 +349,40 @@ function setMobileMenuOpen(isOpen) {
 
 setMobileMenuOpen(false);
 
-function saveState() {
+function saveState(replayFn = null) {
   if (!currentAccount || !state) return;
 
-  // State disinkronkan ke backend; local state tetap sumber render.
-  apiSaveState(state).catch((error) => {
-    showToast(error?.message || 'Pohon gagal tersimpan ke server.', 'notice');
+  // State disinkronkan ke backend; local state tetap sumber render. Server
+  // membalas dengan revisi terbaru supaya PUT berikutnya memakai revisi itu.
+  const adoptRevision = (saved) => {
+    const rev = Number(saved?.treeState?.stateRev ?? NaN);
+    if (Number.isFinite(rev)) state.stateRev = rev;
+  };
+
+  apiSaveState(state).then((saved) => {
+    adoptRevision(saved);
+  }).catch(async (error) => {
+    if (error?.status !== 409) {
+      showToast(error?.message || 'Pohon gagal tersimpan ke server.', 'notice');
+      return;
+    }
+
+    // Tab basi: keputusan admin (atau aksi sesi lain) tersimpan lebih dulu
+    // sehingga PUT ini tidak boleh menimpanya. Ambil state server terbaru,
+    // jalankan ulang aksi lokal di atasnya, lalu simpan sekali lagi.
+    try {
+      const fresh = await apiLoadState();
+      state = tickState(fresh.treeState ?? state);
+      if (typeof replayFn === 'function') {
+        const result = replayFn();
+        if (result?.state) state = result.state;
+      }
+      adoptRevision(await apiSaveState(state));
+      render(true);
+      showToast('Pohon diperbarui dari server; keputusan admin terbaru ikut diambil.', 'notice');
+    } catch {
+      showToast('Pohon gagal tersinkron dengan server; muat ulang halaman.', 'notice');
+    }
   });
 }
 
@@ -409,6 +441,8 @@ function leaveApp(message = '') {
   elements.appShell.hidden = true;
   elements.authScreen.hidden = false;
   elements.loginForm.reset();
+  document.querySelector('#registerForm').reset();
+  setAuthMode(false);
   setAuthMessage(message, 'success');
 }
 
@@ -440,41 +474,43 @@ function formatDate(timestamp, options = {}) {
 function makeTreeSvg(level, condition, fruitView) {
   const palettes = {
     healthy: { leaf: '#4ca947', leafDark: '#2d8b45', leafLight: '#86c342', trunk: '#a04b26', trunkLight: '#c16b35', branch: '#84391f' },
-    thirsty: { leaf: '#d6bb55', leafDark: '#b89437', leafLight: '#ecd982', trunk: '#9b7049', trunkLight: '#bd9366', branch: '#916441' },
-    dead: { leaf: '#b49a5c', leafDark: '#8d7546', leafLight: '#d0b36f', trunk: '#805c49', trunkLight: '#a57e5c', branch: '#805c49' },
+    thirsty: { leaf: '#d9b93f', leafDark: '#a87f22', leafLight: '#f3e078', trunk: '#9b7049', trunkLight: '#bd9366', branch: '#916441' },
+    dead: { leaf: '#c0a86e', leafDark: '#947f45', leafLight: '#dcc98a', trunk: '#8a7361', trunkLight: '#ab9271', branch: '#6f5d4d' },
   };
   const colors = palettes[condition];
   // Buah terikat konten: tampil per slot; basi rebah busuk di tanah.
-  const boundTreeFruits = fruitView.tree;
-  const fallenFruits = [...fruitView.ground].sort((a, b) => a.slot - b.slot);
+  const boundTreeFruits = level >= 3 ? fruitView.tree : [];
+  const fallenFruits = level >= 3 ? [...fruitView.ground].sort((a, b) => a.slot - b.slot) : [];
   const fruitCount = boundTreeFruits.length;
-  const svgStart = `<svg class="tree-svg stage-${level} ${condition}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon${fallenFruits.length ? `, ${fallenFruits.length} Buah busuk rebah di tanah` : ''}">`;
-  // Three-blob crowns computed symmetrically, sides tucked against the center
-  // like the reference (slight overlap ~0.8x, bumps stay visible via wobble).
-  const blobTriplet = (cy, rCenter, spreadX, dySide, rSide) => [
-    [200, cy, rCenter],
-    [200 - spreadX, cy + dySide, rSide],
-    [200 + spreadX, cy + dySide, rSide],
-  ];
-  const canopyByLevel = {
-    2: blobTriplet(162, 26, 30, 20, 20),
-    3: blobTriplet(160, 30, 34, 24, 23),
-    4: blobTriplet(160, 34, 40, 26, 26),
-  };
+  const svgStart = `<svg class="tree-svg stage-${level} ${condition}" viewBox="0 0 600 440" preserveAspectRatio="xMidYMax meet" role="group" aria-label="Pohon Level ${level}, ${STAGES[level]}, kondisi ${condition}, ${fruitCount} Buah di pohon${fallenFruits.length ? `, ${fallenFruits.length} Buah busuk rebah di tanah` : ''}">`;
+  // Decorative shedding uses shared SVG coordinates, independent of canopy
+  // transforms and content-bound fruit. Healthy trees shed one leaf sparsely;
+  // unhealthy trees shed more leaves continuously.
+  const sheddingY = [440, 387, 290, 214, 173, 150, 120, 95][level] ?? 290;
+  const sheddingWidth = [0, 25, 45, 52, 62, 80, 94, 115][level] ?? 45;
+  const fallingLeaves = level >= 2
+    ? `<g class="falling-leaves" aria-hidden="true">${[-.8, .15, .75, -.35, .5, -.65].slice(0, condition === 'dead' ? 6 : condition === 'thirsty' ? 3 : 1).map((offset, index) => {
+      const x = 300 + offset * sheddingWidth;
+      const y = sheddingY + (index % 3) * 12;
+      const drift = (index % 2 ? 1 : -1) * (22 + index * 7);
+      return `<g transform="translate(${x} ${y})"><g class="falling-leaf" style="--leaf-dx:${drift}px;--leaf-dy:${430 - y}px;--leaf-spin:${index % 2 ? 210 : -180}deg;--leaf-delay:${-index * 760}ms"><path d="M0 0Q-12-1-15-12Q-3-14 0 0Z" fill="${index % 2 ? colors.leaf : colors.leafDark}"/><path d="M-1-1L-10-9" stroke="${colors.branch}" stroke-width=".8"/></g></g>`;
+    }).join('')}</g>`
+    : '';
 
   if (level === 0) {
     return `${svgStart}</svg>`;
   }
 
   if (level === 1) {
-    return `${svgStart}<path d="M300 446 C298 425 299 402 301 383" fill="none" stroke="${colors.trunk}" stroke-width="8" stroke-linecap="round"/><path class="seed-leaf" d="M301 401 C279 400 264 386 259 366 C283 366 299 381 301 401Z" fill="${colors.leaf}"/><path class="seed-leaf" d="M301 391 C306 368 324 356 345 357 C340 380 323 393 301 391Z" fill="${colors.leafLight}"/></svg>`;
+    return `${svgStart}<path class="seed-stem" d="M300 446 C298 425 299 402 301 383" fill="none" stroke="${colors.trunk}" stroke-width="8" stroke-linecap="round"/><path class="seed-leaf seed-leaf-left" d="M301 401 C279 400 264 386 259 366 C283 366 299 381 301 401Z" fill="${colors.leaf}"/><path class="seed-leaf seed-leaf-right" d="M301 391 C306 368 324 356 345 357 C340 380 323 393 301 391Z" fill="${colors.leafLight}"/>${fallingLeaves}</svg>`;
   }
 
   // All stages share one bounded coordinate system and the same soil baseline.
   const topCanopyByLevel = {
     2: [300, 310, 1],
     3: [300, 235, 1.25],
-    4: [300, 185, 1.55],
+    // Level 4 memakai fullCanopy (gaya level 5+) pada skala lebih muda.
+    4: [300, 185, 0.65],
     5: [300, 164, 0.78],
     6: [300, 133, 0.83],
     7: [300, 105, 0.89],
@@ -497,12 +533,32 @@ function makeTreeSvg(level, condition, fruitView) {
     7: [[70, 1, true, colors.leaf], [145, 0.9, false, colors.leafDark], [220, 1.05, true, colors.leaf], [380, 0.9, false, colors.leafDark], [455, 1.1, true, colors.leaf], [530, 1, false, colors.leafDark]],
   };
   const grass = (grassByLevel[level] ?? []).map(grassTuft).join('');
+  // Ground flowers share the grass anchors, so each tuft becomes a little
+  // planted patch. Stable varieties: daisy, bell and a small flowering sprig.
+  // Decorative only: no additional fruit slots or rewards.
+  const gardenFlowers = condition === 'healthy' && level >= 3
+    ? (grassByLevel[level] ?? []).map(([x, scale, flip], index) => {
+      const type = index % 3;
+      const tone = ['#f3b7d0', '#c2b1ef', '#fff2c9', '#f3c16b'][(index + level - 3) % 4];
+      const petals = type === 0
+        ? `<g fill="${tone}"><circle cx="-4" cy="-22" r="4"/><circle cx="4" cy="-22" r="4"/><circle cy="-27" r="4"/><circle cy="-17" r="4"/></g><circle cy="-22" r="3" fill="#dca343"/>`
+        : type === 1
+          ? `<path d="M-6-18Q-6-31 0-29Q6-31 6-18L2-20 0-17-2-20Z" fill="${tone}"/><path d="M0-20v3" stroke="#e2b64b" stroke-width="2"/>`
+          : `<path d="M0-12l-4-5M0-21l4-5" stroke="${colors.leafDark}" stroke-width="1.5"/><g fill="${tone}"><circle cx="-4" cy="-18" r="3.5"/><circle cx="4" cy="-27" r="3.5"/><circle cy="-32" r="3.5"/></g>`;
+      return `<g class="garden-flower" data-flower-variety="${type}" transform="translate(${x + (flip ? -10 : 10)} 442) scale(${scale})" aria-hidden="true"><path d="M0 0Q2-12 0-${type === 2 ? 31 : 22}" fill="none" stroke="${colors.leafDark}" stroke-width="1.8"/><path d="M0-8Q-9-8-9-14Q-2-14 0-8M0-12Q8-12 8-18Q2-18 0-12" fill="${colors.leaf}"/>${petals}</g>`;
+    }).join('')
+    : '';
   const trunkWidthScaleByLevel = { 2: 0.6, 3: 0.8, 4: 1, 5: 1.15, 6: 1.3, 7: 1.45 };
   const trunkScale = trunkWidthScaleByLevel[level] ?? 1;
   const trunkX = (x) => 300 + (x - 300) * trunkScale;
   const trunkPath = `M${trunkX(270)} 446 C${trunkX(282)} ${446 - trunkHeight * .2} ${trunkX(288)} ${trunkTipY + trunkHeight * .45} ${trunkX(290)} ${trunkTipY + trunkHeight * .31} L${trunkX(294)} ${trunkTipY + 18} Q300 ${trunkTipY - 9} ${trunkX(306)} ${trunkTipY + 18} L${trunkX(310)} ${trunkTipY + trunkHeight * .31} C${trunkX(312)} ${trunkTipY + trunkHeight * .45} ${trunkX(318)} ${446 - trunkHeight * .2} ${trunkX(330)} 446Z`;
   const trunkHighlight = `M${trunkX(285)} 446 C${trunkX(294)} ${446 - trunkHeight * .2} ${trunkX(297)} ${trunkTipY + trunkHeight * .45} ${trunkX(297)} ${trunkTipY + trunkHeight * .31} L${trunkX(298)} ${trunkTipY + 18} Q300 ${trunkTipY + 12} ${trunkX(302)} ${trunkTipY + 18} L${trunkX(303)} ${trunkTipY + trunkHeight * .31} C${trunkX(303)} ${trunkTipY + trunkHeight * .45} ${trunkX(306)} ${446 - trunkHeight * .2} ${trunkX(315)} 446Z`;
-  const trunk = `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="${trunkHighlight}" fill="${colors.trunkLight}" opacity=".68"/>`;
+  // The young apple tree has a slim, slightly tapered stem. Reusing the
+  // mature tree's flared trunk made the seedling look like a palm/corn stalk.
+  const youngTrunk = level <= 3
+    ? `<path class="tree-trunk" d="M${level === 2 ? 294 : 290} 446 Q${level === 2 ? 297 : 295} 366 297 ${trunkTipY + 9} Q300 ${trunkTipY - 8} 303 ${trunkTipY + 9} Q${level === 2 ? 303 : 305} 366 ${level === 2 ? 306 : 310} 446Z" fill="${colors.trunk}" stroke="${level === 2 ? colors.trunk : colors.branch}" stroke-width="1.8"/>${level === 2 ? '' : `<path d="M299 443 Q300 350 299 ${trunkTipY + 13}" fill="none" stroke="${colors.trunkLight}" stroke-width="2" opacity=".6"/>`}`
+    : `<path class="tree-trunk" d="${trunkPath}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/><path d="${trunkHighlight}" fill="${colors.trunkLight}" opacity=".68"/>`;
+  const trunk = `<g class="trunk-lift">${youngTrunk}</g>`;
   // Side branches rise diagonally from the lower trunk into the side canopies (V shape).
   const branches = sideCanopies.map(([x, y]) => {
     const bx = 300, by = y + 75;
@@ -512,55 +568,48 @@ function makeTreeSvg(level, condition, fruitView) {
     const path = `M${(bx + nx * wb).toFixed(1)} ${(by + ny * wb).toFixed(1)} L${(tx + nx * wt).toFixed(1)} ${(ty + ny * wt).toFixed(1)} L${(tx - nx * wt).toFixed(1)} ${(ty - ny * wt).toFixed(1)} L${(bx - nx * wb).toFixed(1)} ${(by - ny * wb).toFixed(1)}Z`;
     return `<path class="tree-branch" d="${path}" fill="${colors.trunk}" stroke="${colors.branch}" stroke-width="2.5" stroke-linejoin="round"/>`;
   }).join('');
-  const canopy = canopyByLevel[level] ?? [];
-  const visibleCanopy = condition === 'dead' ? canopy.filter((_, index) => index % 4 !== 3) : canopy;
-  const canopyCenter = [200, 154];
-  const canopyDistance = ([cx, cy]) => Math.hypot(cx - canopyCenter[0], cy - canopyCenter[1]);
-  const farthestCanopyLeaf = Math.max(...visibleCanopy.map(canopyDistance), 1);
-  const blobPath = ([cx, cy, radius]) => {
-    const bumps = 10;
-    const pts = [];
-    for (let i = 0; i < bumps; i += 1) {
-      const angle = (i / bumps) * Math.PI * 2 - Math.PI / 2;
-      const wobble = radius * (i % 2 === 0 ? 1.1 : 0.92);
-      pts.push([cx + Math.cos(angle) * wobble, cy + Math.sin(angle) * wobble]);
-    }
-    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    let [mx, my] = mid(pts[bumps - 1], pts[0]);
-    let d = `M${mx.toFixed(1)} ${my.toFixed(1)}`;
-    for (let i = 0; i < bumps; i += 1) {
-      const p = pts[i];
-      const [qx, qy] = mid(p, pts[(i + 1) % bumps]);
-      d += `Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${qx.toFixed(1)} ${qy.toFixed(1)}`;
-    }
-    return `${d}Z`;
-  };
-  const leafClusterMarkup = [...visibleCanopy]
-    .sort((a, b) => canopyDistance(b) - canopyDistance(a))
-    .map(([cx, cy, radius]) => {
-      const distanceRatio = canopyDistance([cx, cy]) / farthestCanopyLeaf;
-      const fill = distanceRatio > .82 ? colors.leafDark : distanceRatio > .55 ? colors.leaf : colors.leafLight;
-      return `<path class="leaf-cluster" d="${blobPath([cx, cy, radius])}" fill="${fill}"/>`;
-    }).join('');
-  // Small branchlets peeking through the foliage gaps (levels 3-4).
-  const branchletsByLevel = {
-    3: [[[196, 205], [172, 191]], [[197, 190], [178, 179]], [[204, 205], [228, 191]], [[203, 190], [222, 179]]],
-    4: [[[195, 208], [170, 192]], [[196, 192], [172, 180]], [[205, 208], [230, 192]], [[204, 192], [228, 180]]],
-  };
-  const branchletMarkup = (branchletsByLevel[level] ?? []).map(([[ax, ay], [bx, by]]) =>
-    `<path d="M${ax} ${ay}L${bx} ${by}" fill="none" stroke="${colors.trunk}" stroke-width="3" stroke-linecap="round"/>`).join('');
   const fullCanopy = `<path d="M200 55C223 55 242 69 250 88 276 72 306 83 314 109 341 111 355 134 345 157 366 179 354 208 331 221 328 248 300 261 274 247 258 267 228 273 204 259 181 275 151 269 137 248 109 260 82 244 79 218 54 205 51 177 70 158 59 132 77 106 104 104 108 79 135 65 164 79 174 63 186 55 200 55Z" fill="${colors.leafDark}"/><path d="M200 75C220 74 235 88 241 104 265 89 291 99 297 121 319 122 332 141 323 160 339 179 328 202 308 211 305 234 281 244 260 232 245 249 220 254 201 242 180 255 155 248 144 231 121 242 99 227 98 207 77 197 76 175 92 160 82 138 98 118 120 117 124 96 147 84 170 95 178 82 188 75 200 75Z" fill="${colors.leaf}"/><path d="M200 99C217 98 230 109 235 124 254 113 277 122 281 142 299 145 308 161 300 177 312 194 302 212 284 219 279 237 258 243 242 233 228 246 208 248 194 237 177 247 157 240 150 225 131 232 114 218 116 200 99 188 103 168 118 156 111 138 127 122 145 125 149 107 167 101 181 111 187 104 193 99 200 99Z" fill="${colors.leafLight}"/>`;
   const placeInCanopy = (markup, [x, y, scale], className = '') => `<g class="${className}" transform="translate(${x} ${y}) scale(${scale}) translate(-200 -154)">${markup}</g>`;
-  const canopyMarkup = placeInCanopy(level >= 5 ? fullCanopy : branchletMarkup + leafClusterMarkup, topCanopy, 'canopy-crown');
+  // Level 2: a Y-shaped scaffold with a third, upright leader growing through
+  // its middle. All three stems share the brown of the trunk at the ground.
+  const saplingLeader = `<path d="M200 222 Q200 165 200 112" fill="none" stroke="${colors.trunk}" stroke-width="5" stroke-linecap="round"/>`
+    + `<path d="M200 171 Q181 145 150 135 M200 171 Q219 145 250 135" fill="none" stroke="${colors.trunk}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // The same pointed leaf shape as level 1. Two leaves at each fork tip and
+  // three at the central tip, all attached directly to the Y-shaped stem.
+  const saplingBlade = 'M0 0 C-22 -1 -37 -15 -42 -35 C-18 -35 -2 -20 0 0Z';
+  const saplingLeaf = (x, y, scale, angle, mirrored, tone) =>
+    `<path class="sapling-leaf" d="${saplingBlade}" transform="translate(${x} ${y}) ${mirrored ? 'scale(-1 1)' : ''} rotate(${angle}) scale(${scale})" fill="${colors[tone]}"/>`;
+  const saplingLeaves = [
+    saplingLeaf(150, 135, .72, -25, false, 'leaf'),
+    saplingLeaf(150, 135, .67, -18, true, 'leafLight'),
+    saplingLeaf(200, 112, .72, -25, false, 'leaf'),
+    saplingLeaf(200, 112, .65, 50, false, 'leafLight'),
+    saplingLeaf(200, 112, .72, -25, true, 'leaf'),
+    saplingLeaf(250, 135, .67, -18, false, 'leafLight'),
+    saplingLeaf(250, 135, .72, -25, true, 'leaf'),
+  ].join('');
+  // Level 3 continues level 2's symmetric Y and straight central leader.
+  // Fork lower down so the spreading arms remain visible below the crown.
+  const juvenileBranches = `<path d="M200 225 Q200 171 200 115" fill="none" stroke="${colors.trunk}" stroke-width="6" stroke-linecap="round"/>`
+    + `<path d="M200 225 Q181 185 150 160 M200 225 Q219 185 250 160" fill="none" stroke="${colors.trunk}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const juvenileCrown = [
+    [169, 172, .24], [231, 170, .24], [195, 136, .29],
+  ].map((position) => placeInCanopy(fullCanopy, position, 'mini-canopy')).join('');
+  const youngCanopyMarkup = level === 2
+    ? saplingLeader + saplingLeaves
+    : juvenileBranches + juvenileCrown;
+  const canopyMarkup = placeInCanopy(level >= 4 ? fullCanopy : youngCanopyMarkup, topCanopy, 'canopy-crown');
   const canopyTips = sideCanopies.map((position) => placeInCanopy(fullCanopy, position, 'canopy-tip-copy')).join('');
-  const fruitPositions = level === 3 || level === 4
-    ? [[188, 157], [218, 151], [164, 184], [236, 184], [198, 190], [202, 145], [224, 198]]
+  // Fixed fruit slots follow the young crown, then the mature crown.
+  const fruitPositions = level === 3
+    ? [[191, 149], [213, 145], [200, 171], [165, 174], [233, 172], [179, 189], [220, 187]]
     : [[178, 162], [223, 150], [154, 188], [242, 190], [196, 207], [211, 122], [171, 126]];
   // Slot > 7 tidak punya titik mahkota; selisihnya tampil sebagai penanda +n.
-  const lyingPositions = [
-    [92, 398, 68], [140, 394, -72], [208, 399, 64], [246, 402, -55],
-    [352, 395, 70], [416, 394, -64], [472, 399, 55],
-  ];
+  // Titik rebah: x + sudut per spot; tinggi apel mengikuti skala sehingga
+  // bagian bawahnya selalu menempel garis tanah (tidak melayang).
+  // Fallen fruit gathers beside the trunk (x=300), nearest spots first,
+  // alternating left/right instead of starting at the far edge of the scene.
+  const lyingSpots = [[246, 68], [354, -72], [220, 64], [380, -55], [194, 70], [406, -64], [168, 55]];
   const visibleTreeSlots = boundTreeFruits
     .filter((entry) => entry.slot >= 1 && entry.slot <= MAX_VISIBLE_FRUIT)
     .map((entry) => entry.slot);
@@ -570,8 +619,11 @@ function makeTreeSvg(level, condition, fruitView) {
   // Realistic apple skin per admin-decided content condition: ripe red = ACC
   // (menggantung), rotten brown with spots = stale rebah di tanah. Buah yang
   // diangkat (tidak relevan / duplikat) tidak tergambar apa pun — slot kosong.
-  const fruitScaleByLevel = { 3: 0.7, 4: 0.8, 5: 0.9, 6: 0.95, 7: 1 };
-  const fruitScale = fruitScaleByLevel[level] ?? 1;
+  // Define visible fruit size in the shared SVG space, not canopy-local
+  // coordinates. Cancel the parent scale to avoid a size spike at level 4.
+  const fruitDisplayScaleByLevel = { 3: .9, 4: 1, 5: 1.1, 6: 1.2, 7: 1.3 };
+  const fruitDisplayScale = fruitDisplayScaleByLevel[level] ?? .8;
+  const fruitScale = fruitDisplayScale / topCanopy[2];
   const fruitStylesByStatus = {
     pending: { gradient: 'appleUnripe', stroke: '#4a6b28', stem: '#4a6b28', leaf: '#6f9c38', spots: false },
     validated: { gradient: 'appleRipe', stroke: '#7a150f', stem: '#3f7a3d', leaf: '#4ca947', spots: false },
@@ -581,30 +633,39 @@ function makeTreeSvg(level, condition, fruitView) {
   };
   const fruitDefs = `<defs><linearGradient id="appleRipe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2593d"/><stop offset=".5" stop-color="#cc3327"/><stop offset="1" stop-color="#8f1c13"/></linearGradient><linearGradient id="appleUnripe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cbe47f"/><stop offset=".55" stop-color="#97c24f"/><stop offset="1" stop-color="#5f8734"/></linearGradient><linearGradient id="appleRotten" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b08455"/><stop offset=".45" stop-color="#7c5430"/><stop offset="1" stop-color="#45280f"/></linearGradient><linearGradient id="appleSallow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9b57e"/><stop offset=".45" stop-color="#a08e57"/><stop offset="1" stop-color="#6b5c36"/></linearGradient><linearGradient id="appleDup" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a89c8c"/><stop offset=".45" stop-color="#837767"/><stop offset="1" stop-color="#565046"/></linearGradient></defs>`;
   const appleSpots = '<ellipse cx="-2.5" cy="1.5" rx="2" ry="1.4" fill="#5a3820" opacity=".55"/><ellipse cx="3" cy="3" rx="1.6" ry="1.1" fill="#4a2b12" opacity=".5"/>';
-  const appleByStatus = (statusKey) => {
+  const appleBody = 'M0 -5.2C-1.6 -7.8 -4.6 -8.6 -6.8 -7.4C-9.6 -5.8 -10.1 -1.9 -8.2 1.7C-6.6 4.9 -3.6 7.6 -1 7.9C-0.4 8 0.4 8 1 7.9C3.6 7.6 6.6 4.9 8.2 1.7C10.1 -1.9 9.6 -5.8 6.8 -7.4C4.6 -8.6 1.6 -7.8 0 -5.2Z';
+  const appleByStatus = (statusKey, { lying = false } = {}) => {
     const style = fruitStylesByStatus[statusKey] ?? fruitStylesByStatus.validated;
-    return `<circle cx="0" cy="0" r="8.5" fill="url(#${style.gradient})" stroke="${style.stroke}" stroke-width="1.5"/><path d="M0 -8q1-7 7-8" fill="none" stroke="${style.stem}" stroke-width="2.5" stroke-linecap="round"/><path d="M7 -15q6-3 9 2q-5 4-9-2Z" fill="${style.leaf}"/><ellipse cx="-3" cy="-3.5" rx="2.4" ry="3.4" fill="#fff" opacity=".75" transform="rotate(-18 -3 -3.5)"/>${style.spots ? appleSpots : ''}`;
+    // Apel rebah: tangkai patah pendek menempel badan, tanpa daun — sulur
+    // panjang dengan daun menjuntai terbaca sebagai benda melayang terpisah.
+    const stemMarkup = lying
+      ? `<path d="M0 -5.2q2.6 -.8 5 -1.4" fill="none" stroke="${style.stem}" stroke-width="2.2" stroke-linecap="round"/>`
+      : `<g transform="translate(0 2.6)"><path d="M0 -8q1-7 7-8" fill="none" stroke="${style.stem}" stroke-width="2.5" stroke-linecap="round"/><path d="M7 -15q6-3 9 2q-5 4-9-2Z" fill="${style.leaf}"/></g>`;
+    // Bentuk apel sejati: bahu lebar, cekungan di tangkai, lekukan kecil bawah.
+    // fruit-core = target animasi pop; grup .tree-fruit di luarnya memegang
+    // transform posisi dan tidak boleh disentuh animasi CSS.
+    return `<g class="fruit-core"><path d="${appleBody}" fill="url(#${style.gradient})" stroke="${style.stroke}" stroke-width="1.5" stroke-linejoin="round"/>${stemMarkup}<ellipse cx="-3.4" cy="-2.8" rx="2.4" ry="3.4" fill="#fff" opacity=".72" transform="rotate(-18 -3.4 -2.8)"/>${style.spots ? appleSpots : ''}</g>`;
   };
   // Slot mengikuti urutannya; slot tanpa buah (belum dipindah/hilang) = celah.
   const fruitMarkup = visibleTreeSlots.map((slot) => {
     const [x, y] = fruitPositions[slot - 1];
-    return `<g class="tree-fruit fruit-validated" style="--fruit-index:${slot - 1}" transform="translate(${x} ${y}) scale(${fruitScale})">${appleByStatus('validated')}</g>`;
+    return `<g class="tree-fruit fruit-validated" data-fruit-slot="${slot}" role="button" tabindex="0" aria-label="Lihat konten buah ${slot}" style="--fruit-index:${slot - 1}" transform="translate(${x} ${y}) scale(${fruitScale})"><circle class="fruit-hit-area" r="15" fill="transparent"/>${appleByStatus('validated')}</g>`;
   }).join('');
   const lyingMarkup = lyingVisible.map((entry, index) => {
-    const [x, y, angle] = lyingPositions[index];
-    return `<g class="tree-fruit fruit-ground-lying" transform="translate(${x} ${y}) rotate(${angle}) scale(${fruitScale * 0.95})">${appleByStatus('stale')}</g>`;
+    const [x, angle] = lyingSpots[index];
+    const s = fruitDisplayScale * 0.95;
+    // Garis tanah visual ≈ y 429–446; jangkar 14 unit per skala menjaga
+    // bagian bawah apel menempel rumput pada semua level.
+    const y = 436 - 14 * s;
+    return `<g class="tree-fruit fruit-ground-lying" data-fruit-slot="${entry.slot}" role="button" tabindex="0" aria-label="Lihat konten buah basi ${entry.slot}" style="--fruit-index:${index}" transform="translate(${x} ${y.toFixed(1)}) rotate(${angle}) scale(${s})"><circle class="fruit-hit-area" r="15" fill="transparent"/>${appleByStatus('stale', { lying: true })}</g>`;
   }).join('');
-  const fruitCounter = overflowTreeCount > 0 ? `<text x="286" y="149" class="extra-fruit-label">+${overflowTreeCount}</text>` : '';
-  const groundCounter = overflowGroundCount > 0 ? `<text x="212" y="392" class="extra-fruit-label extra-fruit-ground-label">+${overflowGroundCount}</text>` : '';
-  const fallingLeaves = condition === 'dead'
-    ? '<ellipse class="falling-leaf fall-one" cx="134" cy="223" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-two" cx="263" cy="246" rx="7" ry="3" fill="#ca8d5d"/><ellipse class="falling-leaf fall-three" cx="156" cy="257" rx="6" ry="3" fill="#d7a66b"/>'
-    : '';
-  const leafDrops = level >= 2 && condition !== 'dead'
-    ? `<ellipse class="leaf-drop drop-one" cx="150" cy="232" rx="6.5" ry="2.8" fill="${colors.leaf}"/><ellipse class="leaf-drop drop-two" cx="252" cy="238" rx="6" ry="2.6" fill="${colors.leafDark}"/>`
-    : '';
+  // Penanda +n ditempatkan di samping kanopi sesuai lebar tiap level.
+  const counterSpot = level === 2 ? [272, 146] : level === 3 ? [290, 150] : [286, 149];
+  const fruitCounter = overflowTreeCount > 0 ? `<text x="${counterSpot[0]}" y="${counterSpot[1]}" class="extra-fruit-label">+${overflowTreeCount}</text>` : '';
+  const groundCounter = overflowGroundCount > 0 ? `<text x="212" y="384" class="extra-fruit-label extra-fruit-ground-label">+${overflowGroundCount}</text>` : '';
   const hasVisibleFruit = visibleTreeSlots.length > 0 || overflowTreeCount > 0 || lyingVisible.length > 0;
 
-  return `${svgStart}${hasVisibleFruit ? fruitDefs : ''}${branches}${grass}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fallingLeaves + leafDrops + fruitCounter, topCanopy)}${lyingMarkup}${groundCounter}</svg>`;
+  return `${svgStart}${hasVisibleFruit ? fruitDefs : ''}${branches}${grass}${gardenFlowers}${trunk}<g class="canopy">${canopyMarkup}${canopyTips}</g>${placeInCanopy(fruitMarkup + fruitCounter, topCanopy)}${lyingMarkup}${groundCounter}${fallingLeaves}</svg>`;
 }
 
 function renderStageTrack() {
@@ -691,8 +752,9 @@ function renderResources() {
     : !fruitTreeReady
       ? 'Buah dapat dipindahkan saat pohon sehat dan mencapai Level 3.'
       : 'Pindahkan 1 Buah dari Storage ke pohon.';
-  elements.fruitOnTreeLabel.textContent = String(state.fruitsOnTree);
-  elements.fruitOnTreeLabel.parentElement.setAttribute('aria-label', `${state.fruitsOnTree} buah di pohon`);
+  const displayedFruitCount = state.level >= 3 ? state.fruitsOnTree : 0;
+  elements.fruitOnTreeLabel.textContent = String(displayedFruitCount);
+  elements.fruitOnTreeLabel.parentElement.setAttribute('aria-label', `${displayedFruitCount} buah di pohon`);
 }
 
 function renderHistory() {
@@ -970,6 +1032,73 @@ function makeAdminConditionButton(row, condition, label) {
   button.setAttribute('aria-label', `${label} konten "${row.submission.title}" dari ${row.account.name}`);
   button.disabled = row.submission.status === condition;
   return button;
+}
+
+// Dua tombol utama (ACC, Hapus) tampil apa adanya; pilihan lain bersembunyi
+// di menu titik-tiga supaya baris aksi ringkas.
+function buildReviewContentMenu(row) {
+  const wrap = makeElement('div', 'admin-review-kebab-wrap');
+  const trigger = makeElement('button', 'admin-review-kebab');
+  trigger.type = 'button';
+  trigger.setAttribute('aria-haspopup', 'menu');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('aria-label', `Opsi lain untuk "${row.submission.title}"`);
+  trigger.title = 'Opsi lainnya: Tandai Basi, Tidak Relevan, Duplikat';
+  const dots = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  dots.setAttribute('viewBox', '0 0 24 24');
+  dots.setAttribute('aria-hidden', 'true');
+  [5, 12, 19].forEach((cy) => {
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', '12');
+    dot.setAttribute('cy', String(cy));
+    dot.setAttribute('r', '2.1');
+    dots.append(dot);
+  });
+  trigger.append(dots);
+  const menu = makeElement('div', 'admin-review-menu');
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('popover', 'manual');
+  menu.setAttribute('aria-label', `Ubah kondisi konten "${row.submission.title}"`);
+  [makeAdminConditionButton(row, 'stale', 'Tandai Basi'),
+   makeAdminConditionButton(row, 'rejected', 'Tidak Relevan'),
+   makeAdminConditionButton(row, 'duplicate', 'Duplikat')].forEach((button) => {
+    button.setAttribute('role', 'menuitem');
+    menu.append(button);
+  });
+  wrap.append(trigger, menu);
+  return wrap;
+}
+
+function closeReviewMenus() {
+  document.querySelectorAll('.admin-review-menu.is-open').forEach((menu) => {
+    if (menu.matches(':popover-open')) menu.hidePopover();
+    menu.classList.remove('is-open');
+    const trigger = menu.parentElement?.querySelector('.admin-review-kebab');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function toggleReviewMenu(trigger) {
+  const menu = trigger.parentElement?.querySelector('.admin-review-menu');
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('is-open');
+  closeReviewMenus();
+  menu.classList.toggle('is-open', willOpen);
+  trigger.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) {
+    // The native top layer escapes clipping without moving the DOM nodes;
+    // delegated actions still resolve their original content card/account.
+    menu.style.maxHeight = '';
+    if (typeof menu.showPopover === 'function') menu.showPopover();
+    const bounds = menu.getBoundingClientRect();
+    const { left, top, maxHeight } = positionReviewMenu(
+      trigger.getBoundingClientRect(), bounds.width, bounds.height, window.innerWidth, window.innerHeight,
+    );
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.maxHeight = `${maxHeight}px`;
+    menu.querySelector('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
+  }
 }
 
 let adminReviewRenderId = 0;
@@ -1347,9 +1476,11 @@ function buildLearnAdmin(accounts) {
     titleCell.className = 'admin-account-cell';
     const titleLine = document.createElement('span');
     titleLine.className = 'admin-account-line';
+    const moduleInfo = makeElement('div', 'admin-account-info');
+    moduleInfo.append(makeElement('strong', '', module.title), makeElement('small', '', module.id));
     titleLine.append(
       makeElement('span', 'learn-module-avatar', module.category ? module.category.charAt(0).toLocaleUpperCase('id-ID') : 'L'),
-      makeElement('div', 'admin-account-info', [makeElement('strong', '', module.title), makeElement('small', '', module.id)]),
+      moduleInfo,
     );
     titleCell.append(titleLine);
 
@@ -1617,6 +1748,7 @@ function buildAdminChartsError(error) {
 }
 
 function buildAdminAccounts(accounts) {
+  closeReviewMenus();
   elements.adminAccountsBody.replaceChildren();
   const query = elements.adminAccountSearch.value.trim().toLocaleLowerCase('id-ID');
   const filteredAccounts = query
@@ -1656,6 +1788,7 @@ function buildAdminAccounts(accounts) {
     const grounding = treeLedger.filter((f) => f.placement === 'ground').length;
     const gone = treeLedger.filter((f) => f.placement === 'gone').length;
     const isAdmin = account.role === 'admin';
+    const isSelf = currentAccount?.email === account.email;
 
     const row = document.createElement('tr');
 
@@ -1664,48 +1797,68 @@ function buildAdminAccounts(accounts) {
     const avatar = makeElement('span', 'admin-account-avatar', (account.name ?? '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
     const accountInfo = document.createElement('span');
     accountInfo.className = 'admin-account-info';
-    accountInfo.append(
-      makeElement('strong', '', account.name ?? ''),
-      makeElement('small', '', account.email ?? ''),
-    );
     const roleBadge = makeElement('span', `admin-role-badge ${isAdmin ? 'role-admin' : 'role-user'}`, isAdmin ? 'admin' : 'user');
+    const nameLine = makeElement('span', 'admin-account-name-line');
+    nameLine.append(makeElement('strong', '', account.name || 'Tanpa nama'), roleBadge);
+    if (isSelf) nameLine.append(makeElement('span', 'admin-self-label', 'Anda'));
+    const emailLine = makeElement('small', 'admin-account-email', account.email ?? '');
+    accountInfo.append(nameLine, emailLine);
+    if (receivedReports > 0) {
+      accountInfo.append(makeElement('span', 'admin-report-badge', `${receivedReports} laporan diterima`));
+    }
     const accountWrap = document.createElement('span');
     accountWrap.className = 'admin-account-line';
-    accountWrap.append(avatar, accountInfo, roleBadge);
+    accountWrap.append(avatar, accountInfo);
     accountCell.append(accountWrap);
-    if (receivedReports > 0) {
-      accountCell.append(makeElement('span', 'admin-report-badge', `${receivedReports} laporan diterima`));
-    }
 
     const treeCell = document.createElement('td');
-    treeCell.append(makeElement('strong', '', `L${treeState.level ?? 0}`));
-    treeCell.append(makeElement('small', '', `${STAGES[treeState.level ?? 0]} · ${condition}`));
+    treeCell.append(makeElement('strong', 'admin-account-level', `L${treeState.level ?? 0} · ${STAGE_SHORT_NAMES[treeState.level ?? 0]}`));
+    treeCell.append(makeElement('span', `admin-condition-chip is-${getTreeCondition(treeState)}`, condition));
     treeCell.classList.add(isAdmin ? 'admin-tree-idle' : `admin-tree-${getTreeCondition(treeState)}`);
 
     const storageCell = document.createElement('td');
-    storageCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.air ?? 0)} air · ${formatPupukUnits(treeState.fertilizerUnits)} pupuk`));
-    storageCell.append(makeElement('small', '', `progres ${formatRelativeNumber(treeState.growthAir ?? 0)} / ${formatPupukUnits(treeState.growthFertilizerUnits)}`));
+    storageCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.air ?? 0)} Air · ${formatPupukUnits(treeState.fertilizerUnits)} Pupuk`));
+    storageCell.append(makeElement('small', '', `Progres: ${formatRelativeNumber(treeState.growthAir ?? 0)} Air / ${formatPupukUnits(treeState.growthFertilizerUnits)} Pupuk`));
 
     const fruitsCell = document.createElement('td');
-    fruitsCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.fruitsOnTree ?? 0)} pohon · ${formatRelativeNumber(treeState.fruitsInStorage ?? 0)} storage`));
-    fruitsCell.append(makeElement('small', '', `${grounding} rebah · ${gone} hilang`));
+    fruitsCell.append(makeElement('strong', '', `${formatRelativeNumber(treeState.fruitsOnTree ?? 0)} di pohon`));
+    fruitsCell.append(makeElement('small', '', `${formatRelativeNumber(treeState.fruitsInStorage ?? 0)} Storage · ${grounding} basi · ${gone} diangkat`));
 
     const contentsCell = document.createElement('td');
     contentsCell.append(makeElement('strong', '', `${submissions.length} konten`));
     contentsCell.append(makeElement('small', '', `${accCount} ACC · ${pendingCount} menunggu`));
 
     const activeCell = document.createElement('td');
-    activeCell.className = 'admin-active-cell';
+    activeCell.className = 'admin-active-cell admin-account-last-active';
     activeCell.textContent = formatRelative(treeState.lastValidActivityAt);
+    if (Number.isFinite(treeState.lastValidActivityAt)) activeCell.title = formatDate(treeState.lastValidActivityAt);
 
-    const isSelf = currentAccount?.email === account.email;
     const actionsCell = document.createElement('td');
     actionsCell.className = 'admin-account-actions';
+    const actionWrap = makeElement('div', 'admin-review-kebab-wrap');
+    const trigger = makeElement('button', 'admin-review-kebab admin-account-manage', 'Kelola');
+    trigger.type = 'button';
+    trigger.setAttribute('aria-label', `Kelola akun ${account.name || account.email}`);
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.append(makeElement('span', 'admin-account-manage-caret', '⌄'));
+    const menu = makeElement('div', 'admin-review-menu admin-account-menu');
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('popover', 'manual');
+    menu.setAttribute('aria-label', `Tindakan akun ${account.email}`);
     [makeAdminRowActionButton('reset', 'Reset pohon', account, isSelf),
      makeAdminRowActionButton('role', isAdmin ? 'Jadikan user' : 'Jadikan admin', account, isSelf),
-     makeAdminRowActionButton('delete', 'Hapus', account, isSelf)].filter(Boolean).forEach((button) => actionsCell.append(button));
+     makeAdminRowActionButton('delete', 'Hapus akun', account, isSelf)].filter(Boolean).forEach((button) => {
+       button.setAttribute('role', 'menuitem');
+       menu.append(button);
+     });
+    actionWrap.append(trigger, menu);
+    actionsCell.append(actionWrap);
 
-    row.append(accountCell, treeCell, storageCell, fruitsCell, contentsCell, activeCell, actionsCell);
+    [accountCell, treeCell, storageCell, fruitsCell, contentsCell, activeCell, actionsCell].forEach((cell, index) => {
+      cell.dataset.label = ['Akun', 'Pohon', 'Storage', 'Buah', 'Konten', 'Aktivitas terakhir', 'Kelola'][index];
+      row.append(cell);
+    });
     elements.adminAccountsBody.append(row);
   });
 }
@@ -1986,6 +2139,7 @@ function buildAdminReview(accounts) {
   });
 
   const visibleRows = adminReviewFilter === 'all' ? rows : rows.filter((row) => row.submission.status === adminReviewFilter);
+  closeReviewMenus();
   elements.adminReviewList.replaceChildren();
 
   if (visibleRows.length === 0) {
@@ -2031,17 +2185,28 @@ function buildAdminReview(accounts) {
 
     item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
 
+    if (submissionReports.length) {
+      const details = makeElement('details', 'admin-report-details');
+      details.append(makeElement('summary', '', `Lihat ${submissionReports.length} alasan laporan`));
+      submissionReports.forEach((report) => {
+        const entry = makeElement('div', 'admin-report-entry');
+        entry.append(makeElement('strong', '', SHARING_REPORT_REASONS[report.reason ?? 'rejected'] ?? 'Laporan'),
+          makeElement('small', '', `${report.by ?? 'Pengguna'} · ${formatDate(report.at)}`));
+        if (report.note) entry.append(makeElement('p', '', report.note));
+        details.append(entry);
+      });
+      item.append(details);
+    }
+
     const actions = makeElement('div', 'admin-condition-actions');
     actions.append(makeAdminConditionButton(row, 'validated', 'ACC'));
-    actions.append(makeAdminConditionButton(row, 'stale', 'Tandai Basi'));
-    actions.append(makeAdminConditionButton(row, 'rejected', 'Tidak Relevan'));
-    actions.append(makeAdminConditionButton(row, 'duplicate', 'Duplikat'));
     const deleteContentButton = makeElement('button', 'admin-content-delete', 'Hapus konten');
     deleteContentButton.type = 'button';
     deleteContentButton.dataset.adminDeleteContent = row.submission.id;
     deleteContentButton.dataset.accountEmail = row.account.email;
     deleteContentButton.title = 'Hapus konten beserta buahnya secara permanen (slot dikosongkan).';
     actions.append(deleteContentButton);
+    actions.append(buildReviewContentMenu(row));
     item.append(actions);
 
     elements.adminReviewList.append(item);
@@ -2175,7 +2340,7 @@ function buildLibrary(rows) {
       item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
     }
 
-    const reportButton = makeElement('button', 'library-report-button', isOwn ? 'Konten milikmu' : (alreadyReported ? 'Sudah kamu laporkan' : 'Laporkan tidak relevan'));
+    const reportButton = makeElement('button', 'library-report-button', isOwn ? 'Konten milikmu' : (alreadyReported ? 'Sudah kamu laporkan' : 'Laporkan'));
     reportButton.type = 'button';
     reportButton.disabled = isOwn || alreadyReported || !currentAccount;
     if (isOwn) {
@@ -2192,27 +2357,59 @@ function buildLibrary(rows) {
   });
 }
 
-async function applyLibraryReport(button) {
+function applyLibraryReport(button) {
   const submissionId = button.dataset.submissionId;
   if (!submissionId || !currentAccount) return;
 
-  let result;
-  try {
-    result = await apiReport(submissionId);
-  } catch (error) {
-    showToast(error?.message || 'Laporan gagal dikirim.', 'notice');
-    return;
-  }
-
-  if (result.added) {
-    showToast(`Laporan tersimpan di server (total ${result.reports}). Admin yang memutuskan kondisinya.`, 'success');
-  } else {
-    showToast('Kamu sudah pernah melaporkan konten ini.', 'notice');
-  }
-
-  renderAdminReview();
-  renderLibrary();
+  const dialog = document.querySelector('#reportDialog');
+  document.querySelector('#reportForm').reset();
+  document.querySelector('#reportNote').required = false;
+  document.querySelector('#reportFeedback').textContent = '';
+  dialog.dataset.submissionId = submissionId;
+  if (!dialog.open) dialog.showModal();
 }
+
+let reportSubmitting = false;
+document.querySelector('#reportReason').addEventListener('change', (event) => {
+  document.querySelector('#reportNote').required = event.target.value === 'other';
+});
+document.querySelector('#reportCancel').addEventListener('click', () => {
+  if (!reportSubmitting) document.querySelector('#reportDialog').close();
+});
+document.querySelector('#reportDialog').addEventListener('cancel', (event) => {
+  if (reportSubmitting) event.preventDefault();
+});
+document.querySelector('#reportForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (reportSubmitting || !currentAccount) return;
+  const dialog = document.querySelector('#reportDialog');
+  const submissionId = dialog.dataset.submissionId;
+  if (!submissionId) return;
+  const submit = document.querySelector('#reportSubmit');
+  const cancel = document.querySelector('#reportCancel');
+  const reason = document.querySelector('#reportReason').value;
+  const note = document.querySelector('#reportNote').value.trim();
+  reportSubmitting = true;
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = 'Mengirim…';
+  try {
+    const result = await apiReport(submissionId, { reason, note });
+    dialog.close();
+    showToast(result.added
+      ? `Laporan tersimpan di server (total ${result.reports}). Admin yang memutuskan kondisinya.`
+      : 'Kamu sudah pernah melaporkan konten ini.', result.added ? 'success' : 'notice');
+    renderAdminReview();
+    renderLibrary();
+  } catch (error) {
+    document.querySelector('#reportFeedback').textContent = error?.message || 'Laporan gagal dikirim. Coba lagi.';
+  } finally {
+    reportSubmitting = false;
+    submit.disabled = false;
+    cancel.disabled = false;
+    submit.textContent = 'Kirim laporan';
+  }
+});
 
 function clearSharingVideoPreviews() {
   sharingVideoObjectUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -2269,6 +2466,18 @@ function renderActivities() {
   renderLibrary();
 }
 
+// Satu timer untuk animasi pop kanvas pohon: kelas sebelumnya dibatalkan
+// dulu supaya spam aksi cepat (Boost beruntun) tidak memotong animasi baru.
+let treeCanvasPopTimer = 0;
+function playTreeCanvasPop(className, duration) {
+  window.clearTimeout(treeCanvasPopTimer);
+  const canvas = elements.treeCanvas;
+  canvas.classList.remove('sprout-appear', 'level-pop', 'fruit-burst');
+  void canvas.offsetWidth;
+  canvas.classList.add(className);
+  treeCanvasPopTimer = window.setTimeout(() => canvas.classList.remove(className), duration);
+}
+
 function renderTree(animate = false, previousLevel = state.level, previousCondition = getTreeCondition(state)) {
   const condition = getTreeCondition(state);
   const conditionInfo = CONDITION_LABELS[condition];
@@ -2281,11 +2490,18 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
   // buah belum dipindah dari Storage atau sudah diangkat; buah basi rebah
   // di tanah. Buah lain tidak pernah bergeser mengisi celah.
   const fruitView = getFruitView(state);
+  // Preserve the ledger when levels decrease, but no fruit (even fallen
+  // stale fruit) is visible before the fruit-bearing stage at level 3.
+  if (state.level < 3) {
+    fruitView.tree = [];
+    fruitView.ground = [];
+  }
   const fruitValue = [
     fruitView.maxSlot,
     `T${fruitView.tree.map((entry) => entry.slot).join(',')}`,
     `G${fruitView.ground.map((entry) => entry.slot).join(',')}`,
   ].join('|');
+  const fruitChanged = Boolean(elements.treeCanvas.dataset.fruits) && elements.treeCanvas.dataset.fruits !== fruitValue;
   const visualChanged = elements.treeCanvas.dataset.level !== levelValue
     || elements.treeCanvas.dataset.condition !== condition
     || elements.treeCanvas.dataset.fruits !== fruitValue;
@@ -2296,10 +2512,30 @@ function renderTree(animate = false, previousLevel = state.level, previousCondit
     elements.treeCanvas.dataset.condition = condition;
     elements.treeCanvas.dataset.fruits = fruitValue;
   }
-  elements.treeCanvas.setAttribute('aria-label', `Pohon Level ${state.level}, ${STAGES[state.level]}, ${state.fruitsOnTree} Buah di pohon${fruitView.ground.length ? `, ${fruitView.ground.length} buah busuk rebah di tanah` : ''}, kondisi ${conditionInfo.title}`);
+  elements.treeCanvas.setAttribute('aria-label', `Pohon Level ${state.level}, ${STAGES[state.level]}, ${fruitView.tree.length} Buah di pohon${fruitView.ground.length ? `, ${fruitView.ground.length} buah busuk rebah di tanah` : ''}, kondisi ${conditionInfo.title}`);
+
+  // Pop transisi pohon: Level 0→Bibit tetap memakai sprout-appear (tunas
+  // meletus dari tanah). Naik level lain = mahkota meletus + batang bangkit +
+  // buah muncul beruntun (level-pop). Perpindahan buah tanpa ganti level
+  // (konten dipindah/diangkat) = hanya buah yang pop (fruit-burst). Kelas
+  // ditaruh di treeCanvas (div HTML) dan hanya menyasar elemen tanpa atribut
+  // transform SVG supaya posisi buah/mahkota tidak tertimpa.
+  if (levelChanged && previousLevel === 0 && state.level === 1) {
+    playTreeCanvasPop('sprout-appear', 1200);
+  } else if (levelChanged || fruitChanged) {
+    playTreeCanvasPop(levelChanged ? 'level-pop' : 'fruit-burst', 1350);
+  }
+  elements.treeCanvas.classList.toggle('leaf-shedding', state.level >= 2);
   elements.treePanel.classList.remove('is-healthy', 'is-thirsty', 'is-dead');
   elements.treePanel.classList.add(sceneClass);
   elements.treeScene.classList.toggle('is-advanced-stage', state.level >= 7 && condition === 'healthy');
+  elements.treeScene.classList.toggle('has-garden-life', state.level >= 4 && condition === 'healthy');
+  // Stable positions along a sky arc; care actions keep the same position.
+  // Stay clear of the badges at the far left and of the growing tree below.
+  const sunPositions = [[90, 20], [82, 14], [74, 9], [66, 5], [58, 3], [50, 5], [40, 9], [30, 15]];
+  const [sunX, sunY] = sunPositions[state.level] ?? sunPositions[0];
+  elements.treeScene.style.setProperty('--sun-x', `${sunX}%`);
+  elements.treeScene.style.setProperty('--sun-y', `${sunY}%`);
   elements.condition.className = `scene-condition ${sceneClass}`;
   elements.conditionLabel.textContent = conditionInfo.title;
   elements.levelValue.textContent = String(state.level);
@@ -2605,11 +2841,11 @@ function showToast(message, tone = 'success') {
   toastTimer = window.setTimeout(() => toast.remove(), 3200);
 }
 
-function updateWith(nextState, message, tone = 'success', { animateTree = true } = {}) {
+function updateWith(nextState, message, tone = 'success', { animateTree = true, replay = null } = {}) {
   const previousLevel = state.level;
   const previousCondition = getTreeCondition(state);
   state = nextState;
-  saveState();
+  saveState(replay);
   render(animateTree, previousLevel, previousCondition);
   if (message) showToast(message, tone);
 }
@@ -2687,26 +2923,75 @@ function openLearningModule(moduleId) {
   elements.learningDialog.showModal();
 }
 
-elements.loginForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const formData = new FormData(elements.loginForm);
-
-  try {
-    const { account, treeState, settings } = await apiEntry({
-      name: String(formData.get('name')),
-      email: String(formData.get('email')),
-      password: String(formData.get('password')),
-    });
-    elements.loginForm.reset();
-    const isNew = account.isNew === true;
-    enterApp(account, treeState, true, settings);
-    if (isNew) {
-      showToast('Kebun baru dibuat di server. Selamat menanam!', 'success');
-    }
-  } catch (error) {
-    setAuthMessage(error.message, 'error');
-  }
+let authRegisterMode = false;
+let authSubmitting = false;
+function setAuthMode(register) {
+  authRegisterMode = register;
+  elements.loginForm.hidden = register;
+  document.querySelector('#registerForm').hidden = !register;
+  document.querySelector('#authTitle').textContent = register ? 'Mulai kebun pengetahuanmu' : 'Masuk ke kebunmu';
+  document.querySelector('#authDescription').textContent = register
+    ? 'Buat akun untuk menanam, belajar, dan berbagi pengetahuan.'
+    : 'Lanjutkan merawat kebun pengetahuanmu dengan akun yang sudah terdaftar.';
+  document.querySelector('#authSwitchHint').textContent = register ? 'Sudah punya akun?' : 'Belum punya akun?';
+  document.querySelector('#authSwitch').textContent = register ? 'Masuk' : 'Daftar';
+  document.querySelectorAll('[data-password-form]').forEach((button) => {
+    button.setAttribute('aria-pressed', 'false');
+    button.textContent = 'Tampilkan kata sandi';
+    document.getElementById(button.dataset.passwordForm).querySelectorAll('[name="password"], [name="confirmPassword"]').forEach((input) => { input.type = 'password'; });
+  });
+  setAuthMessage('');
+}
+document.querySelector('#authSwitch').addEventListener('click', () => {
+  if (authSubmitting) return;
+  setAuthMode(!authRegisterMode);
+  document.querySelector(authRegisterMode ? '#registerName' : '#loginEmail').focus();
 });
+document.querySelectorAll('[data-password-form]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const show = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', String(show));
+    button.textContent = show ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi';
+    document.getElementById(button.dataset.passwordForm).querySelectorAll('[name="password"], [name="confirmPassword"]').forEach((input) => { input.type = show ? 'text' : 'password'; });
+  });
+});
+for (const [form, register] of [[elements.loginForm, false], [document.querySelector('#registerForm'), true]]) {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (authSubmitting) return;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    if (register && data.password !== data.confirmPassword) {
+      setAuthMessage('Konfirmasi kata sandi tidak cocok.', 'error');
+      document.querySelector('#registerConfirmPassword').focus();
+      return;
+    }
+    authSubmitting = true;
+    const submit = form.querySelector('[type="submit"]');
+    const label = submit.innerHTML;
+    submit.disabled = true;
+    submit.textContent = register ? 'Membuat akun…' : 'Masuk…';
+    document.querySelector('#authSwitch').disabled = true;
+    form.setAttribute('aria-busy', 'true');
+    setAuthMessage('');
+    try {
+      const { account, treeState, settings } = await (register ? apiRegister(data) : apiLogin(data));
+      elements.loginForm.reset();
+      document.querySelector('#registerForm').reset();
+      setAuthMode(false);
+      enterApp(account, treeState, true, settings);
+      if (register) showToast('Akun dan kebun baru berhasil dibuat. Selamat menanam!', 'success');
+    } catch (error) {
+      setAuthMessage(error.message || 'Tidak dapat menghubungi server. Coba lagi.', 'error');
+    } finally {
+      authSubmitting = false;
+      submit.disabled = false;
+      submit.innerHTML = label;
+      document.querySelector('#authSwitch').disabled = false;
+      form.setAttribute('aria-busy', 'false');
+    }
+  });
+}
 
 elements.logoutButton.addEventListener('click', () => {
   leaveApp('Kamu sudah keluar dari akun demo.');
@@ -2876,6 +3161,14 @@ elements.adminSummary.addEventListener('click', (event) => {
 });
 
 elements.adminReviewList.addEventListener('click', (event) => {
+  const kebabTrigger = event.target.closest('.admin-review-kebab');
+  if (kebabTrigger) {
+    toggleReviewMenu(kebabTrigger);
+    return;
+  }
+
+  if (event.target.closest('.admin-review-menu')) closeReviewMenus();
+
   const conditionButton = event.target.closest('[data-admin-condition]');
   if (conditionButton) {
     applyAdminCondition(conditionButton);
@@ -2887,6 +3180,33 @@ elements.adminReviewList.addEventListener('click', (event) => {
     applyAdminDeleteContent(deleteButton);
   }
 });
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.admin-review-kebab-wrap')) closeReviewMenus();
+});
+
+document.addEventListener('keydown', (event) => {
+  const openMenu = document.querySelector('.admin-review-menu.is-open');
+  if (!openMenu) return;
+  if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    const items = [...openMenu.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+    if (!items.length) return;
+    const current = items.indexOf(document.activeElement);
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+      : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[index].focus({ preventScroll: true });
+    return;
+  }
+  if (!['Escape', 'Tab'].includes(event.key)) return;
+  const trigger = openMenu.parentElement?.querySelector('.admin-review-kebab');
+  closeReviewMenus();
+  trigger?.focus();
+});
+window.addEventListener('resize', closeReviewMenus);
+document.addEventListener('scroll', (event) => {
+  if (!(event.target instanceof Element) || !event.target.closest('.admin-review-menu')) closeReviewMenus();
+}, true);
 
 elements.adminAccountSearch.addEventListener('input', () => {
   adminAccountsPage = 1;
@@ -2902,9 +3222,14 @@ elements.adminAccountsPagination.addEventListener('click', (event) => {
 });
 
 elements.adminAccountsBody.addEventListener('click', (event) => {
+  const trigger = event.target.closest('.admin-review-kebab');
+  if (trigger) {
+    toggleReviewMenu(trigger);
+    return;
+  }
   const actionButton = event.target.closest('[data-admin-action]');
   if (!actionButton) return;
-
+  closeReviewMenus();
   applyAdminAccountAction(actionButton);
 });
 
@@ -2925,7 +3250,47 @@ elements.learningDialog.addEventListener('click', (event) => {
   }
 });
 
+// Resolve the current ledger on activation, not stale HTML metadata. Titles
+// and summaries use textContent; only HTTP(S) content links may be opened.
+function openFruitDetail(target) {
+  const slot = Number(target.dataset.fruitSlot);
+  const view = getFruitView(state);
+  const entry = [...view.tree, ...view.ground].find((fruit) => fruit.slot === slot);
+  if (!entry) return;
+  const submission = state.sharingSubmissions.find((item) => item.id === entry.submissionId);
+  const dialog = document.querySelector('#fruitDetailDialog');
+  document.querySelector('#fruitDetailTitle').textContent = submission?.title ?? `Buah slot ${slot}`;
+  document.querySelector('#fruitDetailStatus').textContent = view.ground.some((fruit) => fruit.slot === slot)
+    ? 'Basi · Konten perlu diperbarui agar buah dapat tumbuh kembali.'
+    : 'Tervalidasi · Buah ini mewakili satu konten yang disetujui.';
+  document.querySelector('#fruitDetailSummary').textContent = submission?.summary ?? 'Belum ada ringkasan konten.';
+  const link = document.querySelector('#fruitDetailLink');
+  link.removeAttribute('href');
+  link.hidden = true;
+  try {
+    const url = new URL(submission?.url ?? '');
+    if (['http:', 'https:'].includes(url.protocol)) {
+      link.href = url.href;
+      link.hidden = false;
+    }
+  } catch { /* A missing or invalid URL is not an actionable content link. */ }
+  if (!dialog.open) dialog.showModal();
+}
+elements.treeCanvas.addEventListener('click', (event) => {
+  const fruit = event.target.closest('[data-fruit-slot]');
+  if (fruit) openFruitDetail(fruit);
+});
+elements.treeCanvas.addEventListener('keydown', (event) => {
+  const fruit = event.target.closest('[data-fruit-slot]');
+  if (fruit && ['Enter', ' '].includes(event.key)) {
+    event.preventDefault();
+    openFruitDetail(fruit);
+  }
+});
+document.querySelector('#fruitDetailClose').addEventListener('click', () => document.querySelector('#fruitDetailDialog').close());
+
 let careAnimationTimer;
+let wetSoilTimer;
 function playCareAnimation(resourceType) {
   const effect = elements.careAnimation;
   const isWatering = resourceType === 'air';
@@ -2933,7 +3298,18 @@ function playCareAnimation(resourceType) {
   const particleCount = isWatering ? 7 : 9;
   // Horizontal slot of each fertilizer grain, synced to the mascot flyby below.
   const fertilizerLefts = [14, 23, 32, 41, 50, 59, 68, 77, 86];
-  const mascotFlybyMs = 3000;
+  const mascotFlybyMs = 6000;
+  const fertilizerFallMs = 2000;
+  effect.style.setProperty('--fertilizer-flyby-duration', `${mascotFlybyMs}ms`);
+  effect.style.setProperty('--fertilizer-fall-duration', `${fertilizerFallMs}ms`);
+
+  if (isWatering) {
+    window.clearTimeout(wetSoilTimer);
+    elements.treeScene.classList.remove('is-freshly-watered');
+    void elements.treeScene.offsetWidth;
+    elements.treeScene.classList.add('is-freshly-watered');
+    wetSoilTimer = window.setTimeout(() => elements.treeScene.classList.remove('is-freshly-watered'), 2400);
+  }
 
   window.clearTimeout(careAnimationTimer);
   effect.className = 'care-animation';
@@ -2978,16 +3354,19 @@ function playCareAnimation(resourceType) {
   careAnimationTimer = window.setTimeout(() => {
     effect.className = 'care-animation';
     effect.replaceChildren();
-  }, isWatering ? 1500 : 4000);
+  }, isWatering ? 1500 : mascotFlybyMs + fertilizerFallMs + 200);
 }
 
 function careForTree(resourceType) {
   const result = applyCare(state, resourceType);
   const resourceName = { air: 'Air', fertilizer: 'Pupuk', fruit: 'Buah' }[resourceType];
+  // Replay: bila PUT tertolak (tab basi), aksi yang sama dijalankan ulang
+  // di atas state server terbaru agar perawatan/pindah buah tidak hilang.
+  const replay = () => applyCare(state, resourceType);
 
   if (result.applied) {
     if (resourceType === 'fruit') {
-      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon — menggantung di slot kontennya. Progres dan perawatan tidak berubah.', 'success', { animateTree: false });
+      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon — menggantung di slot kontennya. Progres dan perawatan tidak berubah.', 'success', { animateTree: false, replay });
       return;
     }
 
@@ -2995,22 +3374,22 @@ function careForTree(resourceType) {
     const effect = result.progressApplied
       ? 'Progres dan perawatan pohon bertambah.'
       : 'Perawatan pulih; progres level sudah penuh.';
-    updateWith(result.state, `Pohon menerima 1 ${resourceName} dari Storage. ${effect}`, 'success', { animateTree: levelChanged });
+    updateWith(result.state, `Pohon menerima 1 ${resourceName} dari Storage. ${effect}`, 'success', { animateTree: levelChanged, replay });
     playCareAnimation(resourceType);
     return;
   }
 
   if (result.reason === 'progress-full') {
-    updateWith(result.state, `Progres ${resourceName} sudah penuh. Saldo ${resourceName} tetap di Storage hingga progres pasangannya terpenuhi.`, 'notice', { animateTree: false });
+    updateWith(result.state, `Progres ${resourceName} sudah penuh. Saldo ${resourceName} tetap di Storage hingga progres pasangannya terpenuhi.`, 'notice', { animateTree: false, replay });
     return;
   }
 
   if (result.reason === 'tree-not-ready') {
-    updateWith(result.state, 'Buah hanya dapat dipindahkan ke pohon yang sehat mulai Level 3. Buah tetap di Storage.', 'notice', { animateTree: false });
+    updateWith(result.state, 'Buah hanya dapat dipindahkan ke pohon yang sehat mulai Level 3. Buah tetap di Storage.', 'notice', { animateTree: false, replay });
     return;
   }
 
-  updateWith(result.state, `Saldo ${resourceName} di Storage tidak cukup.`, 'notice', { animateTree: false });
+  updateWith(result.state, `Saldo ${resourceName} di Storage tidak cukup.`, 'notice', { animateTree: false, replay });
 }
 
 let careDragButton = null;
@@ -3161,12 +3540,16 @@ elements.advanceWeekButton.addEventListener('click', () => {
 
 elements.testYellowButton.addEventListener('click', () => {
   const nextState = simulateDemoTreeCondition(state, 'thirsty');
-  updateWith(nextState, 'Uji demo: kondisi pohon menguning diterapkan.', 'notice');
+  updateWith(nextState, 'Uji demo: kondisi pohon menguning diterapkan.', 'notice', {
+    replay: () => simulateDemoTreeCondition(state, 'thirsty'),
+  });
 });
 
 elements.testDeadButton.addEventListener('click', () => {
   const nextState = simulateDemoTreeCondition(state, 'dead');
-  updateWith(nextState, 'Uji demo: kondisi pohon mati diterapkan.', 'notice');
+  updateWith(nextState, 'Uji demo: kondisi pohon mati diterapkan.', 'notice', {
+    replay: () => simulateDemoTreeCondition(state, 'dead'),
+  });
 });
 
 elements.boostButton.addEventListener('click', () => {
@@ -3239,15 +3622,38 @@ elements.resetButton.addEventListener('click', () => {
   showToast('Pohon demo kembali ke Level 0.', 'notice');
 });
 
-function initialize() {
-  // Sesi tersimpan di server (cookie HttpOnly); pulihkan akun + pohnnya.
-  apiMe()
-    .then(({ account, treeState, settings }) => enterApp(account, treeState, false, settings))
-    .catch(() => {
-      // Tanpa sesi: layar masuk tetap tampil.
-    });
+async function initialize() {
+  const loading = document.querySelector('#sessionLoading');
+  const message = document.querySelector('#sessionLoadingMessage');
+  const retry = document.querySelector('#sessionRetry');
+  loading.hidden = false;
+  loading.setAttribute('aria-busy', 'true');
+  elements.authScreen.hidden = true;
+  elements.appShell.hidden = true;
+  message.textContent = 'Memuat kebun…';
+  retry.hidden = true;
+  // Keep the cookie server-owned; a network/DB failure is not a logout.
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15000);
+  try {
+    const { account, treeState, settings } = await apiMe({ signal: controller.signal });
+    enterApp(account, treeState, false, settings);
+    loading.hidden = true;
+  } catch (error) {
+    if (error?.status === 401) {
+      loading.hidden = true;
+      elements.authScreen.hidden = false;
+    } else {
+      message.textContent = 'Kebun belum dapat dimuat. Periksa koneksi lalu coba lagi; sesi masukmu tidak dihapus.';
+      retry.hidden = false;
+    }
+  } finally {
+    window.clearTimeout(timeout);
+    loading.setAttribute('aria-busy', 'false');
+  }
 }
 
+document.querySelector('#sessionRetry').addEventListener('click', initialize);
 initialize();
 window.setInterval(() => {
   if (!currentAccount || !state) return;

@@ -20,12 +20,17 @@ async function request(path, options = {}) {
   return data;
 }
 
-// Prototype tanpa layar sandi terpisah: satu form melakukan masuk atau
-// pendaftaran (server menentukan lewat email yang sudah dikenal).
-export async function apiEntry({ name, email, password }) {
-  return request('/api/auth/entry', {
+export async function apiLogin({ email, password }) {
+  return request('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function apiRegister({ name, email, password, confirmPassword }) {
+  return request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password, confirmPassword }),
   });
 }
 
@@ -33,8 +38,8 @@ export async function apiLogout() {
   return request('/api/auth/logout', { method: 'POST' });
 }
 
-export async function apiMe() {
-  return request('/api/auth/me');
+export async function apiMe(options = {}) {
+  return request('/api/auth/me', options);
 }
 
 export async function apiLoadState() {
@@ -109,10 +114,10 @@ export async function apiAdminDeleteContent(submissionId) {
   });
 }
 
-export async function apiReport(submissionId) {
+export async function apiReport(submissionId, { reason, note } = {}) {
   return request('/api/report', {
     method: 'POST',
-    body: JSON.stringify({ submissionId }),
+    body: JSON.stringify({ submissionId, reason, note }),
   });
 }
 

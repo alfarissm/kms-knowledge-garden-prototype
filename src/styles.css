@@ -103,22 +103,138 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .scene-cloud { position: absolute; width: 54px; height: 14px; border-radius: 20px; background: #fff; }
 .scene-cloud::before, .scene-cloud::after { position: absolute; border-radius: 50%; background: inherit; content: ''; }
 .scene-cloud::before { left: 9px; bottom: 3px; width: 22px; height: 22px; }.scene-cloud::after { left: 27px; bottom: 6px; width: 16px; height: 16px; }
-.cloud-a { top: 71px; left: 9%; animation: cloud-drift-a 26s ease-in-out infinite; }.cloud-b { top: 48px; right: 18%; opacity: .75; animation: cloud-drift-b 34s ease-in-out infinite; }
-@keyframes cloud-drift-a { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(26px); } }
-@keyframes cloud-drift-b { 0%, 100% { transform: translateX(0) scale(.75); } 50% { transform: translateX(-30px) scale(.75); } }
+.scene-cloud { pointer-events: none; transform: scale(var(--cloud-scale, 1)); }
+.sky-cloud-track { position: absolute; width: calc(100% + 180px); height: 14px; pointer-events: none; }
+.sky-cloud-track .scene-cloud { top: 0; left: 0; }
+.cloud-a { top: 22%; left: 9%; --cloud-scale: 1.15; --cloud-duration: 96s; --cloud-delay: -15s; }
+.cloud-b { top: 13%; left: 72%; opacity: .65; --cloud-scale: .75; --cloud-duration: 144s; --cloud-delay: -102s; }
+.cloud-c { top: 31%; left: 36%; opacity: .85; --cloud-scale: .95; --cloud-duration: 114s; --cloud-delay: -48s; }
+.cloud-d { top: 18%; left: 52%; opacity: .55; --cloud-scale: .65; --cloud-duration: 168s; --cloud-delay: -87s; }
+.cloud-e { top: 36%; left: 84%; opacity: .7; --cloud-scale: .8; --cloud-duration: 126s; --cloud-delay: -108s; }
+.cloud-f { top: 10%; left: 28%; opacity: .9; --cloud-scale: 1.05; --cloud-duration: 105s; --cloud-delay: -36s; }
+@keyframes sky-cloud-travel {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(25%, -5px, 0); }
+  50% { transform: translate3d(50%, 3px, 0); }
+  75% { transform: translate3d(75%, -4px, 0); }
+  100% { transform: translate3d(100%, 0, 0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sky-cloud-track { left: -90px; will-change: transform; animation: sky-cloud-travel var(--cloud-duration, 120s) linear var(--cloud-delay, 0s) infinite; }
+}
 .scene-glow { position: absolute; bottom: 20px; width: min(72%, 390px); height: 34px; border-radius: 50%; background: rgba(141, 179, 103, .13); filter: blur(7px); }
 .tree-art { position: absolute; z-index: 2; bottom: 14px; display: block; width: min(80%, 385px); height: 252px; transform-origin: 50% 100%; }
 .tree-canvas { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .tree-svg { display: block; width: 100%; height: 100%; overflow: hidden; }
-.leaf-cluster { transform-box: fill-box; transform-origin: center; }
 .tree-svg.thirsty .canopy { filter: saturate(.82) sepia(.12); }
-.tree-svg.dead .canopy { opacity: .86; filter: sepia(.48) saturate(.68) brightness(.94); }
-.tree-svg.dead .leaf-cluster:nth-child(odd) { transform: scale(.9) rotate(-8deg); }
-.tree-svg.dead .seed-leaf { opacity: .78; filter: sepia(.42) saturate(.72); }
+.tree-svg.dead .canopy { opacity: 1; filter: sepia(.48) saturate(.68) brightness(.94); }
+.tree-svg.dead .seed-leaf { opacity: 1; filter: sepia(.42) saturate(.72); }
+.falling-leaves { display: none; pointer-events: none; }
+@keyframes leaf-shed-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0); }
+  8% { opacity: 1; }
+  35% { transform: translate(calc(var(--leaf-dx) * -.25), calc(var(--leaf-dy) * .3)) rotate(65deg); }
+  65% { transform: translate(calc(var(--leaf-dx) * .75), calc(var(--leaf-dy) * .65)) rotate(-35deg); }
+  86% { opacity: 1; transform: translate(var(--leaf-dx), var(--leaf-dy)) rotate(var(--leaf-spin)); }
+  100% { opacity: 0; transform: translate(var(--leaf-dx), var(--leaf-dy)) rotate(var(--leaf-spin)); }
+}
+@keyframes healthy-leaf-shed {
+  0%, 58% { opacity: 0; transform: translate(0, 0) rotate(0); }
+  61% { opacity: 1; }
+  72% { opacity: 1; transform: translate(calc(var(--leaf-dx) * -.25), calc(var(--leaf-dy) * .3)) rotate(65deg); }
+  83% { opacity: 1; transform: translate(calc(var(--leaf-dx) * .75), calc(var(--leaf-dy) * .65)) rotate(-35deg); }
+  94% { opacity: 1; transform: translate(var(--leaf-dx), var(--leaf-dy)) rotate(var(--leaf-spin)); }
+  100% { opacity: 0; transform: translate(var(--leaf-dx), var(--leaf-dy)) rotate(var(--leaf-spin)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .leaf-shedding .falling-leaves { display: block; }
+  .falling-leaf { transform-box: fill-box; transform-origin: center; animation: leaf-shed-fall 5.2s ease-in-out var(--leaf-delay, 0ms) infinite both; }
+  .tree-svg.dead .falling-leaf { animation-duration: 4.6s; }
+  .tree-svg.healthy .falling-leaf { animation-name: healthy-leaf-shed; animation-duration: 9s; }
+}
+/* Tunas pop muncul saat tanah kosong tumbuh jadi Bibit: batang bangkit dulu,
+   dua daun meletus beruntun dengan sedikit lemparan (overshoot). */
+@keyframes sprout-pop {
+  0% { transform: translateY(10px) scale(0); opacity: 0; }
+  55% { transform: translateY(0) scale(1.22); opacity: 1; }
+  72% { transform: translateY(0) scale(.94); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sprout-appear :is(.seed-stem, .seed-leaf) { animation: sprout-pop .75s cubic-bezier(.3,1.6,.55,1) both; }
+  .sprout-appear .seed-stem { transform-box: fill-box; transform-origin: 50% 100%; }
+  .sprout-appear .seed-leaf-left { transform-box: fill-box; transform-origin: 100% 100%; animation-delay: .26s; }
+  .sprout-appear .seed-leaf-right { transform-box: fill-box; transform-origin: 0% 100%; animation-delay: .36s; }
+}
+/* Pop transisi antar level (level-pop): batang melentik bangkit dari tanah,
+   mahkota meletus dengan overshoot, buah-buahan muncul beruntun mengikuti
+   --fruit-index. fruit-burst = varian tanpa batang/mahkota, hanya buah,
+   saat slot buah berubah tanpa naik level. Semua target adalah grup tanpa
+   atribut transform (trunk-lift, canopy, fruit-core) agar posisi SVG tidak
+   tertimpa animasi CSS. */
+@keyframes trunk-pop {
+  0% { transform: scaleY(.72); }
+  58% { transform: scaleY(1.06); }
+  80% { transform: scaleY(.98); }
+  100% { transform: scaleY(1); }
+}
+@keyframes canopy-pop {
+  0% { transform: scale(.52); opacity: 0; }
+  58% { transform: scale(1.09); opacity: 1; }
+  76% { transform: scale(.965); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes fruit-pop {
+  0% { transform: scale(0); opacity: 0; }
+  58% { transform: scale(1.28) rotate(-7deg); opacity: 1; }
+  76% { transform: scale(.94) rotate(5deg); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .level-pop .trunk-lift { transform-box: fill-box; transform-origin: 50% 100%; animation: trunk-pop .82s cubic-bezier(.3,1.45,.5,1) both; }
+  .level-pop .canopy { transform-box: fill-box; transform-origin: 50% 100%; animation: canopy-pop .82s cubic-bezier(.3,1.5,.5,1) both; }
+  .level-pop .fruit-core, .fruit-burst .fruit-core {
+    transform-box: fill-box;
+    transform-origin: 50% 88%;
+    animation: fruit-pop .64s cubic-bezier(.3,1.6,.5,1) both;
+    animation-delay: calc(160ms + var(--fruit-index, 0) * 70ms);
+  }
+}
 .tree-fruit { transform-box: fill-box; transform-origin: center; }
+.tree-fruit[role="button"] { cursor: pointer; outline: none; }
+.tree-fruit:focus-visible .fruit-hit-area { stroke: #fff; stroke-width: 2; stroke-dasharray: 3 2; }
+.fruit-detail-dialog { position: relative; max-width: min(420px, calc(100vw - 32px)); }
+.fruit-detail-dialog h2 { padding-right: 30px; overflow-wrap: anywhere; }
+.fruit-detail-dialog p { line-height: 1.6; overflow-wrap: anywhere; }
+.fruit-detail-dialog .dialog-close { position: absolute; top: 12px; right: 12px; }
+.fruit-detail-dialog a:not([hidden]) { display: inline-block; padding: 10px 16px; border-radius: 10px; color: #fff; background: #287d49; font-weight: 700; }
+.scene-ground::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: calc(50% - 64px); width: 128px; border-radius: 50%; background: #68452e; opacity: 0; }
+.is-freshly-watered .scene-ground::after { opacity: .65; }
+.garden-butterfly { display: none; position: absolute; z-index: 3; left: 26%; top: 62%; width: 32px; height: 28px; pointer-events: none; }
+.has-garden-life .garden-butterfly { display: block; }
+.garden-butterfly svg { display: block; overflow: visible; }
+.butterfly-wing-left { transform-box: fill-box; transform-origin: 100% 50%; }
+.butterfly-wing-right { transform-box: fill-box; transform-origin: 0 50%; }
+@keyframes watered-soil { 0%, 100% { opacity: 0; } 25%, 70% { opacity: .65; } }
+@keyframes watered-leaves { 0%, 100% { filter: none; } 45% { filter: brightness(1.14) saturate(1.12); } }
+@keyframes garden-butterfly-flight {
+  0%, 15%, 100% { opacity: 0; transform: translate(0, 10px); }
+  22% { opacity: 1; transform: translate(15px, -10px); }
+  45% { opacity: 1; transform: translate(65px, -40px); }
+  65% { opacity: 1; transform: translate(110px, -15px); }
+  80% { opacity: 0; transform: translate(145px, -50px); }
+}
+@keyframes butterfly-wing { 50% { transform: scaleX(.65); } }
+@media (prefers-reduced-motion: no-preference) {
+  .is-freshly-watered .scene-ground::after { animation: watered-soil 2.4s ease both; }
+  .tree-card.is-healthy .is-freshly-watered .canopy-crown { animation: watered-leaves 2.4s ease both; }
+  .has-garden-life .garden-butterfly { animation: garden-butterfly-flight 18s ease-in-out infinite; }
+  .butterfly-wing-left, .butterfly-wing-right { animation: butterfly-wing .3s ease-in-out infinite alternate; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-animation { display: none; }
+}
 .extra-fruit-label { fill: #a26e35; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 800; }
-.falling-leaf { animation: leaf-fall 3.3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-.fall-two { animation-delay: .8s; }.fall-three { animation-delay: 1.5s; }
 .scene-ground { position: absolute; right: 9%; bottom: 18px; left: 9%; height: 13px; border-radius: 50%; background: linear-gradient(90deg, transparent, #acc58c 15%, #aec68b 85%, transparent); opacity: .58; }
 .scene-condition { position: absolute; z-index: 3; top: 15px; left: 16px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid #dcebdd; border-radius: 20px; color: #51805b; background: rgba(255,255,255,.8); font-size: 9px; font-weight: 700; backdrop-filter: blur(8px); }
 .condition-dot { width: 6px; height: 6px; border-radius: 50%; background: #68ac71; box-shadow: 0 0 0 3px #e5f2e5; }
@@ -212,10 +328,6 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @keyframes status-shift { 0% { opacity: .75; filter: saturate(.7); } 55% { opacity: 1; filter: saturate(1.15); } 100% { filter: saturate(1); } }
-@keyframes leaf-fall { 0%, 100% { transform: translate(0,0) rotate(0); opacity: .85; } 50% { transform: translate(8px,17px) rotate(65deg); opacity: .3; } }
-.leaf-drop { animation: leaf-drop-fall 5.6s linear infinite; transform-box: fill-box; transform-origin: center; opacity: 0; }
-.leaf-drop.drop-two { animation-delay: 2.8s; }
-@keyframes leaf-drop-fall { 0% { transform: translate(0,0) rotate(0); opacity: 0; } 8% { opacity: .9; } 70% { opacity: .8; } 100% { transform: translate(-16px,118px) rotate(-75deg); opacity: 0; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1150px) {
@@ -380,6 +492,25 @@ h1 { margin: 0; color: #2d4737; font-family: Manrope, sans-serif; font-size: cla
 .auth-card { display: grid; width: min(890px, 100%); min-height: 540px; grid-template-columns: .88fr 1.12fr; overflow: hidden; border: 1px solid #e3eae1; border-radius: 24px; background: #fff; box-shadow: 0 24px 70px rgba(43, 73, 49, .12); }
 .auth-description { margin: 8px 0 22px; color: #8b998d; font-size: 10px; line-height: 1.5; }
 .auth-form { display: grid; gap: 8px; }
+.auth-switch, .auth-password-toggle { border: 0; background: transparent; color: #2259bd; font: inherit; font-weight: 700; cursor: pointer; }
+.auth-switch { padding: 5px; text-decoration: underline; text-underline-offset: 3px; }
+.auth-password-toggle { justify-self: end; padding: 5px 0; font-size: 11px; }
+.report-dialog { width: min(440px, calc(100vw - 32px)); }
+.report-dialog > p { line-height: 1.6; color: #657c92; }
+.report-dialog select, .report-dialog textarea { width: 100%; padding: 10px; border: 1px solid #d8e5f2; border-radius: 8px; background: #fbfdff; color: #2c4f7c; font: inherit; font-size: 13px; }
+.report-dialog textarea { resize: vertical; }
+.report-dialog-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.report-dialog-actions button { margin-top: 0; padding: 10px 16px; }
+.report-dialog-actions > button:first-child { border: 1px solid #d8e5f2; border-radius: 8px; background: #fff; color: #4d6d95; cursor: pointer; }
+#reportFeedback { color: #ad4038; font-size: 12px; }
+.admin-report-details { margin: 12px 0; padding: 10px 12px; border: 1px solid #e4dfd1; border-radius: 10px; background: #fffdf7; }
+.admin-report-details summary { cursor: pointer; font-weight: 700; color: #805b32; }
+.admin-report-entry { padding: 10px 0; overflow-wrap: anywhere; }
+.admin-report-entry + .admin-report-entry { border-top: 1px solid #eee5d4; }
+.admin-report-entry strong, .admin-report-entry small { display: block; }
+.admin-report-entry small { color: #71859b; margin-top: 4px; }
+.admin-report-entry p { margin-bottom: 0; white-space: pre-wrap; }
+.auth-submit:disabled, .auth-switch:disabled { opacity: .65; cursor: wait; }
 .auth-form label { display: flex; justify-content: space-between; margin-top: 4px; color: #5b6c5e; font-size: 9px; font-weight: 700; }
 .auth-form label span { color: #a3ada3; font-size: 8px; font-weight: 500; }
 .auth-form input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid #e2e9e1; border-radius: 8px; outline: 0; color: #405246; background: #fcfdfb; font-size: 10px; transition: border-color .2s, box-shadow .2s; }
@@ -819,7 +950,10 @@ body { color: #294b7d; background: #f0f3f7; }
 .tree-card { padding: 12px; }
 .tree-scene { height: 400px; margin-top: 0; }
 .level-badge.scene-level-badge { position: absolute; z-index: 6; top: 12px; left: 12px; padding: 6px 10px; border-color: rgba(211, 228, 241, .98); background: rgba(255,255,255,.95); box-shadow: 0 5px 14px rgba(45, 78, 125, .1); }
-.scene-sun { top: 34px; right: 8%; }
+.scene-sun { top: calc(24px + var(--sun-y, 3%)); right: auto; left: calc(var(--sun-x, 90%) - 18px); }
+@media (prefers-reduced-motion: no-preference) {
+  .scene-sun { transition: left .8s ease-in-out, top .8s ease-in-out; }
+}
 .stage-track { position: absolute; z-index: 5; right: 20px; bottom: 116px; left: 20px; margin: 0; }
 .tree-progress-hud { padding: 10px 14px; }
 .progress-hud-bars { gap: 28px; }
@@ -828,7 +962,7 @@ body { color: #294b7d; background: #f0f3f7; }
 @media (max-width: 900px) {
   .tree-scene { height: 380px; }
   .stage-track { right: 15px; bottom: 115px; left: 15px; }
-  .scene-sun { top: 30px; right: 10%; }
+  .scene-sun { top: calc(24px + var(--sun-y, 3%)); }
 }
 @media (max-width: 680px) {
   .tree-card { padding: 8px; }
@@ -836,7 +970,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .level-badge.scene-level-badge { top: 8px; left: 8px; padding: 5px 8px; }
   .level-badge.scene-level-badge strong { font-size: 15px; }
   .level-badge.scene-level-badge span { font-size: 6px; }
-  .scene-sun { top: 72px; right: 7%; width: 29px; height: 29px; }
+  .scene-sun { top: calc(64px + var(--sun-y, 3%)); left: calc(var(--sun-x, 90%) - 14.5px); width: 29px; height: 29px; }
   .stage-track { right: 8px; bottom: 114px; left: 8px; }
   .stage-name { font-size: 6px; }
   .stage-marker { width: 20px; height: 20px; }
@@ -1321,6 +1455,22 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-row-action.action-delete { color: #a63d33; border-color: #eec9c4; background: #fdf4f2; }
 .admin-content-delete { min-height: 26px; padding: 0 10px; border: 1px solid #eec9c4; border-radius: 8px; color: #a63d33; background: #fdf4f2; font-size: 7.5px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
 .admin-content-delete:hover:enabled { transform: translateY(-1px); }
+/* Menu titik-tiga: pilihan kondisi sekunder disembunyikan agar baris hanya
+   ACC + Hapus + ⋮. */
+.admin-review-kebab-wrap { position: relative; flex: 0 0 auto; }
+.admin-review-kebab { display: grid; width: 30px; height: 26px; place-items: center; padding: 0; border: 1px solid #dce7f0; border-radius: 7px; color: #5f7896; background: #fff; cursor: pointer; }
+.admin-review-kebab svg { width: 16px; height: 16px; fill: currentColor; }
+.admin-review-kebab:hover:enabled { transform: translateY(-1px); }
+.admin-review-kebab[aria-expanded="true"] { border-color: #b9cfe4; background: #eef4fa; }
+.admin-review-kebab:focus-visible, .admin-review-menu [role="menuitem"]:focus-visible { outline: 2px solid #1d64ad; outline-offset: -2px; }
+.admin-review-menu { position: fixed; z-index: 45; inset: auto; margin: 0; display: none; min-width: min(178px, calc(100vw - 16px)); max-width: calc(100vw - 16px); overflow-y: auto; padding: 5px; border: 1px solid #dce7f0; border-radius: 11px; background: #fff; box-shadow: 0 14px 38px rgba(29, 55, 89, .18); }
+.admin-review-menu.is-open { display: block; }
+.admin-review-menu [role="menuitem"] { display: block; width: 100%; padding: 8px 10px; margin: 0; border: 0; border-radius: 8px; color: #274b6c; background: transparent; font: inherit; font-size: 7.5px; font-weight: 800; letter-spacing: .3px; text-align: left; letter-spacing: .3px; cursor: pointer; }
+.admin-review-menu [role="menuitem"]:hover:enabled { background: #eef4fa; }
+.admin-review-menu [role="menuitem"]:disabled { cursor: default; opacity: .5; }
+.admin-review-menu [role="menuitem"].condition-stale { color: #7a4e28; }
+.admin-review-menu [role="menuitem"].condition-rejected { color: #5f6b69; }
+.admin-review-menu [role="menuitem"].condition-duplicate { color: #58514a; }
 
 /* --- Lonceng pemberitahuan review --- */
 .notify-wrap { position: relative; }
@@ -1406,15 +1556,15 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .admin-stat-label { color: #3d5b78; font-size: 10.5px; letter-spacing: .3px; }
 .admin-app .admin-stat-value { color: #164a7d; font-size: 27px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .admin-app .admin-stat-sub { color: #4a657e; font-size: 11px; line-height: 1.55; }
-.admin-app .admin-charts-grid { gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
-.admin-app .admin-chart-card { gap: 12px; padding: 17px 18px; border: 1px solid #e0eaf3; background: #fff; align-content: start; box-shadow: 0 1px 2px rgba(29, 55, 89, .05); }
+.admin-app .admin-charts-grid { min-width: 0; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.admin-app .admin-chart-card { min-width: 0; gap: 12px; padding: 17px 18px; border: 1px solid #e0eaf3; background: #fff; align-content: start; box-shadow: 0 1px 2px rgba(29, 55, 89, .05); }
 .admin-app .admin-chart-card.is-hero { grid-column: 1 / -1; }
 .admin-app .admin-chart-card.is-hero .admin-vchart { height: 178px; }
 .admin-app .admin-chart-card.is-hero .admin-vcol-fill { max-width: 52px; }
-.admin-app .admin-chart-head { align-items: center; flex-wrap: wrap; }
-.admin-app .admin-chart-title { color: #17344e; font-size: 15px; }
+.admin-app .admin-chart-head { min-width: 0; align-items: center; flex-wrap: wrap; }
+.admin-app .admin-chart-title { min-width: 0; flex: 1 1 150px; overflow-wrap: anywhere; color: #17344e; font-size: 15px; }
 .admin-app .admin-chart-sub { padding: 4px 11px; border-radius: 999px; color: #2b5474; background: #edf3f9; font-size: 11px; font-weight: 800; white-space: normal; }
-.admin-app .admin-chart-body { gap: 11px; min-height: 0; }
+.admin-app .admin-chart-body { min-width: 0; gap: 11px; min-height: 0; }
 .admin-chart-empty { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border: 1.5px dashed #c9d9e8; border-radius: 12px; background: #fff; }
 .admin-chart-empty-icon { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 10px; color: #35618f; background: #eef4fa; }
 .admin-chart-empty-icon .icon { width: 18px; height: 18px; stroke-width: 2; }
@@ -1444,9 +1594,10 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .admin-stack-bar { height: 20px; }
 .admin-app .admin-stack-legend { gap: 8px 16px; }
 .admin-app .seg-chip, .admin-app .admin-hbar-label, .admin-app .admin-hbar-value { color: #33506d; font-size: 11px; }
-.admin-app .admin-hbar-row { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) 70px; gap: 10px; }
-.admin-app .admin-hbar-track { height: 14px; }
-.admin-app .admin-hbar-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.admin-app .admin-hbar-row { min-width: 0; grid-template-columns: minmax(0, 1fr) max-content; gap: 6px 10px; }
+.admin-app .admin-hbar-label { grid-column: 1; grid-row: 1; white-space: normal; overflow: visible; overflow-wrap: anywhere; text-overflow: clip; }
+.admin-app .admin-hbar-track { grid-column: 1 / -1; grid-row: 2; height: 14px; }
+.admin-app .admin-hbar-value { grid-column: 2; grid-row: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
 .admin-app .admin-vchart { height: 136px; }
 .admin-app .admin-vcol { align-items: center; }
 .admin-app .admin-vcol-count { color: #1d4266; font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1466,9 +1617,68 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .admin-account-info strong { font-size: 10px; }
 .admin-app .admin-account-info small { font-size: 9px; color: #536c83; }
 .admin-app .admin-account-line { min-width: 200px; }
-.admin-app .admin-role-badge, .admin-app .admin-report-badge { font-size: 8px; }
-.admin-app .admin-row-action { min-height: 28px; font-size: 9px; }
+.admin-app .admin-role-badge, .admin-app .admin-report-badge { padding: 3px 10px; font-size: 11px; letter-spacing: .1px; }
+.admin-app .admin-row-action { min-height: 32px; font-size: 11px; }
 .admin-app .admin-account-actions { min-width: 96px; gap: 5px; }
+/* Account management: scannable desktop table, separate cards on mobile.
+   Scoped to this table so the Learning catalog keeps its existing layout. */
+.admin-accounts-heading { align-items: center; gap: 20px; margin-top: 28px; }
+.admin-accounts-heading .admin-subsection-title { margin: 0 0 6px; font-size: 16px; letter-spacing: 0; text-transform: none; }
+.admin-accounts-heading p { max-width: 520px; font-size: 12px; }
+.admin-accounts-heading .admin-account-search { flex: 0 1 270px; }
+.admin-accounts-heading .admin-account-search input { min-height: 40px; padding: 10px 13px; background: #fbfcfe; font-size: 12px; }
+.admin-dashboard-scroll { margin-top: 12px; background: #fff; }
+.admin-app .admin-dashboard-table { min-width: 1040px; table-layout: fixed; font-size: 12px; }
+.admin-dashboard-table th:nth-child(1) { width: 25%; }
+.admin-dashboard-table th:nth-child(2) { width: 12%; }
+.admin-dashboard-table th:nth-child(3), .admin-dashboard-table th:nth-child(4) { width: 16%; }
+.admin-dashboard-table th:nth-child(5), .admin-dashboard-table th:nth-child(6) { width: 11%; }
+.admin-dashboard-table th:nth-child(7) { width: 9%; }
+.admin-app .admin-dashboard-table thead th { padding: 13px 14px; background: #f6f8fb; color: #64758a; font-size: 10px; letter-spacing: .6px; }
+.admin-app .admin-dashboard-table tbody td { padding: 17px 14px; vertical-align: middle; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-app .admin-dashboard-table tbody tr:nth-child(even) { background: #fcfdff; }
+.admin-app .admin-dashboard-table tbody tr:hover { background: #f5f9fd; }
+.admin-app .admin-dashboard-table .admin-account-line { align-items: flex-start; min-width: 0; gap: 10px; }
+.admin-app .admin-dashboard-table .admin-account-avatar { width: 32px; height: 32px; margin-top: 2px; font-size: 12px; background: #e7f0fa; color: #28618a; }
+.admin-dashboard-table .admin-account-info { flex: 1; gap: 3px; }
+.admin-account-name-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.admin-app .admin-dashboard-table .admin-account-info strong { white-space: normal; overflow-wrap: anywhere; font-size: 13px; color: #233e58; }
+.admin-app .admin-dashboard-table .admin-account-info small { margin: 0; font-size: 11px; white-space: normal; overflow-wrap: anywhere; color: #667b91; }
+.admin-app .admin-dashboard-table .admin-role-badge { padding: 2px 7px; font-size: 9px; letter-spacing: .3px; }
+.admin-app .admin-dashboard-table .role-admin { color: #5d58a1; background: #f2f0fb; border-color: #e2def5; }
+.admin-app .admin-dashboard-table .role-user { color: #516b7e; background: #f1f5f8; border-color: #e0e8ef; }
+.admin-self-label { color: #7b8998; font-size: 10px; }
+.admin-app .admin-dashboard-table .admin-report-badge { justify-self: start; width: fit-content; margin-top: 4px; padding: 2px 7px; font-size: 10px; }
+.admin-app .admin-dashboard-table strong { color: #314d67; font-size: 12px; font-variant-numeric: tabular-nums; }
+.admin-dashboard-table .admin-account-level { display: block; }
+.admin-app .admin-dashboard-table small { margin-top: 5px; color: #718399; font-size: 10px; line-height: 1.55; }
+.admin-condition-chip { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 600; }
+.admin-condition-chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.admin-condition-chip.is-healthy { color: #277955; background: #edf7f1; }
+.admin-condition-chip.is-thirsty { color: #936a21; background: #fff7e4; }
+.admin-condition-chip.is-dead { color: #9d5345; background: #fcf0eb; }
+.admin-app .admin-dashboard-table .admin-account-last-active { color: #718399; font-size: 11px; white-space: normal; }
+.admin-app .admin-dashboard-table .admin-account-actions { display: table-cell; min-width: 0; padding-left: 8px; padding-right: 8px; }
+.admin-app .admin-review-kebab.admin-account-manage { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; min-height: 34px; height: auto; padding: 6px 10px; border-color: #d8e3ef; border-radius: 7px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.admin-account-manage-caret { color: #8295a9; }
+.admin-app .admin-account-menu .admin-row-action { min-height: 40px; font-size: 12px; }
+.admin-app .admin-account-menu .action-delete { color: #ae4539; }
+@media (max-width: 680px) {
+  .admin-accounts-heading { align-items: stretch; gap: 14px; }
+  .admin-accounts-heading .admin-account-search { flex-basis: auto; }
+  .admin-dashboard-scroll { max-height: none; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+  .admin-app .admin-dashboard-table { display: block; min-width: 0; width: 100%; }
+  .admin-dashboard-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .admin-dashboard-table tbody { display: grid; gap: 14px; }
+  .admin-app .admin-dashboard-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; border: 1px solid #dfe8f1; border-radius: 12px; background: #fff; overflow: hidden; }
+  .admin-app .admin-dashboard-table tbody td { display: block; min-width: 0; padding: 12px 14px; border: 0; }
+  .admin-dashboard-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 6px; color: #8292a3; font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+  .admin-app .admin-dashboard-table .admin-account-cell { grid-column: 1 / -1; padding: 16px 14px; border-bottom: 1px solid #edf1f6; background: #f9fbfe; }
+  .admin-app .admin-dashboard-table .admin-account-cell::before, .admin-app .admin-dashboard-table .admin-account-actions::before { display: none; }
+  .admin-app .admin-dashboard-table .admin-account-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid #edf1f6; }
+  .admin-app .admin-dashboard-table .admin-account-manage { min-height: 40px; padding: 8px 16px; }
+  .admin-dashboard-table .admin-accounts-empty td { grid-column: 1 / -1; }
+}
 .admin-app .admin-activity-list { margin-top: 9px; }
 .admin-app .admin-activity-row { gap: 12px; padding: 13px; }
 .admin-app .admin-activity-meta { flex-wrap: wrap; }
@@ -1485,6 +1695,34 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .admin-activity-row { align-items: center; }
 .admin-activity-email { color: #536c83; font-size: 9px; overflow-wrap: anywhere; }
 .admin-app .admin-activity-title { margin-top: 5px; color: #25496b; }
+
+/* Review konten & kelola Learning memakai skala teks Pusat Admin yang sama. */
+.admin-app .admin-summary { gap: 7px; margin-bottom: 14px; padding-bottom: 14px; }
+.admin-app .admin-summary-button { gap: 7px; min-height: 34px; padding: 0 13px; border-radius: 999px; font-size: 12px; letter-spacing: .1px; }
+.admin-app .admin-summary-button .chip-count { min-width: 18px; height: 18px; font-size: 10.5px; }
+.admin-app .admin-review-list { gap: 12px; max-height: none; padding-right: 0; }
+.admin-app .admin-review-empty { padding: 20px; font-size: 12.5px; }
+.admin-app .admin-submission { padding: 14px 16px; border-radius: 12px; }
+.admin-app .admin-item-header { align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-bottom: 0; }
+.admin-app .admin-owner { display: flex; flex: 1 1 auto; align-items: baseline; gap: 9px; min-width: 0; }
+.admin-app .admin-owner strong { color: #1d4266; font-size: 13.5px; }
+.admin-app .admin-owner small { color: #5d7891; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-app .admin-submission h5 { margin: 9px 0 3px; color: #17344e; font-size: 15px; line-height: 1.35; }
+.admin-app .sharing-item-meta { margin-top: 3px; color: #4a657e; font-size: 11.5px; line-height: 1.5; }
+.admin-app .sharing-material-link, .admin-app .sharing-material-file { margin-top: 7px; font-size: 12.5px; }
+.admin-app .sharing-item-summary { margin: 8px 0 0; color: #3d5b78; font-size: 12.5px; line-height: 1.55; }
+.admin-app .sharing-status-badge { padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.admin-app .admin-condition-actions { gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf3f9; }
+.admin-app .admin-condition-button, .admin-app .admin-content-delete { min-height: 34px; padding: 0 15px; border-radius: 9px; font-size: 12.5px; letter-spacing: .1px; }
+.admin-app .admin-review-kebab { width: 38px; height: 34px; border-radius: 9px; }
+.admin-app .admin-review-kebab svg { width: 18px; height: 18px; }
+.admin-app .admin-review-menu { min-width: min(212px, calc(100vw - 16px)); padding: 6px; }
+.admin-app .admin-review-menu [role="menuitem"] { padding: 9px 12px; font-size: 12.5px; letter-spacing: .1px; }
+.admin-app .learning-admin-add { min-height: 34px; padding: 0 15px; font-size: 12px; letter-spacing: .1px; }
+.admin-app .learning-admin-add:hover { transform: translateY(-1px); }
+.admin-app .learn-admin-table { min-width: 700px; font-size: 11px; }
+.admin-app .learn-admin-table thead th { padding: 10px 11px; color: #375977; font-size: 10px; }
+.admin-app .learn-admin-table tbody td { padding: 12px 11px; color: #3d5b78; line-height: 1.45; }
 .admin-activity-pagination, .admin-accounts-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 13px; }
 .admin-activity-pagination[hidden], .admin-accounts-pagination[hidden] { display: none; }
 .admin-page-button.is-current { color: #fff; border-color: #1d64ad; background: #1d64ad; cursor: default; }
@@ -1513,7 +1751,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-account-search { flex-basis: auto; }
   .admin-app .admin-stat-value { font-size: 20px; }
   .admin-app .admin-stat-card { padding: 11px; }
-  .admin-app .admin-hbar-row { grid-template-columns: minmax(96px, 128px) minmax(0, 1fr) 70px; }
+  .admin-app .admin-chart-card { padding: 14px; }
   .admin-app .admin-vchart { height: 118px; }
   .admin-activity-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-activity-controls label:first-child { grid-column: 1 / -1; }
@@ -2024,8 +2262,9 @@ body.is-mobile-menu-open { overflow: hidden; }
 }
 .care-animation.is-watering .water-particle { z-index: 1; }
 /* Rain clouds gathering above the shower during watering. */
-.care-cloud { position: absolute; z-index: 1; top: 11%; left: 50%; width: 112px; height: 26px; margin-left: -56px; border-radius: 20px; background: #fff; opacity: 0; pointer-events: none; }
-.care-cloud::before, .care-cloud::after { position: absolute; border-radius: 50%; background: #fff; content: ''; }
+.care-cloud { position: absolute; z-index: 1; top: 11%; left: 50%; width: 112px; height: 26px; margin-left: -56px; border-radius: 20px; background: #8397a7; opacity: 0; pointer-events: none; }
+.care-cloud::before, .care-cloud::after { position: absolute; border-radius: 50%; background: inherit; content: ''; }
+.is-freshly-watered .scene-cloud { background: #9aabb7; }
 .care-cloud::before { left: 16px; bottom: 8px; width: 46px; height: 46px; }
 .care-cloud::after { left: 56px; bottom: 14px; width: 32px; height: 32px; }
 .care-cloud.cloud-pos-1 { left: 20%; top: 13%; width: 88px; margin-left: -44px; }
@@ -2091,8 +2330,8 @@ body.is-mobile-menu-open { overflow: hidden; }
 /* Mascot flies edge to edge across the sky while scattering fertilizer. */
 .care-mascot { position: absolute; z-index: 2; top: 5%; left: -18%; width: max-content; opacity: 0; pointer-events: none; }
 .care-mascot img { display: block; width: clamp(64px, 12vw, 96px); height: auto; filter: drop-shadow(0 6px 10px rgba(39, 77, 130, .25)); }
-.care-animation.is-fertilizing .care-mascot { animation: mascot-flyby 3s linear both; }
-.care-animation.is-fertilizing .fertilizer-particle { top: 20%; animation: fertilizer-fall 1.1s cubic-bezier(.2, .7, .35, 1) var(--drop-delay, 0ms) both; }
+.care-animation.is-fertilizing .care-mascot { animation: mascot-flyby var(--fertilizer-flyby-duration, 6s) linear both; }
+.care-animation.is-fertilizing .fertilizer-particle { top: 20%; animation: fertilizer-fall var(--fertilizer-fall-duration, 2s) cubic-bezier(.2, .7, .35, 1) var(--drop-delay, 0ms) both; }
 .care-animation.is-fertilizing .fertilizer-particle:nth-child(1) { left: 14%; }
 .care-animation.is-fertilizing .fertilizer-particle:nth-child(2) { left: 23%; }
 .care-animation.is-fertilizing .fertilizer-particle:nth-child(3) { left: 32%; }
@@ -2118,49 +2357,6 @@ body.is-mobile-menu-open { overflow: hidden; }
   100% { opacity: 0; transform: translate(var(--spread-x), 190px) scale(.8); }
 }
 
-.stage-sparkles {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-}
-.stage-sparkles span {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #fff4b0;
-  box-shadow: 0 0 8px 3px rgba(255, 236, 147, .58);
-  opacity: 0;
-  transform: scale(.25);
-}
-.stage-sparkles span::before,
-.stage-sparkles span::after {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 1px;
-  height: 11px;
-  border-radius: 2px;
-  background: rgba(255, 250, 206, .85);
-  content: '';
-  transform: translate(-50%, -50%);
-}
-.stage-sparkles span::after { width: 11px; height: 1px; }
-.stage-sparkles span:nth-child(1) { top: 62%; left: 17%; animation-delay: .15s; }
-.stage-sparkles span:nth-child(2) { top: 43%; left: 29%; animation-delay: 1.05s; }
-.stage-sparkles span:nth-child(3) { top: 51%; right: 22%; animation-delay: 1.9s; }
-.stage-sparkles span:nth-child(4) { top: 70%; right: 15%; animation-delay: 2.8s; }
-.stage-sparkles span:nth-child(5) { top: 34%; right: 33%; animation-delay: 3.65s; }
-.tree-scene.is-advanced-stage .stage-sparkles { opacity: 1; }
-.tree-scene.is-advanced-stage .stage-sparkles span {
-  animation-name: stage-sparkle;
-  animation-duration: 4.8s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
 .tree-scene.is-advanced-stage .scene-glow { animation: mature-ground-glow 4.8s ease-in-out infinite; }
 .tree-scene.is-advanced-stage .scene-ground { animation: meadow-shimmer 4.8s ease-in-out infinite; }
 .tree-scene.is-advanced-stage .scene-sun { animation: mature-sun-glimmer 5.6s ease-in-out infinite; }
@@ -2212,11 +2408,6 @@ body.is-mobile-menu-open { overflow: hidden; }
   46% { opacity: 1; transform: translate(5px, -3px) rotate(23deg) scale(1); }
   67% { opacity: .9; transform: translate(10px, 0) rotate(36deg) scale(.98); }
   100% { opacity: 0; transform: translate(24px, 9px) rotate(56deg) scale(.85); }
-}
-@keyframes stage-sparkle {
-  0%, 67%, 100% { opacity: 0; transform: scale(.25) rotate(0); }
-  73% { opacity: .95; transform: scale(1.05) rotate(30deg); }
-  84% { opacity: .3; transform: scale(.7) rotate(75deg); }
 }
 @keyframes mature-ground-glow {
   0%, 70%, 100% { opacity: .4; filter: blur(7px); transform: scaleX(.94); }

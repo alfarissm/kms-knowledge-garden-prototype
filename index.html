@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f4f7f1" />
     <meta name="description" content="Prototype interaktif gamifikasi Knowledge Management System." />
     <title>Kebunku — Prototype KMS</title>
+    <style>[hidden] { display: none !important; }</style>
   </head>
   <body>
     <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -28,23 +29,42 @@
       <symbol id="icon-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
     </svg>
 
-    <section class="auth-screen" id="authScreen" aria-label="Masuk prototype">
+    <section class="auth-screen session-loading" id="sessionLoading" aria-label="Pemeriksaan sesi" aria-busy="true">
+      <div class="auth-card auth-card-simple">
+        <span class="auth-logo" aria-hidden="true"><svg class="icon"><use href="#icon-leaf" /></svg></span>
+        <h1>kebunku</h1>
+        <p id="sessionLoadingMessage" role="status" aria-live="polite">Memuat kebun…</p>
+        <button class="auth-submit" id="sessionRetry" type="button" hidden>Coba lagi</button>
+      </div>
+    </section>
+    <section class="auth-screen" id="authScreen" aria-label="Masuk prototype" hidden>
       <div class="auth-card auth-card-simple">
         <span class="auth-logo" aria-hidden="true"><svg class="icon"><use href="#icon-leaf" /></svg></span>
         <p class="eyebrow">KEBUNKU · PROTOTYPE</p>
-        <h1>Masuk ke kebunmu</h1>
-        <p class="auth-description">Nama, email, dan kata sandi. Akun baru dibuat otomatis saat masuk pertama, datanya tersimpan di server demo.</p>
+        <h1 id="authTitle">Masuk ke kebunmu</h1>
+        <p class="auth-description" id="authDescription">Lanjutkan merawat kebun pengetahuanmu dengan akun yang sudah terdaftar.</p>
         <form id="loginForm" class="auth-form">
-          <label for="loginName">Nama</label>
-          <input id="loginName" name="name" type="text" autocomplete="name" placeholder="Nama kamu" minlength="2" required />
           <label for="loginEmail">Email</label>
           <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
           <label for="loginPassword">Kata sandi</label>
           <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" minlength="6" required />
-          <button class="auth-submit" type="submit">Masuk / Daftar <svg class="icon"><use href="#icon-arrow" /></svg></button>
+          <button class="auth-password-toggle" type="button" data-password-form="loginForm" aria-pressed="false">Tampilkan kata sandi</button>
+          <button class="auth-submit" type="submit">Masuk <svg class="icon"><use href="#icon-arrow" /></svg></button>
+        </form>
+        <form id="registerForm" class="auth-form" hidden>
+          <label for="registerName">Nama</label>
+          <input id="registerName" name="name" type="text" autocomplete="name" placeholder="Nama kamu" minlength="2" required />
+          <label for="registerEmail">Email</label>
+          <input id="registerEmail" name="email" type="email" autocomplete="email" placeholder="nama@email.com" required />
+          <label for="registerPassword">Kata sandi</label>
+          <input id="registerPassword" name="password" type="password" autocomplete="new-password" placeholder="Minimal 6 karakter" minlength="6" required />
+          <label for="registerConfirmPassword">Konfirmasi kata sandi</label>
+          <input id="registerConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi" minlength="6" required />
+          <button class="auth-password-toggle" type="button" data-password-form="registerForm" aria-pressed="false">Tampilkan kata sandi</button>
+          <button class="auth-submit" type="submit">Buat akun <svg class="icon"><use href="#icon-arrow" /></svg></button>
         </form>
         <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
-        <p class="auth-hint">Masuk dengan email diawali <code>admin@</code> untuk konsol Admin; email lain untuk kebun user.</p>
+        <p class="auth-hint"><span id="authSwitchHint">Belum punya akun?</span> <button class="auth-switch" id="authSwitch" type="button">Daftar</button></p>
       </div>
     </section>
 
@@ -105,11 +125,25 @@
           <article class="tree-card panel" id="treePanel">
             <div class="tree-visual-column">
               <div class="tree-scene" id="treeScene">
-                <div class="scene-sun"></div><div class="scene-cloud cloud-a"></div><div class="scene-cloud cloud-b"></div>
+                <div class="scene-sun" aria-hidden="true"></div>
+                <div class="sky-cloud-track cloud-a" aria-hidden="true"><div class="scene-cloud"></div></div>
+                <div class="sky-cloud-track cloud-b" aria-hidden="true"><div class="scene-cloud"></div></div>
+                <div class="sky-cloud-track cloud-c" aria-hidden="true"><div class="scene-cloud"></div></div>
+                <div class="sky-cloud-track cloud-d" aria-hidden="true"><div class="scene-cloud"></div></div>
+                <div class="sky-cloud-track cloud-e" aria-hidden="true"><div class="scene-cloud"></div></div>
+                <div class="sky-cloud-track cloud-f" aria-hidden="true"><div class="scene-cloud"></div></div>
                 <div class="scene-glow"></div>
-                <div class="stage-sparkles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+                <div aria-hidden="true"></div>
                 <div class="level-badge scene-level-badge"><span>LEVEL</span><strong id="levelValue">0</strong><small>/ 7</small></div>
-                <div class="tree-art" id="treeArt"><div class="tree-canvas" id="treeCanvas" role="img" aria-label="Pohon pengetahuan Level 0, tanah kosong"></div></div>
+                <div class="tree-art" id="treeArt"><div class="tree-canvas" id="treeCanvas" role="group" aria-label="Pohon pengetahuan Level 0, tanah kosong"></div></div>
+                <div class="garden-butterfly" aria-hidden="true">
+                  <svg viewBox="0 0 32 28" width="32" height="28">
+                    <g class="butterfly-wing-left"><path d="M15 14C3-5-5 9 9 17C-2 22 8 32 15 18Z" fill="#a98be3" stroke="#7057ab" stroke-width="1"/><path d="M12 13Q4 4 4 11M12 20Q5 20 8 24" fill="none" stroke="#eee6ff" stroke-width="2" stroke-linecap="round"/></g>
+                    <g class="butterfly-wing-right"><path d="M17 14C29-5 37 9 23 17C34 22 24 32 17 18Z" fill="#88c9e8" stroke="#4f89b2" stroke-width="1"/><path d="M20 13Q28 4 28 11M20 20Q27 20 24 24" fill="none" stroke="#e6f6ff" stroke-width="2" stroke-linecap="round"/></g>
+                    <path d="M16 11Q12 5 11 7M16 11Q20 5 21 7" fill="none" stroke="#51415d" stroke-width="1.3" stroke-linecap="round"/>
+                    <path d="M16 12V23" stroke="#51415d" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="11" r="2" fill="#51415d"/>
+                  </svg>
+                </div>
                 <div class="care-animation" id="careAnimation" aria-hidden="true"></div>
                 <div class="scene-ground"></div>
                 <div class="scene-condition" id="sceneCondition"><span class="condition-dot"></span><span id="conditionLabel">Healthy</span></div>
@@ -290,15 +324,15 @@
               <h3 class="admin-subsection-title">Apa yang terjadi di kebun?</h3>
               <div class="admin-charts" id="adminCharts" aria-live="polite"></div>
 
-              <div class="admin-section-heading">
-                <div><h3 class="admin-subsection-title">Akun &amp; pohon</h3><p>Cari akun, lalu lihat kondisi pohon, saldo Storage, konten, dan aktivitasnya.</p></div>
+              <div class="admin-section-heading admin-accounts-heading">
+                <div><h3 class="admin-subsection-title">Akun &amp; pohon</h3><p>Pantau perkembangan kebun dan kelola akses setiap akun.</p></div>
                 <label class="admin-account-search"><span class="sr-only">Cari akun berdasarkan nama atau email</span><input id="adminAccountSearch" type="search" placeholder="Cari nama atau email…" autocomplete="off" /></label>
               </div>
               <p class="admin-result-count" id="adminAccountCount" role="status" aria-live="polite"></p>
-              <div class="admin-accounts-scroll" role="region" aria-label="Tabel akun dan pohon, geser ke samping untuk melihat semua kolom" tabindex="0">
+              <div class="admin-accounts-scroll admin-dashboard-scroll" role="region" aria-label="Daftar akun dan pohon" tabindex="0">
                 <table class="admin-accounts-table admin-dashboard-table">
                   <thead>
-                    <tr><th scope="col">Akun</th><th scope="col">Pohon</th><th scope="col">Storage</th><th scope="col">Buah</th><th scope="col">Konten</th><th scope="col">Aktif</th><th scope="col">Aksi</th></tr>
+                    <tr><th scope="col">Akun</th><th scope="col">Pohon</th><th scope="col">Storage</th><th scope="col">Buah</th><th scope="col">Konten</th><th scope="col">Aktivitas terakhir</th><th scope="col">Kelola</th></tr>
                   </thead>
                   <tbody id="adminAccountsBody"></tbody>
                 </table>
@@ -361,7 +395,7 @@
           </section>
 
           <section class="page-view" id="reviewPage" data-page-view="review" aria-label="Halaman Review Konten" hidden>
-            <article class="activity-page panel admin-page" aria-labelledby="review-title">
+            <article class="activity-page panel admin-page admin-app" aria-labelledby="review-title">
               <div class="panel-heading activity-page-heading">
                 <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="review-title">Review konten Sharing</h2><p class="activity-page-description">Putuskan kondisi konten: ACC (relevan), Basi, atau Tidak relevan/duplikat.</p></div>
               </div>
@@ -371,7 +405,7 @@
           </section>
 
           <section class="page-view" id="learnAdminPage" data-page-view="learnadm" aria-label="Halaman Kelola Learning" hidden>
-            <article class="activity-page panel admin-page" aria-labelledby="learnadm-title">
+            <article class="activity-page panel admin-page admin-app" aria-labelledby="learnadm-title">
               <div class="panel-heading activity-page-heading">
                 <div><p class="eyebrow">MODE ADMIN · KATALOG BELAJAR</p><h2 id="learnadm-title">Kelola modul Learning</h2><p class="activity-page-description">Modul tersimpan di server dipakai semua akun; kosong = katalog bawaan.</p></div>
                 <button class="learning-admin-add" id="addLearningModuleButton" type="button">Tambah modul</button>
@@ -438,6 +472,31 @@
       </form>
     </dialog>
 
+    <dialog class="admin-confirm-dialog report-dialog" id="reportDialog" aria-labelledby="reportDialogTitle">
+      <h2 id="reportDialogTitle">Laporkan konten</h2>
+      <p>Laporan tidak langsung mengubah status konten. Admin akan meninjau alasanmu.</p>
+      <form id="reportForm" class="auth-form">
+        <label for="reportReason">Alasan laporan</label>
+        <select id="reportReason" name="reason" required>
+          <option value="" disabled selected>Pilih alasan</option>
+          <option value="rejected">Tidak relevan</option>
+          <option value="duplicate">Duplikat</option>
+          <option value="stale">Basi / tidak mutakhir</option>
+          <option value="other">Lainnya</option>
+        </select>
+        <label for="reportNote">Catatan <span>Wajib jika memilih Lainnya</span></label>
+        <textarea id="reportNote" name="note" rows="3" maxlength="500" placeholder="Jelaskan masalahnya atau sertakan tautan konten duplikat."></textarea>
+        <p id="reportFeedback" role="status" aria-live="polite"></p>
+        <div class="report-dialog-actions"><button id="reportCancel" type="button">Batal</button><button id="reportSubmit" class="auth-submit" type="submit">Kirim laporan</button></div>
+      </form>
+    </dialog>
+    <dialog class="admin-confirm-dialog fruit-detail-dialog" id="fruitDetailDialog" aria-labelledby="fruitDetailTitle">
+      <button class="dialog-close" id="fruitDetailClose" type="button" aria-label="Tutup detail buah">×</button>
+      <h2 id="fruitDetailTitle">Konten buah</h2>
+      <p id="fruitDetailStatus"></p>
+      <p id="fruitDetailSummary"></p>
+      <a id="fruitDetailLink" target="_blank" rel="noopener noreferrer">Buka konten ↗</a>
+    </dialog>
     <dialog class="admin-confirm-dialog" id="adminConfirmDialog" aria-labelledby="adminConfirmTitle" aria-describedby="adminConfirmDetail">
       <div class="admin-confirm-heading"><span class="admin-confirm-symbol" aria-hidden="true">?</span><h2 id="adminConfirmTitle">Konfirmasi tindakan</h2></div>
       <p id="adminConfirmDetail"></p>

@@ -224,6 +224,7 @@ function formatPupukAmount(units) {
 export function createInitialState(now = Date.now()) {
   return {
     levelSystemVersion: LEVEL_SYSTEM_VERSION,
+    stateRev: 0,
     level: 0,
     air: 1,
     fertilizerUnits: 2,
@@ -791,9 +792,21 @@ export function setSharingCondition(currentState, submissionId, condition, optio
   return { state, applied: true, rewarded: false };
 }
 
-// Pengguna lain melaporkan konten yang tak lagi relevan. Satu akun hanya
+export const SHARING_REPORT_REASONS = {
+  rejected: 'Tidak relevan',
+  duplicate: 'Duplikat',
+  stale: 'Basi / tidak mutakhir',
+  other: 'Lainnya',
+};
+
+// Pengguna lain melaporkan masalah konten. Satu akun hanya
 // melapor satu kali per konten; keputusan tetap di tangan admin (manual).
 export function addSharingReport(currentState, submissionId, reporterEmail, options = {}) {
+  const reason = options.reason ?? 'rejected';
+  const note = String(options.note ?? '').trim();
+  if (!Object.hasOwn(SHARING_REPORT_REASONS, reason)) throw new Error('Alasan laporan tidak valid.');
+  if (note.length > 500) throw new Error('Catatan laporan maksimal 500 karakter.');
+  if (reason === 'other' && !note) throw new Error('Jelaskan alasan laporan pada catatan.');
   const reporter = String(reporterEmail ?? '').trim().toLocaleLowerCase('en-US');
   if (!reporter) {
     throw new Error('Pelapor tidak dikenal.');
@@ -813,12 +826,12 @@ export function addSharingReport(currentState, submissionId, reporterEmail, opti
     return { state, added: false, reason: 'already-reported', reports: submission.reports.length };
   }
 
-  submission.reports.push({ by: reporter, at: state.clockMs });
+  submission.reports.push({ by: reporter, at: state.clockMs, reason, note });
   recordActivity(state, {
     at: state.clockMs,
     type: 'report',
     title: `Konten dilaporkan: ${submission.title}`,
-    detail: `Dilaporkan oleh ${reporter} (total ${submission.reports.length}). Admin yang menentukan kondisinya.`,
+    detail: `${SHARING_REPORT_REASONS[reason]}${note ? ` — ${note}` : ''}. Dilaporkan oleh ${reporter} (total ${submission.reports.length}). Admin yang menentukan kondisinya.`,
     status: 'reported',
     metadata: { submissionId: submission.id },
   });

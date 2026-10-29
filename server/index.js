@@ -12,6 +12,7 @@ import {
   normalizeGamificationSettings,
   setGamificationSettings,
   setSharingCondition,
+  SHARING_REPORT_REASONS,
 } from '../src/gamification.js';
 import { LEARNING_MODULES } from '../src/learning-catalog.js';
 
@@ -217,6 +218,8 @@ export function makeApp(createSql) {
   };
 
   const saveState = async (userId, payload) => {
+    // Setiap penulisan menaikkan revisi: klien basi terdeteksi via stateRev.
+    payload.stateRev = Number(payload?.stateRev ?? 0) + 1;
     await createSql()`
       INSERT INTO tree_states (user_id, payload, updated_at)
       VALUES (${userId}, ${JSON.stringify(payload)}::jsonb, now())
@@ -253,7 +256,7 @@ export function makeApp(createSql) {
     `;
   };
 
-  app.post('/api/auth/entry', async (c) => {
+  const authenticate = (register) => async (c) => {
     const sql = createSql();
     const body = await c.req.json().catch(() => null);
     const name = String(body?.name ?? '').trim();
@@ -266,36 +269,48 @@ export function makeApp(createSql) {
     if (password.length < 6) {
       return c.json({ error: 'Kata sandi minimal 6 karakter.' }, 400);
     }
+    if (register && name.length < 2) {
+      return c.json({ error: 'Nama harus terdiri dari minimal 2 karakter.' }, 400);
+    }
+    if (register && password !== String(body?.confirmPassword ?? '')) {
+      return c.json({ error: 'Konfirmasi kata sandi tidak cocok.' }, 400);
+    }
 
     const existing = await sql`SELECT * FROM users WHERE email = ${email} LIMIT 1`;
     let userRow;
-    if (existing[0]) {
-      if (!(await verifyPassword(password, existing[0].password_hash))) {
-        return c.json({ error: 'Kata sandi tidak cocok untuk akun ini.' }, 401);
+    if (register) {
+      if (existing[0]) {
+        return c.json({ error: 'Email sudah terdaftar. Silakan masuk dengan akunmu.' }, 409);
       }
-      userRow = existing[0];
-    } else {
-      if (name.length < 2) {
-        return c.json({ error: 'Nama harus terdiri dari minimal 2 karakter.' }, 400);
-      }
-      const role = resolveRoleForEmail(email);
+      const role = 'user';
       const inserted = await sql`
         INSERT INTO users (name, email, password_hash, role)
         VALUES (${name}, ${email}, ${await hashPassword(password)}, ${role})
+        ON CONFLICT (email) DO NOTHING
         RETURNING *
       `;
       userRow = inserted[0];
+      if (!userRow) return c.json({ error: 'Email sudah terdaftar. Silakan masuk dengan akunmu.' }, 409);
+    } else {
+      if (!existing[0] || !(await verifyPassword(password, existing[0].password_hash))) {
+        return c.json({ error: 'Email atau kata sandi tidak cocok.' }, 401);
+      }
+      userRow = existing[0];
     }
 
     await startSession(c, userRow);
     const treeState = await loadState(userRow.id);
     const settings = await loadSettings();
     return c.json({
-      account: { ...publicUser(userRow), isNew: existing[0] ? false : true },
+      account: { ...publicUser(userRow), isNew: register },
       treeState,
       settings,
     });
-  });
+  };
+  app.post('/api/auth/login', authenticate(false));
+  app.post('/api/auth/register', authenticate(true));
+  // Legacy clients may log in here, but can no longer implicitly register.
+  app.post('/api/auth/entry', authenticate(false));
 
   app.post('/api/auth/logout', async (c) => {
     const token = getCookie(c, SESSION_COOKIE);
@@ -346,8 +361,24 @@ export function makeApp(createSql) {
     if (!payload || typeof payload !== 'object' || !Number.isFinite(payload.clockMs)) {
       return c.json({ error: 'Pohon tidak valid.' }, 400);
     }
+
+    // Guard tab basi: klien harus menimpa dengan revisi yang masih terbaru,
+    // kalau tidak keputusan admin (atau aksi sesi lain) akan tersapu.
+    // Karve-out legacy: baris yang ditulis sebelum guard belum membawa
+    // stateRev — terima tulisan pertamanya agar tidak 409 selamanya; revisi
+    // mulai terbentuk sejak tulisan itu.
+    const current = await loadState(user.id);
+    const hasServerRev = Number.isFinite(Number(current?.stateRev));
+    const incomingRev = Number.isFinite(Number(payload.stateRev)) ? Number(payload.stateRev) : null;
+    if (hasServerRev && incomingRev !== Number(current.stateRev)) {
+      return c.json({
+        error: 'Pohon sudah berubah di server; data terbaru diambil otomatis.',
+        treeState: current,
+      }, 409);
+    }
+
     await saveState(user.id, payload);
-    return c.json({ ok: true });
+    return c.json({ ok: true, treeState: payload });
   });
 
   // Perpustakaan: konten relevan (ACC) lintas-akun + jumlah laporan.
@@ -391,9 +422,15 @@ export function makeApp(createSql) {
     const match = await findSubmission(submissionId);
     if (!match) return c.json({ error: 'Konten Sharing tidak ditemukan.' }, 404);
 
-    const result = addSharingReport(match.payload ?? {}, submissionId, user.email);
+    if (match.user_id === user.id) return c.json({ error: 'Tidak bisa melaporkan kontenmu sendiri.' }, 403);
+    const reason = body?.reason ?? 'rejected';
+    const note = String(body?.note ?? '').trim();
+    if (!Object.hasOwn(SHARING_REPORT_REASONS, reason)) return c.json({ error: 'Alasan laporan tidak valid.' }, 400);
+    if (note.length > 500) return c.json({ error: 'Catatan laporan maksimal 500 karakter.' }, 400);
+    if (reason === 'other' && !note) return c.json({ error: 'Jelaskan alasan laporan pada catatan.' }, 400);
+    const result = addSharingReport(match.payload ?? {}, submissionId, user.email, { reason, note });
     await saveState(match.user_id, result.state);
-    return c.json({ added: result.added, reports: result.reports, ownerState: result.state });
+    return c.json({ added: result.added, reports: result.reports });
   });
 
   // Admin: melihat semua akun (payload penuh, seperti readAllAccounts dulu).
