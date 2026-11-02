@@ -2328,14 +2328,7 @@ function buildLibrary(rows) {
   elements.libraryList.replaceChildren();
 
   if (rows.length === 0) {
-    const emptyRow = document.createElement('tr');
-    emptyRow.className = 'admin-review-empty-row';
-    const emptyCell = document.createElement('td');
-    emptyCell.colSpan = 5;
-    emptyCell.className = 'admin-review-empty';
-    emptyCell.textContent = 'Belum ada konten relevan yang di-ACC. Konten yang lulus review admin dari akun mana pun akan tampil di sini.';
-    emptyRow.append(emptyCell);
-    elements.libraryList.append(emptyRow);
+    elements.libraryList.append(makeElement('div', 'library-empty', 'Belum ada materi tersedia. Konten Sharing yang lulus review admin akan tampil di sini.'));
     return;
   }
 
@@ -2343,72 +2336,52 @@ function buildLibrary(rows) {
     const reports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
     const isOwn = currentAccount?.email === row.account.email;
     const alreadyReported = reports.some((report) => report?.by === currentAccount?.email);
-    const tr = document.createElement('tr');
-    tr.className = 'admin-review-row';
+    const item = makeElement('article', 'library-item');
 
-    // -- Konten: judul + jenis + ringkasan ringkas + tautan --
-    const contentCell = document.createElement('td');
-    contentCell.className = 'admin-review-content-cell';
-    contentCell.append(makeElement('strong', 'admin-review-title', row.submission.title));
-    contentCell.append(makeElement('div', 'sharing-item-meta', SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type));
-    if (row.submission.summary) contentCell.append(makeElement('p', 'admin-review-summary', row.submission.summary));
-    if (row.submission.url) {
-      const link = makeElement('a', 'sharing-material-link', row.submission.url);
-      link.href = row.submission.url;
-      link.target = '_blank';
-      link.rel = 'noreferrer';
-      contentCell.append(link);
-    }
+    // Materi utama: judul dan isi tidak dipotong seperti baris tabel admin.
+    const contentCell = makeElement('div', 'library-content');
+    contentCell.append(makeElement('h3', 'library-title', row.submission.title));
+    contentCell.append(makeElement('div', 'library-meta', `${SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type} · ${formatDate(row.submission.submittedAt)}`));
+    if (row.submission.summary) contentCell.append(makeElement('p', 'library-description', row.submission.summary));
 
-    // -- Pemilik: avatar + nama + email (nilai visual konsol Akun & pohon) --
-    const ownerCell = document.createElement('td');
-    ownerCell.className = 'admin-review-owner-cell';
+    // Identitas kontributor di kepala kartu.
+    const ownerCell = makeElement('div', 'library-item-header');
     const avatar = makeElement('span', 'admin-account-avatar', (row.account.name || '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
     const owner = makeElement('div', 'admin-account-info');
-    owner.append(makeElement('strong', '', row.account.name), makeElement('small', '', row.account.email));
+    owner.append(makeElement('strong', '', row.account.name || 'Kontributor'));
     const ownerLine = makeElement('div', 'admin-account-line');
     ownerLine.append(avatar, owner);
     ownerCell.append(ownerLine);
 
-    // -- Status: chip ACC + jumlah laporan yang sudah masuk --
-    const statusCell = document.createElement('td');
-    statusCell.className = 'admin-review-status-cell';
-    statusCell.append(makeElement('span', 'admin-condition-chip is-validated', 'ACC · relevan'));
-    if (reports.length > 0) {
-      statusCell.append(makeElement('span', 'admin-report-badge', `${reports.length} laporan`));
-    }
-
-    // -- Dikirim: tanggal kirim + kapan lulus review --
-    const sentCell = document.createElement('td');
-    sentCell.className = 'admin-review-sent-cell';
-    sentCell.append(makeElement('strong', '', formatDate(row.submission.submittedAt)));
-    sentCell.append(makeElement('small', '', row.submission.reviewedAt ? `Diputus ${formatDate(row.submission.reviewedAt)}` : 'Diputus admin'));
-
-    // -- Tindakan: Buka konten sebagai ajuan belajar; laporan jadi opsi kecil --
-    const actionsCell = document.createElement('td');
-    actionsCell.className = 'admin-review-actions-cell';
-    const actions = makeElement('div', 'admin-condition-actions');
-    if (row.submission.url) {
-      const openLink = makeElement('a', 'admin-library-open', 'Buka konten');
-      openLink.href = row.submission.url;
+    // Aksi belajar sesuai jenis materi, tanpa menampilkan statistik moderasi.
+    const actions = makeElement('div', 'library-learning-actions');
+    const safeUrl = /^https?:\/\//i.test(row.submission.url ?? '') ? row.submission.url : null;
+    if (safeUrl) {
+      const label = row.submission.type === 'video' ? 'Tonton materi ↗' : row.submission.type === 'podcast' ? 'Dengarkan materi ↗' : 'Baca materi ↗';
+      const openLink = makeElement('a', 'library-open', label);
+      openLink.href = safeUrl;
       openLink.target = '_blank';
       openLink.rel = 'noreferrer';
       actions.append(openLink);
     } else if (row.submission.attachment?.name) {
-      actions.append(makeElement('span', 'admin-review-file', row.submission.attachment.name));
+      actions.append(makeElement('span', 'library-resource-note', `Lampiran: ${row.submission.attachment.name} · belum tersedia lintas perangkat`));
+    } else {
+      actions.append(makeElement('span', 'library-resource-note', 'Pelajari ringkasan di atas · tautan materi belum tersedia'));
     }
 
     if (isOwn) {
-      actions.append(makeElement('span', 'library-own-note', 'Konten milikmu'));
+      ownerCell.append(makeElement('span', 'library-own-note', 'Konten milikmu'));
     } else {
       const wrap = makeElement('div', 'admin-review-kebab-wrap');
-      const trigger = makeElement('button', 'admin-review-kebab admin-library-report', alreadyReported ? 'Sudah dilaporkan' : 'Opsi');
+      const trigger = makeElement('button', 'admin-review-kebab library-options');
       trigger.type = 'button';
       trigger.setAttribute('aria-haspopup', 'menu');
       trigger.setAttribute('aria-expanded', 'false');
       trigger.setAttribute('aria-label', `Opsi untuk konten "${row.submission.title}" dari ${row.account.name}`);
       trigger.title = alreadyReported ? 'Satu akun satu laporan per konten.' : 'Laporkan jika menurutmu konten ini tidak relevan atau duplikat.';
-      trigger.append(makeElement('span', 'admin-account-manage-caret', '⌄'));
+      const dots = makeElement('span', 'library-options-dots', '⋮');
+      dots.setAttribute('aria-hidden', 'true');
+      trigger.append(dots);
       const menu = makeElement('div', 'admin-review-menu');
       menu.setAttribute('role', 'menu');
       menu.setAttribute('popover', 'manual');
@@ -2425,16 +2398,10 @@ function buildLibrary(rows) {
         menu.append(note);
       }
       wrap.append(trigger, menu);
-      actions.append(wrap);
+      ownerCell.append(wrap);
     }
-    actionsCell.append(actions);
-
-    [contentCell, ownerCell, statusCell, sentCell, actionsCell].forEach((cell, index) => {
-      cell.dataset.label = ['Konten', 'Pemilik', 'Status', 'Dikirim', 'Tindakan'][index];
-      tr.append(cell);
-    });
-
-    elements.libraryList.append(tr);
+    item.append(ownerCell, contentCell, actions);
+    elements.libraryList.append(item);
   });
 }
 
@@ -3315,9 +3282,14 @@ elements.adminAccountsBody.addEventListener('click', (event) => {
 });
 
 elements.libraryList.addEventListener('click', (event) => {
+  const trigger = event.target.closest('.library-options');
+  if (trigger) {
+    toggleReviewMenu(trigger);
+    return;
+  }
   const reportButton = event.target.closest('[data-library-email][data-submission-id]');
   if (!reportButton) return;
-
+  closeReviewMenus();
   applyLibraryReport(reportButton);
 });
 

@@ -23,7 +23,7 @@ class Element {
 }
 
 function setup(viewerEmail) {
-  const tbody = new Element('tbody');
+  const tbody = new Element('div');
   const elements = { libraryList: tbody, libraryCount: new Element('span') };
   const build = new Function('document', 'elements', 'currentAccount', `
     const SHARING_TYPE_LABELS = { video: 'Video', article: 'Artikel' };
@@ -39,24 +39,26 @@ const rows = [
   { account: { name: 'Budi', email: 'budi@example.com' }, submission: { id: 'l2', status: 'validated', title: 'materi lampiran', type: 'article', submittedAt: 3, summary: 'ringkas', attachment: { name: 'materi.pdf' } } },
 ];
 
-it('renders the library as five labeled columns', () => {
+it('renders learning cards, not administrative table rows', () => {
   const { build, tbody, count } = setup('nadia@example.com');
   build(rows);
   expect(count.textContent).toBe('2');
-  const labels = tbody.children[0].children.map((cell) => cell.dataset.label);
-  expect(labels).toEqual(['Konten', 'Pemilik', 'Status', 'Dikirim', 'Tindakan']);
+  expect(tbody.children[0].tagName).toBe('article');
+  expect(tbody.children[0].className).toBe('library-item');
+  expect(tbody.children[0].children[1].children[0].textContent).toBe('belajar problem solving');
 });
 
 it('prioritises learning with an open action before the report option', () => {
   const { build, tbody } = setup('nadia@example.com');
   build(rows);
-  const actions = tbody.children[0].children[4].children[0].children;
+  const actions = tbody.children[0].children[2].children;
   const open = actions[0];
-  expect(open.textContent).toBe('Buka konten');
+  expect(open.textContent).toBe('Tonton materi ↗');
   expect(open.href).toBe('https://youtu.be/x');
-  const wrap = actions[1];
+  const wrap = tbody.children[0].children[0].children[1];
   const trigger = wrap.children[0];
-  expect(trigger.textContent).toContain('Opsi');
+  expect(trigger.textContent).toBe('⋮');
+  expect(trigger.attributes['aria-label']).toContain('Opsi untuk konten');
   const menu = wrap.children[1];
   expect(menu.attributes.popover).toBe('manual');
   const item = menu.children[0];
@@ -69,7 +71,7 @@ it('prioritises learning with an open action before the report option', () => {
 it('blocks reporting your own content with a plain note', () => {
   const { build, tbody } = setup('raka@example.com');
   build(rows);
-  const actions = tbody.children[0].children[4].children[0].children;
+  const actions = tbody.children[0].children[0].children;
   expect(actions[1].className).toBe('library-own-note');
   expect(actions[1].textContent).toBe('Konten milikmu');
 });
@@ -77,21 +79,21 @@ it('blocks reporting your own content with a plain note', () => {
 it('shows an attachment instead of an open link when there is no url', () => {
   const { build, tbody } = setup('nadia@example.com');
   build(rows);
-  const secondContent = tbody.children[1].children[0];
+  const secondContent = tbody.children[1].children[1];
   expect(secondContent.children[0].textContent).toBe('materi lampiran');
-  expect(secondContent.children[1].textContent).toBe('Artikel');
+  expect(secondContent.children[1].textContent).toContain('Artikel');
   expect(secondContent.children[2].textContent).toBe('ringkas');
-  const actions = tbody.children[1].children[4].children[0].children;
-  expect(actions[0].textContent).toBe('materi.pdf');
-  expect(actions[1].textContent).toContain('Opsi');
+  const actions = tbody.children[1].children[2].children;
+  expect(actions[0].textContent).toContain('materi.pdf');
+  expect(actions[0].textContent).toContain('belum tersedia lintas perangkat');
 });
 
 it('shows the already reported state without a menu item', () => {
   const { build, tbody } = setup('budi@example.com');
   build(rows);
-  const actions = tbody.children[0].children[4].children[0].children;
+  const actions = tbody.children[0].children[0].children;
   const trigger = actions[1].children[0];
-  expect(trigger.textContent).toContain('Sudah dilaporkan');
+  expect(trigger.textContent).toBe('⋮');
   const menu = actions[1].children[1];
   expect(menu.children[0].className).toBe('admin-menu-note');
   expect(menu.children[0].textContent).toBe('Sudah kamu laporkan');
@@ -100,14 +102,20 @@ it('shows the already reported state without a menu item', () => {
 it('shows a logged-out hint in the report menu', () => {
   const { build, tbody } = setup(null);
   build(rows);
-  const menu = tbody.children[0].children[4].children[0].children[1].children[1];
+  const menu = tbody.children[0].children[0].children[1].children[1];
   expect(menu.children[0].textContent).toBe('Masuk untuk melaporkan');
 });
 
-it('collapses to an empty state row that spans all five columns', () => {
+it('shows an empty library message', () => {
   const { build, tbody } = setup('nadia@example.com');
   build([]);
-  expect(tbody.children[0].className).toBe('admin-review-empty-row');
-  expect(tbody.children[0].children[0].colSpan).toBe(5);
-  expect(tbody.children[0].children[0].textContent).toContain('Belum ada konten relevan');
+  expect(tbody.children[0].className).toBe('library-empty');
+  expect(tbody.children[0].textContent).toContain('Belum ada materi tersedia');
+});
+
+it('keeps summary readable when there is no resource link', () => {
+  const { build, tbody } = setup('nadia@example.com');
+  build([{ ...rows[0], submission: { ...rows[0].submission, url: 'javascript:alert(1)' } }]);
+  expect(tbody.children[0].children[2].children[0].className).toBe('library-resource-note');
+  expect(tbody.children[0].children[1].children[2].textContent).toBe('blablablabla');
 });

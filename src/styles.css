@@ -1768,17 +1768,34 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-activity-when { white-space: normal; text-align: right; }
 }
 
-/* Perpustakaan: tabel dengan bahasa visual konsol Akun & pohon (memakai kelas bersama)
-   — ajuan utamanya belajar (Buka konten), laporan menjadi opsi kecil. */
+/* Kartu belajar: materi sebagai fokus, laporan hanya di menu titik-tiga. */
 .library-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; }
 .library-count-label { color: #7f93a9; font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
 .admin-app .library-count-badge { min-width: 26px; padding: 5px 11px; font-size: 12px; color: #fff; background: linear-gradient(100deg, #189790, #1d64ad); }
 .admin-app .library-count-label { font-size: 10.5px; color: #5f7896; }
-.library-pill { color: #5b6d84; background: #eef4f9; }
-.admin-app .library-pill { padding: 6px 12px; font-size: 10.5px; font-weight: 700; }
-.admin-app .admin-review-table .admin-library-open { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 34px; padding: 6px 13px; border: 1px solid #1d64ad; border-radius: 8px; color: #fff; background: #1d64ad; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; text-decoration: none; cursor: pointer; }
-.admin-app .admin-review-table .admin-library-open:hover { background: #185897; }
-.admin-app .admin-review-kebab.admin-library-report { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #d8e3ef; border-radius: 8px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.library-list { display: grid; gap: 16px; }
+.library-item { min-width: 0; padding: 20px; border: 1px solid #dfe8f1; border-radius: 14px; background: #fff; }
+.library-item-header { display: flex; align-items: center; gap: 12px; }
+.library-item-header .admin-account-line { flex: 1; min-width: 0; }
+.library-item-header .admin-account-avatar { width: 30px; height: 30px; font-size: 12px; background: #e8f2fa; color: #28618a; }
+.library-item-header .admin-account-info strong { font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.library-title { margin: 16px 0 6px; font-size: 18px; font-weight: 700; line-height: 1.4; color: #203f5c; overflow-wrap: anywhere; }
+.library-meta { color: #718399; font-size: 11px; line-height: 1.5; }
+.library-description { max-width: 85ch; margin: 12px 0 0; color: #435e76; font-size: 13px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.library-learning-actions { margin-top: 18px; }
+.library-open { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 15px; border-radius: 8px; background: #eaf3fb; color: #1c619b; font-size: 12px; font-weight: 700; text-decoration: none; }
+.library-open:hover { background: #dcecf9; }
+.library-open:focus-visible { outline: 2px solid #1d64ad; outline-offset: 3px; }
+.library-resource-note { color: #718399; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.admin-app .admin-review-kebab.library-options { width: 40px; height: 40px; padding: 0; flex: 0 0 auto; border-color: transparent; background: transparent; color: #718399; border-radius: 8px; }
+.library-options-dots { font-size: 24px; line-height: 1; }
+.admin-app .admin-review-kebab.library-options:hover, .admin-app .admin-review-kebab.library-options[aria-expanded="true"] { background: #f0f5fa; }
+.library-empty { padding: 32px 16px; color: #718399; text-align: center; font-size: 13px; }
+@media (max-width: 680px) {
+  .library-item { padding: 16px; }
+  .library-title { font-size: 16px; }
+  .library-item-header { flex-wrap: wrap; }
+}
 .admin-review-menu [role="menuitem"].action-library-report { color: #a15c24; }
 .admin-menu-note { display: block; padding: 10px 12px; color: #71859b; font-size: 11px; font-weight: 700; }
 .library-own-note { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; color: #5d7286; background: #eef4fa; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
