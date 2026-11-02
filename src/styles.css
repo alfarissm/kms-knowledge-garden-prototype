@@ -1370,7 +1370,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-review-file { display: block; margin-top: 6px; color: #2871a5; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-app .admin-review-table .admin-report-details { margin: 10px 0 0; }
 .admin-app .admin-review-table .admin-report-details summary { font-size: 11px; }
-.admin-app .admin-review-row .admin-condition-actions { align-items: center; gap: 8px; margin: 0; }
+.admin-app .admin-review-row .admin-condition-actions { display: grid; grid-auto-flow: row; gap: 7px; margin: 0; }
 .admin-app .admin-review-table thead th { text-align: left; }
 .admin-app .admin-review-table .admin-review-sent-cell strong { display: block; }
 .admin-app .admin-review-table .admin-review-sent-cell small { display: block; margin-top: 3px; }
@@ -1723,7 +1723,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .sharing-item-meta { margin-top: 3px; color: #4a657e; font-size: 11.5px; line-height: 1.5; }
 .admin-app .sharing-material-link, .admin-app .sharing-material-file { margin-top: 7px; font-size: 12.5px; }
 .admin-app .admin-review-row .admin-condition-button, .admin-app .admin-review-row .admin-content-delete { min-height: 34px; padding: 6px 13px; border-radius: 8px; font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0; }
-.admin-app .admin-review-kebab.admin-content-decide { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #d8e3ef; border-radius: 8px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.admin-app .admin-review-kebab.admin-content-decide { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #d8e3ef; border-radius: 8px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .admin-app .admin-review-kebab svg { width: 18px; height: 18px; }
 .admin-app .admin-review-menu { min-width: min(212px, calc(100vw - 16px)); padding: 6px; }
 .admin-app .admin-review-menu [role="menuitem"] { padding: 9px 12px; font-size: 12.5px; letter-spacing: .1px; }
