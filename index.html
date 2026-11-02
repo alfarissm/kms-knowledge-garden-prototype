@@ -400,7 +400,12 @@
                 <div><p class="eyebrow">MODE ADMIN · VALIDASI KMS</p><h2 id="review-title">Review konten Sharing</h2><p class="activity-page-description">Putuskan kondisi konten: ACC (relevan), Basi, atau Tidak relevan/duplikat.</p></div>
               </div>
               <div class="admin-summary" id="adminSummary" role="group" aria-label="Ringkasan dan saringan status konten"></div>
-              <div class="admin-review-list" id="adminReviewList" aria-live="polite"></div>
+              <div class="admin-dashboard-scroll" role="region" aria-label="Tabel review konten Sharing" tabindex="0">
+                <table class="admin-review-table admin-dashboard-table">
+                  <thead><tr><th scope="col">Konten</th><th scope="col">Pemilik</th><th scope="col">Status</th><th scope="col">Dikirim</th><th scope="col">Keputusan</th></tr></thead>
+                  <tbody class="admin-review-list" id="adminReviewList" aria-live="polite"></tbody>
+                </table>
+              </div>
             </article>
           </section>
 

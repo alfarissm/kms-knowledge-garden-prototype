@@ -1341,8 +1341,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .content-status-footnote { margin: 8px 2px 0; color: #7b90a8; font-size: 7px; line-height: 1.5; }
 
 /* Admin review: cross-account validation of shared content. */
-.admin-page .admin-review-list { display: grid; max-height: 660px; gap: 8px; overflow-y: auto; padding-right: 2px; }
-.admin-review-empty { margin: 0; padding: 14px; border: 1px dashed #d5e2ee; border-radius: 10px; color: #8b9db1; background: rgba(255,255,255,.72); font-size: 8px; line-height: 1.55; text-align: center; }
+.admin-review-empty { margin: 0; border: 1px dashed #d5e2ee; border-left: 0; border-right: 0; color: #8b9db1; font-size: 12px; font-style: italic; text-align: center; }
 .admin-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8eef5; }
 .admin-summary-button { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 9px; border: 1px solid #dce7f0; border-radius: 8px; color: #5f7896; background: #fff; font-size: 7px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
 .admin-summary-button:hover:enabled { background: #f5f9fc; }
@@ -1359,17 +1358,24 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-summary-button.condition-rejected .chip-count { background: #a08e57; }
 .admin-summary-button.condition-duplicate .chip-count { background: #837767; }
 .admin-summary-button.is-active .chip-count { background: #1c64ad; }
-.admin-submission { min-width: 0; padding: 10px; border: 1px solid #e3ebf3; border-radius: 10px; background: #fff; }
-.admin-submission.status-validated { border-color: #e5d3a8; background: #fffdf4; }
-.admin-submission.status-pending { border-color: #dbe6dc; }
-.admin-submission.status-stale { border-color: #dfc9b4; background: #fdf9f4; }
-.admin-submission.status-rejected, .admin-submission.status-duplicate { border-color: #ebebe8; background: #fbfbfa; }
-.admin-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; margin-bottom: 4px; }
-.admin-owner { min-width: 0; }
-.admin-owner strong { display: block; color: #2c5b86; font-size: 8px; }
-.admin-owner small { display: block; color: #93a5b9; font-size: 7px; }
-.admin-submission h5 { margin: 2px 0 0; color: #36577f; font-size: 8.5px; font-weight: 700; line-height: 1.45; }
-.admin-condition-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+/* Review konten: memakai bahasa visual konsol Akun & pohon sama karena berbagi
+   kelas .admin-dashboard-table; di sini hanya lebar kolom dan isi sel. */
+.admin-app .admin-review-table th:nth-child(1) { width: 38%; }
+.admin-app .admin-review-table th:nth-child(2) { width: 17%; }
+.admin-app .admin-review-table th:nth-child(3) { width: 13%; }
+.admin-app .admin-review-table th:nth-child(4) { width: 15%; }
+.admin-app .admin-review-table th:nth-child(5) { width: 17%; }
+.admin-review-title { display: block; color: #17344e; font-size: 13.5px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.admin-review-summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 5px 0 0; color: #3d5b78; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-review-file { display: block; margin-top: 6px; color: #2871a5; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-app .admin-review-table .admin-report-details { margin: 10px 0 0; }
+.admin-app .admin-review-table .admin-report-details summary { font-size: 11px; }
+.admin-app .admin-review-row .admin-condition-actions { align-items: center; gap: 8px; margin: 0; }
+.admin-app .admin-review-table thead th { text-align: left; }
+.admin-app .admin-review-table .admin-review-sent-cell strong { display: block; }
+.admin-app .admin-review-table .admin-review-sent-cell small { display: block; margin-top: 3px; }
+.admin-app .admin-review-table .admin-review-status-cell .admin-report-badge { display: block; width: fit-content; margin-top: 6px; }
+.admin-app .admin-review-table .admin-account-info small { white-space: normal; overflow-wrap: anywhere; }
 .admin-condition-button { min-height: 26px; padding: 0 9px; border: 1px solid #dce7f0; border-radius: 7px; color: #5f7896; background: #fff; font-size: 7px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
 .admin-condition-button:hover:enabled { transform: translateY(-1px); }
 .admin-condition-button:disabled { cursor: default; opacity: .45; }
@@ -1627,7 +1633,7 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-accounts-heading p { max-width: 520px; font-size: 12px; }
 .admin-accounts-heading .admin-account-search { flex: 0 1 270px; }
 .admin-accounts-heading .admin-account-search input { min-height: 40px; padding: 10px 13px; background: #fbfcfe; font-size: 12px; }
-.admin-dashboard-scroll { margin-top: 12px; background: #fff; }
+.admin-dashboard-scroll { margin-top: 12px; background: #fff; overflow-x: auto; }
 .admin-app .admin-dashboard-table { min-width: 1040px; table-layout: fixed; font-size: 12px; }
 .admin-dashboard-table th:nth-child(1) { width: 25%; }
 .admin-dashboard-table th:nth-child(2) { width: 12%; }
@@ -1657,6 +1663,11 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-condition-chip.is-healthy { color: #277955; background: #edf7f1; }
 .admin-condition-chip.is-thirsty { color: #936a21; background: #fff7e4; }
 .admin-condition-chip.is-dead { color: #9d5345; background: #fcf0eb; }
+.admin-condition-chip.is-validated { color: #148174; background: #e4f4ed; }
+.admin-condition-chip.is-pending { color: #1667a6; background: #e8f2fb; }
+.admin-condition-chip.is-stale { color: #7a4e28; background: #f6ede2; }
+.admin-condition-chip.is-rejected { color: #8b6c69; background: #f4eeed; }
+.admin-condition-chip.is-duplicate { color: #58514a; background: #f0efec; }
 .admin-app .admin-dashboard-table .admin-account-last-active { color: #718399; font-size: 11px; white-space: normal; }
 .admin-app .admin-dashboard-table .admin-account-actions { display: table-cell; min-width: 0; padding-left: 8px; padding-right: 8px; }
 .admin-app .admin-review-kebab.admin-account-manage { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; min-height: 34px; height: auto; padding: 6px 10px; border-color: #d8e3ef; border-radius: 7px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
@@ -1677,6 +1688,14 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-app .admin-dashboard-table .admin-account-cell::before, .admin-app .admin-dashboard-table .admin-account-actions::before { display: none; }
   .admin-app .admin-dashboard-table .admin-account-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid #edf1f6; }
   .admin-app .admin-dashboard-table .admin-account-manage { min-height: 40px; padding: 8px 16px; }
+  .admin-app .admin-review-table .admin-review-content-cell { grid-column: 1 / -1; padding: 16px 14px; border-bottom: 1px solid #edf1f6; background: #f9fbfe; }
+  .admin-app .admin-review-table .admin-review-owner-cell { grid-column: 1 / -1; }
+  .admin-app .admin-review-table .admin-review-content-cell::before, .admin-app .admin-review-table .admin-review-actions-cell::before { display: none; }
+  .admin-app .admin-review-table .admin-review-actions-cell { display: flex; grid-column: 1 / -1; justify-content: space-between; border-top: 1px solid #edf1f6; }
+  .admin-app .admin-review-table .admin-condition-actions { flex: 1; align-items: center; gap: 6px; margin: 0; }
+  .admin-app .admin-review-table .admin-condition-button, .admin-app .admin-review-table .admin-content-delete, .admin-app .admin-review-table .admin-content-decide { min-height: 40px; }
+  .admin-app .admin-review-table .admin-review-empty-row td { grid-column: 1 / -1; }
+  .admin-app .admin-review-table .sharing-material-link { overflow-wrap: anywhere; white-space: normal; }
   .admin-dashboard-table .admin-accounts-empty td { grid-column: 1 / -1; }
 }
 .admin-app .admin-activity-list { margin-top: 9px; }
@@ -1700,21 +1719,11 @@ body { color: #294b7d; background: #f0f3f7; }
 .admin-app .admin-summary { gap: 7px; margin-bottom: 14px; padding-bottom: 14px; }
 .admin-app .admin-summary-button { gap: 7px; min-height: 34px; padding: 0 13px; border-radius: 999px; font-size: 12px; letter-spacing: .1px; }
 .admin-app .admin-summary-button .chip-count { min-width: 18px; height: 18px; font-size: 10.5px; }
-.admin-app .admin-review-list { gap: 12px; max-height: none; padding-right: 0; }
-.admin-app .admin-review-empty { padding: 20px; font-size: 12.5px; }
-.admin-app .admin-submission { padding: 14px 16px; border-radius: 12px; }
-.admin-app .admin-item-header { align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-bottom: 0; }
-.admin-app .admin-owner { display: flex; flex: 1 1 auto; align-items: baseline; gap: 9px; min-width: 0; }
-.admin-app .admin-owner strong { color: #1d4266; font-size: 13.5px; }
-.admin-app .admin-owner small { color: #5d7891; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-app .admin-submission h5 { margin: 9px 0 3px; color: #17344e; font-size: 15px; line-height: 1.35; }
+.admin-app .admin-review-empty-row td { color: #8b9db1; text-align: center; font-size: 12.5px; }
 .admin-app .sharing-item-meta { margin-top: 3px; color: #4a657e; font-size: 11.5px; line-height: 1.5; }
 .admin-app .sharing-material-link, .admin-app .sharing-material-file { margin-top: 7px; font-size: 12.5px; }
-.admin-app .sharing-item-summary { margin: 8px 0 0; color: #3d5b78; font-size: 12.5px; line-height: 1.55; }
-.admin-app .sharing-status-badge { padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 800; }
-.admin-app .admin-condition-actions { gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf3f9; }
-.admin-app .admin-condition-button, .admin-app .admin-content-delete { min-height: 34px; padding: 0 15px; border-radius: 9px; font-size: 12.5px; letter-spacing: .1px; }
-.admin-app .admin-review-kebab { width: 38px; height: 34px; border-radius: 9px; }
+.admin-app .admin-review-row .admin-condition-button, .admin-app .admin-review-row .admin-content-delete { min-height: 34px; padding: 6px 13px; border-radius: 8px; font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0; }
+.admin-app .admin-review-kebab.admin-content-decide { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #d8e3ef; border-radius: 8px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .admin-app .admin-review-kebab svg { width: 18px; height: 18px; }
 .admin-app .admin-review-menu { min-width: min(212px, calc(100vw - 16px)); padding: 6px; }
 .admin-app .admin-review-menu [role="menuitem"] { padding: 9px 12px; font-size: 12.5px; letter-spacing: .1px; }
@@ -1781,7 +1790,6 @@ body { color: #294b7d; background: #f0f3f7; }
 @media (max-width: 900px) {
   .content-status-scroll { max-height: 220px; }
   .content-status-card { padding: 12px; }
-  .admin-page .admin-review-list { max-height: 520px; }
   .admin-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-charts-grid { grid-template-columns: 1fr; }
   .admin-accounts-scroll { max-height: 420px; }

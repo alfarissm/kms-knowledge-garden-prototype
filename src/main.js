@@ -1035,27 +1035,17 @@ function makeAdminConditionButton(row, condition, label) {
   return button;
 }
 
-// Dua tombol utama (ACC, Hapus) tampil apa adanya; pilihan lain bersembunyi
-// di menu titik-tiga supaya baris aksi ringkas.
+// Dua tombol utama (ACC, Hapus) tampil apa adanya; pilihan keputusan lain
+// bersembunyi di menu "Putuskan" supaya baris aksi tetap ringkas.
 function buildReviewContentMenu(row) {
   const wrap = makeElement('div', 'admin-review-kebab-wrap');
-  const trigger = makeElement('button', 'admin-review-kebab');
+  const trigger = makeElement('button', 'admin-review-kebab admin-content-decide', 'Putuskan');
   trigger.type = 'button';
   trigger.setAttribute('aria-haspopup', 'menu');
   trigger.setAttribute('aria-expanded', 'false');
-  trigger.setAttribute('aria-label', `Opsi lain untuk "${row.submission.title}"`);
+  trigger.setAttribute('aria-label', `Keputusan lain untuk "${row.submission.title}"`);
   trigger.title = 'Opsi lainnya: Tandai Basi, Tidak Relevan, Duplikat';
-  const dots = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  dots.setAttribute('viewBox', '0 0 24 24');
-  dots.setAttribute('aria-hidden', 'true');
-  [5, 12, 19].forEach((cy) => {
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', '12');
-    dot.setAttribute('cy', String(cy));
-    dot.setAttribute('r', '2.1');
-    dots.append(dot);
-  });
-  trigger.append(dots);
+  trigger.append(makeElement('span', 'admin-account-manage-caret', '⌄'));
   const menu = makeElement('div', 'admin-review-menu');
   menu.setAttribute('role', 'menu');
   menu.setAttribute('popover', 'manual');
@@ -2145,47 +2135,43 @@ function buildAdminReview(accounts) {
 
   if (visibleRows.length === 0) {
     const emptyText = adminReviewFilter === 'all'
-      ? 'Belum ada konten Sharing untuk direview. Materi dari halaman Sharing (akun mana pun di browser ini) tampil di sini.'
+      ? 'Belum ada konten Sharing untuk direview. Materi dari halaman Sharing (akun mana pun di server) tampil di sini.'
       : `Tidak ada konten berstatus ${SHARING_STATUS_INFO[adminReviewFilter]?.label ?? adminReviewFilter}.`;
-    elements.adminReviewList.append(makeElement('div', 'admin-review-empty', emptyText));
+    const emptyRow = document.createElement('tr');
+    emptyRow.className = 'admin-review-empty-row';
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 5;
+    emptyCell.className = 'admin-review-empty';
+    emptyCell.textContent = emptyText;
+    emptyRow.append(emptyCell);
+    elements.adminReviewList.append(emptyRow);
     return;
   }
 
   visibleRows.forEach((row) => {
-    const item = makeElement('article', `admin-submission status-${row.submission.status}`);
     const submissionReports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
-    const owner = makeElement('div', 'admin-owner');
-    owner.append(makeElement('strong', '', row.account.name), makeElement('small', '', row.account.email));
     const statusInfo = SHARING_STATUS_INFO[row.submission.status];
+    const tr = document.createElement('tr');
+    tr.className = 'admin-review-row';
 
-    const header = makeElement('div', 'admin-item-header');
-    header.append(owner, makeElement('span', 'sharing-status-badge', statusInfo?.label ?? row.submission.status));
-    if (submissionReports.length > 0) {
-      header.append(makeElement('span', 'admin-report-badge', `${submissionReports.length} laporan`));
-    }
-    item.append(header);
-
-    item.append(makeElement('h5', '', row.submission.title));
-    item.append(makeElement('div', 'sharing-item-meta', [
-      `${SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type}`,
-      `dikirim ${formatDate(row.submission.submittedAt)}`,
-      row.submission.reviewedAt ? `diputus ${formatDate(row.submission.reviewedAt)}` : 'belum diputus',
-      submissionReports.length ? `dilaporkan ${submissionReports.length}×` : '',
-      row.submission.url ? 'tautan' : (row.submission.attachment ? 'video terlampir' : ''),
+    // -- Konten: judul + ringkasan ringkas + tautan/berkas + rincian laporan --
+    const contentCell = document.createElement('td');
+    contentCell.className = 'admin-review-content-cell';
+    contentCell.append(makeElement('strong', 'admin-review-title', row.submission.title));
+    contentCell.append(makeElement('div', 'sharing-item-meta', [
+      SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type,
+      row.submission.url ? 'Tautan' : (row.submission.attachment ? 'Video terlampir' : ''),
     ].filter(Boolean).join(' · ')));
-
+    contentCell.append(makeElement('p', 'admin-review-summary', row.submission.summary));
     if (row.submission.url) {
       const link = makeElement('a', 'sharing-material-link', row.submission.url);
       link.href = row.submission.url;
       link.target = '_blank';
       link.rel = 'noreferrer';
-      item.append(link);
+      contentCell.append(link);
     } else if (row.submission.attachment?.name) {
-      item.append(makeElement('span', 'sharing-material-file', row.submission.attachment.name));
+      contentCell.append(makeElement('span', 'admin-review-file', row.submission.attachment.name));
     }
-
-    item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
-
     if (submissionReports.length) {
       const details = makeElement('details', 'admin-report-details');
       details.append(makeElement('summary', '', `Lihat ${submissionReports.length} alasan laporan`));
@@ -2196,21 +2182,54 @@ function buildAdminReview(accounts) {
         if (report.note) entry.append(makeElement('p', '', report.note));
         details.append(entry);
       });
-      item.append(details);
+      contentCell.append(details);
     }
 
+    // -- Pemilik: avatar + nama + email (gaya konsol Akun & pohon) --
+    const ownerCell = document.createElement('td');
+    ownerCell.className = 'admin-review-owner-cell';
+    const avatar = makeElement('span', 'admin-account-avatar', (row.account.name || '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
+    const owner = makeElement('div', 'admin-account-info');
+    owner.append(makeElement('strong', '', row.account.name), makeElement('small', '', row.account.email));
+    const ownerLine = makeElement('div', 'admin-account-line');
+    ownerLine.append(avatar, owner);
+    ownerCell.append(ownerLine);
+
+    // -- Status: chip berwarna + jumlah laporan --
+    const statusCell = document.createElement('td');
+    statusCell.className = 'admin-review-status-cell';
+    statusCell.append(makeElement('span', `admin-condition-chip is-${row.submission.status}`, statusInfo?.label ?? row.submission.status));
+    if (submissionReports.length > 0) {
+      statusCell.append(makeElement('span', 'admin-report-badge', `${submissionReports.length} laporan`));
+    }
+
+    // -- Dikirim: tanggal kirim + kapan diputus --
+    const sentCell = document.createElement('td');
+    sentCell.className = 'admin-review-sent-cell';
+    sentCell.append(makeElement('strong', '', formatDate(row.submission.submittedAt)));
+    sentCell.append(makeElement('small', '', row.submission.reviewedAt ? `Diputus ${formatDate(row.submission.reviewedAt)}` : 'Belum diputus'));
+
+    // -- Keputusan: ACC + menu Putuskan + Hapus konten --
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'admin-review-actions-cell';
     const actions = makeElement('div', 'admin-condition-actions');
     actions.append(makeAdminConditionButton(row, 'validated', 'ACC'));
-    const deleteContentButton = makeElement('button', 'admin-content-delete', 'Hapus konten');
+    const deleteContentButton = makeElement('button', 'admin-content-delete', 'Hapus');
     deleteContentButton.type = 'button';
     deleteContentButton.dataset.adminDeleteContent = row.submission.id;
     deleteContentButton.dataset.accountEmail = row.account.email;
+    deleteContentButton.setAttribute('aria-label', `Hapus konten "${row.submission.title}" beserta buahnya`);
     deleteContentButton.title = 'Hapus konten beserta buahnya secara permanen (slot dikosongkan).';
     actions.append(deleteContentButton);
     actions.append(buildReviewContentMenu(row));
-    item.append(actions);
+    actionsCell.append(actions);
 
-    elements.adminReviewList.append(item);
+    [contentCell, ownerCell, statusCell, sentCell, actionsCell].forEach((cell, index) => {
+      cell.dataset.label = ['Konten', 'Pemilik', 'Status', 'Dikirim', 'Keputusan'][index];
+      tr.append(cell);
+    });
+
+    elements.adminReviewList.append(tr);
   });
 }
 
@@ -2220,7 +2239,7 @@ async function applyAdminCondition(button) {
   const condition = button.dataset.adminCondition;
   const label = { validated: 'ACC', stale: 'Basi', rejected: 'Tidak Relevan', duplicate: 'Duplikat' }[condition];
   if (!label) return;
-  const title = button.closest('.admin-submission')?.querySelector('h5')?.textContent ?? 'konten ini';
+  const title = button.closest('.admin-review-row')?.querySelector('.admin-review-title')?.textContent ?? 'konten ini';
   if (!(await confirmAdminAction({
     title: `Tetapkan status ${label}?`,
     detail: `Konten "${title}" milik ${email} akan berstatus ${label}. Pemilik akan mendapat pemberitahuan dan kondisi buahnya ikut berubah.`,
@@ -2267,7 +2286,7 @@ async function applyAdminCondition(button) {
 async function applyAdminDeleteContent(button) {
   const submissionId = button.dataset.adminDeleteContent;
   const email = button.dataset.accountEmail;
-  const title = button.closest('.admin-submission')?.querySelector('h5')?.textContent ?? 'konten ini';
+  const title = button.closest('.admin-review-row')?.querySelector('.admin-review-title')?.textContent ?? 'konten ini';
   if (!(await confirmAdminAction({
     title: 'Hapus konten permanen?',
     detail: `Konten "${title}" milik ${email} beserta buahnya akan dihapus. Slotnya dikosongkan dan tindakan ini tidak dapat dibatalkan.`,
