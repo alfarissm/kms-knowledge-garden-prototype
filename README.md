@@ -118,9 +118,10 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
   browser tidak dapat mengubah keputusan admin.
 - Penulisan pohon memakai revisi atomik; setiap tindakan memiliki ID untuk
   mencegah reward/submit ganda saat request diulang karena gangguan jaringan.
-- Kontrol boost/reset/simulasi **nonaktif secara default**. Untuk pengujian lokal
-  saja, tambahkan `ALLOW_DEMO_TOOLS=true` di `.dev.vars`. Jangan aktifkan di
-  deployment publik dengan data sungguhan.
+- Kontrol boost/reset/simulasi **aktif di prototype ini** (`ALLOW_DEMO_TOOLS`
+  di `wrangler.jsonc`), jadi tombol Boost Demo, Boost Level, dan kontrol
+  simulasinya tampil utk semua akun. Deployment sendiri dengan data sungguhan
+  sebaiknya menghapus var itu agar kontrolnya disembunyikan dan ditolak server.
 - Sharing menyediakan tautan HTTP/HTTPS untuk dipelajari lintas akun. Video
   unggahan masih berupa salinan lokal browser, bukan upload server; sertakan
   tautan video agar pengguna lain dapat menontonnya.

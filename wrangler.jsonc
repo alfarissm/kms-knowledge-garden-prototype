@@ -2,6 +2,11 @@
   // Worker kesatuan: API di server/index.js, frontend statis dari dist/assets.
   // DATABASE_URL diset sebagai secret (npx wrangler secret put DATABASE_URL).
   "name": "kms-knowledge-garden-prototype",
+  "vars": {
+    // Konten demo (Boost, simulasi, reset) diaktifkan utk prototype ini.
+    // Hapus baris ini pada deployment dgn data sungguhan.
+    "ALLOW_DEMO_TOOLS": "true"
+  },
   "main": "server/index.js",
   "compatibility_date": "2026-09-01",
   "assets": {
