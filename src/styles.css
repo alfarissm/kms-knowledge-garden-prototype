@@ -1212,6 +1212,24 @@ body { color: #294b7d; background: #f0f3f7; }
 .learning-comment-input { width: 100%; min-width: 0; min-height: 76px; resize: vertical; padding: 9px 10px; border: 1px solid #d5e2ed; border-radius: 8px; background: #fff; color: #36536e; font: inherit; font-size: 11px; line-height: 1.6; }
 .learning-comment-input:focus { outline: 2px solid #8bbce0; outline-offset: 1px; }
 .learning-saved-comment { grid-column: 1 / -1; margin: 8px 0 0; padding: 9px 11px; border-radius: 8px; background: #f5f8fc; color: #506a83; font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.learning-rated-note > .learning-review-author { grid-column: 1 / -1; }
+.learning-review-author { color: #294c6a; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.learning-reviews-button { display: inline-flex; justify-content: center; align-items: center; min-height: 36px; margin-top: 12px; padding: 7px 11px; border: 1px solid #d7e4f0; border-radius: 8px; color: #286794; background: #fff; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.learning-reviews-button:hover { background: #eff6fc; }
+.learning-reviews-button:focus-visible { outline: 2px solid #1d64ad; outline-offset: 2px; }
+.learning-dialog.learning-reviews-dialog { width: min(560px, calc(100vw - 28px)); }
+.learning-reviews-body { min-height: 0; overflow-y: auto; padding-top: 12px; }
+.learning-reviews-summary { margin: 0 0 12px; color: #526e87; font-size: 12px; line-height: 1.6; }
+.learning-reviews-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.learning-review-item { min-width: 0; padding: 14px; border: 1px solid #e0e9f1; border-radius: 11px; background: #fbfdff; }
+.learning-review-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.learning-review-avatar { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e8f1fa; color: #28618a; font-size: 12px; font-weight: 700; }
+.learning-review-identity { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
+.learning-review-self { padding: 2px 7px; border-radius: 5px; color: #557490; background: #eaf2f9; font-size: 10px; }
+.learning-review-comment { margin: 8px 0 0; color: #435e76; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.learning-review-empty, .learning-review-legacy { margin: 8px 0 0; color: #718399; font-size: 11px; line-height: 1.6; }
+.learning-reviews-pagination { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e4ecf4; }
+.learning-reviews-pagination .admin-page-button { min-height: 36px; padding: 6px 10px; font-size: 11px; }
 .learning-star-picker { display: flex; align-items: center; gap: 1px; }
 .learning-star-option { position: relative; display: grid; width: 24px; height: 30px; place-items: center; cursor: pointer; }
 .learning-star-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }

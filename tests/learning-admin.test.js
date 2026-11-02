@@ -11,6 +11,7 @@ class Element {
   constructor(tagName) { this.tagName = tagName; this.children = []; this.dataset = {}; }
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) { this.children = nodes; }
+  setAttribute(key, value) { (this.attributes ??= {})[key] = value; }
   set textContent(value) { this.children = [String(value)]; }
   get textContent() { return this.children.map((child) => typeof child === 'string' ? child : child.textContent).join(''); }
   toString() { return '[object HTMLElement]'; }
@@ -31,4 +32,5 @@ it('renders module title and ID as child elements instead of stringifying DOM ob
   expect(info.children[1].textContent).toBe('learn-1');
   expect(body.textContent).not.toContain('[object HTMLElement]');
   expect(body.children[0].children[5].children.map((button) => button.dataset.learnAction)).toEqual(['edit', 'toggle', 'delete']);
+  expect(body.children[0].children[4].children.at(-1).dataset.learningReviews).toBe('learn-1');
 });

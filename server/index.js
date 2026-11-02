@@ -597,6 +597,41 @@ export function makeApp(createSql) {
     });
   });
 
+  app.get('/api/learning/:moduleId/reviews', async (c) => {
+    const user = await requireUser(c);
+    if (!user) return c.json({ error: 'Belum masuk.' }, 401);
+    const moduleId = c.req.param('moduleId');
+    const module = (await loadLearning()).find((item) => item.id === moduleId && (item.active || user.role === 'admin'));
+    if (!module) return c.json({ error: 'Materi tidak ditemukan.' }, 404);
+    const requestedPage = Number(c.req.query('page'));
+    const pageSize = 12;
+    const counts = await createSql()`
+      SELECT count(*)::int AS total,
+        avg((ts.payload->'learningRatings'->>${moduleId})::int)::float8 AS average
+      FROM tree_states ts JOIN users u ON u.id = ts.user_id
+      WHERE ts.payload->'learningRatings'->>${moduleId} ~ '^[1-5]$'
+        AND ts.payload->'completedLearningIds' @> ${JSON.stringify([moduleId])}::jsonb
+    `;
+    const total = Number(counts[0]?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, totalPages) : 1;
+    const rows = await createSql()`
+      SELECT u.name,
+        (ts.payload->'learningRatings'->>${moduleId})::int AS rating,
+        ts.payload->'learningComments'->>${moduleId} AS comment,
+        (u.id = ${user.id}) AS is_own
+      FROM tree_states ts JOIN users u ON u.id = ts.user_id
+      WHERE ts.payload->'learningRatings'->>${moduleId} ~ '^[1-5]$'
+        AND ts.payload->'completedLearningIds' @> ${JSON.stringify([moduleId])}::jsonb
+      ORDER BY u.name ASC, u.id ASC
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `;
+    return c.json({
+      items: rows.map((row) => ({ name: row.name || 'Pengguna', rating: Number(row.rating), comment: typeof row.comment === 'string' ? row.comment.slice(0, 500) : '', isOwn: Boolean(row.is_own) })),
+      total, average: total ? Number(counts[0].average) : null, page, pageSize, totalPages,
+    });
+  });
+
   app.post('/api/admin/learning', async (c) => {
     const admin = await requireAdmin(c);
     if (!admin) return c.json({ error: 'Khusus admin.' }, 403);

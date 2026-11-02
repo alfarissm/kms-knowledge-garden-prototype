@@ -17,6 +17,7 @@ import {
   apiLogin,
   apiRegister,
   apiLearning,
+  apiLearningReviews,
   apiLibrary,
   apiLogout,
   apiMe,
@@ -418,6 +419,8 @@ function leaveApp(message = '') {
   currentAccount = null;
   state = null;
   learningReviewDrafts.clear();
+  const reviewsDialog = document.querySelector('#learningReviewsDialog');
+  if (reviewsDialog.open) reviewsDialog.close();
   if (elements.learningDialog.open) {
     elements.learningDialog.close();
   }
@@ -842,6 +845,7 @@ function renderLearningCatalog() {
       if (rating) {
         const ratedNote = makeElement('div', 'learning-rated-note');
         ratedNote.append(makeElement('span', 'learning-rating-saved', state.learningComments?.[module.id] ? 'Ulasan tersimpan' : 'Rating tersimpan'));
+        ratedNote.append(makeElement('strong', 'learning-review-author', `${currentAccount.name} (Anda)`));
         const stars = makeElement('span', 'learning-star-display');
         stars.setAttribute('role', 'img');
         stars.setAttribute('aria-label', `Rating ${rating} dari 5 bintang`);
@@ -903,9 +907,105 @@ function renderLearningCatalog() {
       card.append(startButton);
     }
 
+    const reviewsButton = makeElement('button', 'learning-reviews-button', 'Lihat ulasan pengguna');
+    reviewsButton.type = 'button';
+    reviewsButton.dataset.learningReviews = module.id;
+    reviewsButton.setAttribute('aria-label', `Lihat ulasan untuk ${module.title}`);
+    reviewsButton.setAttribute('aria-haspopup', 'dialog');
+    reviewsButton.setAttribute('aria-controls', 'learningReviewsDialog');
+    card.append(reviewsButton);
     elements.learningCatalog.append(card);
   });
 }
+
+let learningReviewsRequestId = 0;
+
+function buildLearningReviews(items) {
+  const list = document.querySelector('#learningReviewsList');
+  list.replaceChildren();
+  if (!items.length) {
+    list.append(makeElement('li', 'learning-review-empty', 'Belum ada ulasan untuk materi ini.'));
+    return;
+  }
+  items.forEach((review) => {
+    const item = makeElement('li', 'learning-review-item');
+    const header = makeElement('div', 'learning-review-header');
+    const avatar = makeElement('span', 'learning-review-avatar', (review.name.trim().charAt(0) || '?').toLocaleUpperCase('id-ID'));
+    avatar.setAttribute('aria-hidden', 'true');
+    const identity = makeElement('div', 'learning-review-identity');
+    identity.append(makeElement('strong', 'learning-review-author', review.name));
+    if (review.isOwn) identity.append(makeElement('span', 'learning-review-self', 'Anda'));
+    header.append(avatar, identity);
+    const stars = makeElement('span', 'learning-star-display');
+    stars.setAttribute('role', 'img');
+    stars.setAttribute('aria-label', `${review.rating} dari 5 bintang`);
+    stars.title = `${review.rating}/5`;
+    for (let value = 1; value <= 5; value += 1) stars.append(makeElement('span', value <= review.rating ? 'is-filled' : '', '★'));
+    const comment = makeElement('p', review.comment.trim() ? 'learning-review-comment' : 'learning-review-legacy', review.comment.trim() || 'Belum ada komentar (rating lama).');
+    item.append(header, stars, comment);
+    list.append(item);
+  });
+}
+
+async function loadLearningReviews(moduleId, page = 1) {
+  const dialog = document.querySelector('#learningReviewsDialog');
+  const summary = document.querySelector('#learningReviewsSummary');
+  const list = document.querySelector('#learningReviewsList');
+  const pagination = document.querySelector('#learningReviewsPagination');
+  const retry = document.querySelector('#learningReviewsRetry');
+  const requestId = ++learningReviewsRequestId;
+  dialog.dataset.page = String(page);
+  summary.textContent = 'Memuat ulasan…';
+  list.setAttribute('aria-busy', 'true');
+  list.replaceChildren(makeElement('li', 'learning-review-empty', 'Mengambil ulasan pengguna…'));
+  retry.hidden = true;
+  pagination.hidden = true;
+  try {
+    const data = await apiLearningReviews(moduleId, page);
+    if (requestId !== learningReviewsRequestId || !dialog.open) return;
+    dialog.dataset.page = String(data.page);
+    summary.textContent = data.total
+      ? `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(data.average)} / 5 · ${data.total} ulasan`
+      : 'Belum ada ulasan';
+    buildLearningReviews(data.items);
+    renderTablePagination(pagination, 'reviewPage', data.page, data.totalPages);
+    document.querySelector('.learning-reviews-body').scrollTop = 0;
+  } catch (error) {
+    if (requestId !== learningReviewsRequestId || !dialog.open) return;
+    summary.textContent = error?.message || 'Ulasan belum dapat dimuat.';
+    list.replaceChildren();
+    retry.hidden = false;
+  } finally {
+    if (requestId === learningReviewsRequestId) list.setAttribute('aria-busy', 'false');
+  }
+}
+
+function openLearningReviews(moduleId) {
+  const module = learningModules.find((item) => item.id === moduleId);
+  if (!module) return;
+  const dialog = document.querySelector('#learningReviewsDialog');
+  document.querySelector('#learningReviewsTitle').textContent = `Ulasan: ${module.title}`;
+  dialog.dataset.moduleId = moduleId;
+  if (!dialog.open) dialog.showModal();
+  loadLearningReviews(moduleId);
+}
+
+document.querySelector('#learningReviewsClose').addEventListener('click', () => document.querySelector('#learningReviewsDialog').close());
+document.querySelector('#learningReviewsDialog').addEventListener('close', () => {
+  learningReviewsRequestId += 1;
+  document.querySelector('#learningReviewsList').replaceChildren();
+  document.querySelector('#learningReviewsList').setAttribute('aria-busy', 'false');
+});
+document.querySelector('#learningReviewsRetry').addEventListener('click', () => {
+  const dialog = document.querySelector('#learningReviewsDialog');
+  loadLearningReviews(dialog.dataset.moduleId, Number(dialog.dataset.page));
+});
+document.querySelector('#learningReviewsPagination').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-review-page]');
+  if (!button || button.disabled || button.getAttribute('aria-current') === 'page') return;
+  const dialog = document.querySelector('#learningReviewsDialog');
+  loadLearningReviews(dialog.dataset.moduleId, Number(button.dataset.reviewPage));
+});
 
 function renderSharingQueue() {
   clearSharingVideoPreviews();
@@ -1500,6 +1600,13 @@ function buildLearnAdmin(accounts) {
     } else {
       ratingCell.textContent = '—';
     }
+    const reviewsButton = makeElement('button', 'learning-reviews-button', 'Lihat ulasan');
+    reviewsButton.type = 'button';
+    reviewsButton.dataset.learningReviews = module.id;
+    reviewsButton.setAttribute('aria-label', `Lihat ulasan untuk ${module.title}`);
+    reviewsButton.setAttribute('aria-haspopup', 'dialog');
+    reviewsButton.setAttribute('aria-controls', 'learningReviewsDialog');
+    ratingCell.append(reviewsButton);
 
     const actionsCell = document.createElement('td');
     actionsCell.className = 'admin-account-actions';
@@ -1681,6 +1788,11 @@ elements.learnFormCancel.addEventListener('click', () => closeLearningAdminDialo
 elements.learnAdminDialogClose.addEventListener('click', () => closeLearningAdminDialog());
 
 elements.learnAdminBody.addEventListener('click', async (event) => {
+  const reviewsButton = event.target.closest('[data-learning-reviews]');
+  if (reviewsButton) {
+    openLearningReviews(reviewsButton.dataset.learningReviews);
+    return;
+  }
   const actionButton = event.target.closest('[data-learn-action]');
   if (!actionButton) return;
   const moduleId = actionButton.dataset.moduleId;
@@ -3131,6 +3243,11 @@ window.addEventListener('resize', () => setMobileMenuOpen(false));
 window.addEventListener('popstate', () => navigateToPage(pageFromLocationHash(), false));
 
 elements.learningCatalog.addEventListener('click', (event) => {
+  const reviewsButton = event.target.closest('[data-learning-reviews]');
+  if (reviewsButton) {
+    openLearningReviews(reviewsButton.dataset.learningReviews);
+    return;
+  }
   const startButton = event.target.closest('[data-learning-module]');
   if (startButton) {
     openLearningModule(startButton.dataset.learningModule);

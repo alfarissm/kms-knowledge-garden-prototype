@@ -147,6 +147,11 @@ export async function apiLearning() {
   return data.modules;
 }
 
+export async function apiLearningReviews(moduleId, page = 1) {
+  const params = new URLSearchParams({ page: String(page) });
+  return request(`/api/learning/${encodeURIComponent(moduleId)}/reviews?${params}`);
+}
+
 export async function apiAdminCreateLearning(module) {
   const data = await request('/api/admin/learning', {
     method: 'POST',

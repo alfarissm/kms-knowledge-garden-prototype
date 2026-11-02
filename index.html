@@ -456,6 +456,19 @@
       </div>
     </dialog>
 
+    <dialog class="learning-dialog learning-reviews-dialog" id="learningReviewsDialog" aria-labelledby="learningReviewsTitle">
+      <div class="learning-dialog-header">
+        <div><p class="eyebrow">ULASAN PENGGUNA</p><h2 id="learningReviewsTitle">Ulasan materi</h2></div>
+        <button class="dialog-close" id="learningReviewsClose" type="button" aria-label="Tutup ulasan">×</button>
+      </div>
+      <div class="learning-reviews-body">
+        <p class="learning-reviews-summary" id="learningReviewsSummary" role="status" aria-live="polite"></p>
+        <ul class="learning-reviews-list" id="learningReviewsList" aria-busy="false"></ul>
+        <button class="learning-reviews-button" id="learningReviewsRetry" type="button" hidden>Coba lagi</button>
+      </div>
+      <nav class="learning-reviews-pagination" id="learningReviewsPagination" aria-label="Halaman ulasan" hidden></nav>
+    </dialog>
+
     <dialog class="learning-dialog learning-admin-dialog" id="learningAdminDialog" aria-labelledby="learnAdminDialogTitle">
       <div class="learning-dialog-header">
         <div><p class="eyebrow">KELOLA LEARNING</p><h2 id="learnAdminDialogTitle">Form modul Learning</h2></div>
