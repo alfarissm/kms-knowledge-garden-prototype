@@ -1207,6 +1207,11 @@ body { color: #294b7d; background: #f0f3f7; }
 .learning-completed-badge .icon { width: 14px; height: 14px; }
 .learning-rating-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 7px; margin-top: 0; }
 .learning-rating-prompt, .learning-rating-saved { grid-column: 1 / -1; color: #7187a0; font-size: 9px; font-weight: 600; }
+.learning-rating-form .learning-star-picker, .learning-rating-form .learning-rate-button { grid-column: 1 / -1; }
+.learning-comment-label { display: grid; grid-column: 1 / -1; min-width: 0; gap: 6px; margin: 7px 0; color: #5b738e; font-size: 10px; line-height: 1.5; }
+.learning-comment-input { width: 100%; min-width: 0; min-height: 76px; resize: vertical; padding: 9px 10px; border: 1px solid #d5e2ed; border-radius: 8px; background: #fff; color: #36536e; font: inherit; font-size: 11px; line-height: 1.6; }
+.learning-comment-input:focus { outline: 2px solid #8bbce0; outline-offset: 1px; }
+.learning-saved-comment { grid-column: 1 / -1; margin: 8px 0 0; padding: 9px 11px; border-radius: 8px; background: #f5f8fc; color: #506a83; font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .learning-star-picker { display: flex; align-items: center; gap: 1px; }
 .learning-star-option { position: relative; display: grid; width: 24px; height: 30px; place-items: center; cursor: pointer; }
 .learning-star-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }

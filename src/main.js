@@ -229,6 +229,7 @@ const SHARING_TYPE_LABELS = {
 
 let currentAccount = null;
 let state = null;
+const learningReviewDrafts = new Map();
 let activeLearningModule = null;
 // Katalog Learning: awal dari katalog statis, diganti data server saat masuk.
 let learningModules = LEARNING_MODULES.map((entry) => ({ ...entry }));
@@ -374,6 +375,7 @@ function applyServerSettings(settings) {
 function enterApp(account, treeState = null, awardLogin = false, settings = null, demoEnabled = false) {
   serverActionQueue?.cancel();
   currentAccount = account;
+  learningReviewDrafts.clear();
   demoToolsEnabled = demoEnabled === true;
   document.querySelectorAll('.demo-details, #advanceWeekButton, #boostLevelButton, #lowerLevelButton, #healthyButton').forEach((element) => { element.hidden = !demoToolsEnabled; });
   applyServerSettings(settings);
@@ -415,6 +417,7 @@ function leaveApp(message = '') {
   });
   currentAccount = null;
   state = null;
+  learningReviewDrafts.clear();
   if (elements.learningDialog.open) {
     elements.learningDialog.close();
   }
@@ -838,7 +841,7 @@ function renderLearningCatalog() {
 
       if (rating) {
         const ratedNote = makeElement('div', 'learning-rated-note');
-        ratedNote.append(makeElement('span', 'learning-rating-saved', 'Rating tersimpan'));
+        ratedNote.append(makeElement('span', 'learning-rating-saved', state.learningComments?.[module.id] ? 'Ulasan tersimpan' : 'Rating tersimpan'));
         const stars = makeElement('span', 'learning-star-display');
         stars.setAttribute('role', 'img');
         stars.setAttribute('aria-label', `Rating ${rating} dari 5 bintang`);
@@ -852,11 +855,14 @@ function renderLearningCatalog() {
         reward.title = `+${getGamificationSettings().learningRatingAir} Air ke Storage`;
         reward.append(makeSvgIcon('icon-water'), makeElement('b', '', `+${getGamificationSettings().learningRatingAir} Air`));
         ratedNote.append(stars, reward);
+        const comment = state.learningComments?.[module.id];
+        if (comment) ratedNote.append(makeElement('p', 'learning-saved-comment', comment));
         card.append(ratedNote);
       } else {
         const ratingForm = makeElement('form', 'learning-rating-form');
+        const draft = learningReviewDrafts.get(module.id) ?? {};
         ratingForm.dataset.learningRating = module.id;
-        ratingForm.append(makeElement('span', 'learning-rating-prompt', 'Beri rating'));
+        ratingForm.append(makeElement('span', 'learning-rating-prompt', `Bintang + komentar · total +${getGamificationSettings().learningRatingAir} Air, sekali per materi`));
         const starPicker = makeElement('div', 'learning-star-picker');
         starPicker.setAttribute('role', 'radiogroup');
         starPicker.setAttribute('aria-label', `Rating ${module.title}`);
@@ -867,15 +873,26 @@ function renderLearningCatalog() {
           input.name = 'rating';
           input.value = String(score);
           input.required = true;
+          input.checked = Number(draft.rating) === score;
+          if (Number(draft.rating) >= score) label.classList.add('is-selected');
           input.setAttribute('aria-label', `${score} bintang`);
           label.append(input, makeElement('span', '', '★'));
           starPicker.append(label);
         }
         const rateButton = makeElement('button', 'learning-rate-button');
         rateButton.type = 'submit';
-        rateButton.setAttribute('aria-label', `Kirim rating, tambah ${getGamificationSettings().learningRatingAir} Air ke Storage`);
-        rateButton.append(makeSvgIcon('icon-water'), makeElement('b', '', `+${getGamificationSettings().learningRatingAir} Air`));
-        ratingForm.append(starPicker, rateButton);
+        rateButton.setAttribute('aria-label', `Kirim bintang dan komentar, tambah ${getGamificationSettings().learningRatingAir} Air ke Storage`);
+        rateButton.append(makeSvgIcon('icon-water'), makeElement('b', '', `Kirim ulasan · +${getGamificationSettings().learningRatingAir} Air`));
+        const commentLabel = makeElement('label', 'learning-comment-label', 'Komentar (wajib, maksimal 500 karakter)');
+        const commentField = makeElement('textarea', 'learning-comment-input');
+        commentField.name = 'comment';
+        commentField.rows = 3;
+        commentField.maxLength = 500;
+        commentField.required = true;
+        commentField.value = draft.comment ?? '';
+        commentField.placeholder = 'Apa yang kamu pelajari? Bagikan kesan atau masukanmu.';
+        commentLabel.append(commentField);
+        ratingForm.append(starPicker, commentLabel, rateButton);
         card.append(ratingForm);
       }
     } else {
@@ -2668,11 +2685,12 @@ function renderRewardLabels() {
     elements.learningRewardComplete.textContent = `Tuntas · +${pupuk(units)} Pupuk`;
   }
   if (elements.learningPageDescription) {
-    elements.learningPageDescription.textContent = `Materi tuntas memberi +${pupuk(settings.learningRewardFertilizerUnits)} Pupuk ke Storage; rating valid memberi +${f(settings.learningRatingAir)} Air ke Storage.`;
+    elements.learningPageDescription.textContent = `Materi tuntas memberi +${pupuk(settings.learningRewardFertilizerUnits)} Pupuk ke Storage; bintang dan komentar memberi total +${f(settings.learningRatingAir)} Air, sekali per materi.`;
   }
   if (elements.learningRewardRating) {
     const air = settings.learningRatingAir;
-    elements.learningRewardRating.textContent = `Rating · +${f(air)} Air`;
+    elements.learningRewardRating.textContent = `Bintang + komentar · +${f(air)} Air`;
+    elements.learningRewardRating.parentElement.setAttribute('aria-label', `Bintang dan komentar, total tambah ${f(air)} Air ke Storage sekali per materi`);
   }
   if (elements.sharingRewardPill) {
     const acc = settings.accReward;
@@ -3124,6 +3142,8 @@ elements.learningCatalog.addEventListener('change', (event) => {
   if (!ratingInput) return;
 
   const selectedRating = Number(ratingInput.value);
+  const moduleId = ratingInput.closest('form[data-learning-rating]').dataset.learningRating;
+  learningReviewDrafts.set(moduleId, { ...learningReviewDrafts.get(moduleId), rating: selectedRating });
   ratingInput.closest('.learning-star-picker').querySelectorAll('.learning-star-option').forEach((star, index) => {
     star.classList.toggle('is-selected', index < selectedRating);
   });
@@ -3150,21 +3170,46 @@ elements.learningQuizForm.addEventListener('submit', async (event) => {
   activeLearningModule = null;
 });
 
-elements.learningCatalog.addEventListener('submit', (event) => {
+elements.learningCatalog.addEventListener('input', (event) => {
+  const field = event.target.closest('textarea[name="comment"]');
+  if (!field) return;
+  field.setCustomValidity('');
+  const moduleId = field.closest('form[data-learning-rating]').dataset.learningRating;
+  learningReviewDrafts.set(moduleId, { ...learningReviewDrafts.get(moduleId), comment: field.value });
+});
+
+elements.learningCatalog.addEventListener('submit', async (event) => {
   const ratingForm = event.target.closest('form[data-learning-rating]');
   if (!ratingForm) return;
   event.preventDefault();
 
   const module = learningModules.find((entry) => entry.id === ratingForm.dataset.learningRating);
   if (!module) return;
-  const rating = Number(new FormData(ratingForm).get('rating'));
-  const result = rateLearningModule(state, module.id, rating, { title: module.title });
-  if (!result.awarded) {
-    showToast('Learning harus selesai sebelum diberi rating.', 'notice');
+  const button = ratingForm.querySelector('[type="submit"]');
+  if (button.disabled) return;
+  const fields = new FormData(ratingForm);
+  const rating = Number(fields.get('rating'));
+  const comment = String(fields.get('comment') ?? '').trim();
+  if (!comment) {
+    const field = ratingForm.querySelector('[name="comment"]');
+    field.setCustomValidity('Tuliskan komentar sebelum mengirim ulasan.');
+    field.reportValidity();
     return;
   }
-
-  updateWith(result.state, `Rating ${rating}/5 tersimpan. +${getGamificationSettings().learningRatingAir} Air masuk Storage; gunakan pada pohon untuk menambah progres.`, 'success', { action: { type: 'learning.rate', data: { moduleId: module.id, rating } } });
+  try {
+    const result = rateLearningModule(state, module.id, rating, { title: module.title, comment });
+    if (!result.awarded) {
+      showToast('Materi belum selesai atau reward ulasannya sudah diterima.', 'notice');
+      return;
+    }
+    button.disabled = true;
+    const saved = await updateWith(result.state, `Ulasan ${rating}/5 dan komentar tersimpan. Total +${getGamificationSettings().learningRatingAir} Air masuk Storage.`, 'success', { action: { type: 'learning.rate', data: { moduleId: module.id, rating, comment } } });
+    if (saved) learningReviewDrafts.delete(module.id);
+  } catch (error) {
+    showToast(error.message || 'Ulasan belum dapat disimpan.', 'notice');
+  } finally {
+    button.disabled = false;
+  }
 });
 
 elements.sharingForm.addEventListener('submit', async (event) => {

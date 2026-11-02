@@ -44,7 +44,11 @@ it('loads actual fallback quiz then completes and rates it only once', async () 
   const repeated = await (await action('learning.complete', data)).json();
   expect(repeated.treeState.fertilizerUnits).toBe(first.treeState.fertilizerUnits);
   expect(repeated.awarded).toBe(false);
-  expect((await action('learning.rate', { moduleId: module.id, rating: 5 })).status).toBe(200);
+  const rated = await (await action('learning.rate', { moduleId: module.id, rating: 5, comment: 'Materi sangat bermanfaat.' })).json();
+  expect(rated.treeState.learningComments[module.id]).toBe('Materi sangat bermanfaat.');
+  const again = await (await action('learning.rate', { moduleId: module.id, rating: 4, comment: 'Ulang lagi.' })).json();
+  expect(again.treeState.air).toBe(rated.treeState.air);
+  expect(again.treeState.learningComments[module.id]).toBe('Materi sangat bermanfaat.');
 });
 
 it('creates multi-question modules through admin SQL and validates all answers', async () => {

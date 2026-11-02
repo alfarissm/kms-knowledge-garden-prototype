@@ -177,6 +177,9 @@ function cloneState(state) {
   clonedState.learningRatings = clonedState.learningRatings && typeof clonedState.learningRatings === 'object'
     ? clonedState.learningRatings
     : {};
+  clonedState.learningComments = clonedState.learningComments && typeof clonedState.learningComments === 'object' && !Array.isArray(clonedState.learningComments)
+    ? clonedState.learningComments
+    : {};
   // Notifikasi server (hasil review admin, hapus konten, reset pohon) tersimpan
   // di payload; bila tidak ada, isi kosong agar semua pembaca aman.
   clonedState.notifications = Array.isArray(clonedState.notifications)
@@ -244,6 +247,7 @@ export function createInitialState(now = Date.now()) {
     lastDecayAt: now,
     completedLearningIds: [],
     learningRatings: {},
+    learningComments: {},
     notifications: [],
     sharingSubmissions: [],
     history: [],
@@ -583,13 +587,17 @@ export function rateLearningModule(currentState, moduleId, rating, options = {})
     return { state, awarded: false, reason: 'already-rated' };
   }
 
+  const comment = typeof options.comment === 'string' ? options.comment.trim() : '';
+  if (!comment || comment.length > 500) throw new Error('Isi komentar Learning antara 1 sampai 500 karakter.');
   state.learningRatings[moduleId] = rating;
+  state.learningComments[moduleId] = comment;
   const ratingAir = activeSettings.learningRatingAir;
   const ratingEntry = addReward(state, { air: ratingAir, fertilizerUnits: 0, fruit: 0 }, state.clockMs, `Rating Learning: ${title}`);
   ratingEntry.detail = ratingAir > 0
     ? `Rating ${rating}/5 · +${ratingAir} Air masuk Storage`
     : `Rating ${rating}/5 · tanpa reward Air`;
   ratingEntry.rating = rating;
+  ratingEntry.comment = comment;
   recordValidActivity(state);
 
   return { state, awarded: true };

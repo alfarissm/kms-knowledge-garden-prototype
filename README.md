@@ -64,6 +64,11 @@ Acces token sesi disimpan sebagai cookie `httpOnly`, jadi cukup login ulang di b
 
 ## Uji & build
 
+Setelah Learning selesai, pengguna dapat mengirim ulasan **1–5 bintang dan
+komentar wajib (1–500 karakter)**. Ulasan lengkap memberi **total +1 Air** ke
+Storage sekali per modul (nilai reward mengikuti parameter admin). Mengirim
+ulang tidak memberi reward tambahan; rating lama tetap dipertahankan.
+
 ```powershell
 npm test     # seluruh suite Vitest
 npm run build  # hasil ke dist/

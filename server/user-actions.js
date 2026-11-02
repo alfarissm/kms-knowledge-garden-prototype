@@ -31,7 +31,7 @@ export function applyUserAction(current, action, { modules = [], demoEnabled = f
     case 'learning.rate': {
       const module = modules.find((item) => item.id === data.moduleId && item.active !== false);
       if (!module) throw new Error('Modul aktif tidak ditemukan. Muat ulang katalog Learning.');
-      if (action.type === 'learning.rate') return rateLearningModule(state, module.id, data.rating, { ...options, title: module.title });
+      if (action.type === 'learning.rate') return rateLearningModule(state, module.id, data.rating, { ...options, title: module.title, comment: data.comment });
       const quiz = normalizeLearningQuiz(module.quiz);
       if (data.read !== true || !Array.isArray(data.answers) || quiz.length !== data.answers.length
         || quiz.some((item, index) => item.correctAnswer !== data.answers[index])) {

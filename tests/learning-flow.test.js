@@ -49,10 +49,41 @@ describe('Learning API to reward flow', () => {
     await f.action('learning.complete', { moduleId: module.id, read: true, answers: [1, 0] });
     expect((await f.action('learning.rate', { moduleId: module.id, rating: 6 })).status).toBe(400);
     const before = f.states.get(1).air;
-    await f.action('learning.rate', { moduleId: module.id, rating: 5 });
-    await f.action('learning.rate', { moduleId: module.id, rating: 4 });
+    await f.action('learning.rate', { moduleId: module.id, rating: 5, comment: '  Sangat membantu.  ' });
+    await f.action('learning.rate', { moduleId: module.id, rating: 4, comment: 'Komentar kedua.' });
     expect(f.states.get(1).air).toBe(before + 1);
     expect(f.states.get(1).learningRatings[module.id]).toBe(5);
+    expect(f.states.get(1).learningComments[module.id]).toBe('Sangat membantu.');
+  });
+
+  it('requires stars and a nonblank comment before granting the combined reward', async () => {
+    const f = memoryApp({ modules: [module] });
+    await f.action('learning.complete', { moduleId: module.id, read: true, answers: [1, 0] });
+    const air = f.states.get(1).air;
+    for (const comment of [undefined, '', '  ', 'x'.repeat(501), { text: 'invalid' }]) {
+      expect((await f.action('learning.rate', { moduleId: module.id, rating: 5, comment })).status).toBe(400);
+    }
+    expect((await f.action('learning.rate', { moduleId: module.id, comment: 'Tanpa bintang.' })).status).toBe(400);
+    expect(f.states.get(1).air).toBe(air);
+    expect(f.states.get(1).learningRatings[module.id]).toBeUndefined();
+    const id = crypto.randomUUID();
+    await Promise.all([
+      f.action('learning.rate', { moduleId: module.id, rating: 5, comment: 'Materi berguna.' }, { id }),
+      f.action('learning.rate', { moduleId: module.id, rating: 5, comment: 'Materi berguna.' }, { id }),
+    ]);
+    expect(f.states.get(1).air).toBe(air + 1);
+  });
+
+  it('preserves legacy numeric ratings without awarding another Air', async () => {
+    const f = memoryApp({ modules: [module] });
+    f.states.get(1).completedLearningIds = [module.id];
+    f.states.get(1).learningRatings = { [module.id]: 4 };
+    delete f.states.get(1).learningComments;
+    const air = f.states.get(1).air;
+    const result = await (await f.action('learning.rate', { moduleId: module.id, rating: 5, comment: 'Ulang.' })).json();
+    expect(result.awarded).toBe(false);
+    expect(f.states.get(1).learningRatings[module.id]).toBe(4);
+    expect(f.states.get(1).air).toBe(air);
   });
 
   it('accepts legacy object quizzes without shifting the correct answer', () => {

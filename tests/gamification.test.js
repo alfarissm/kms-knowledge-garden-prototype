@@ -217,7 +217,7 @@ describe('gamification prototype logic', () => {
     const start = createInitialState(1_000);
     const earlyRating = rateLearningModule(start, 'kms-fundamentals', 5, { wallNow: 2_000 });
     const completed = completeLearningModule(start, 'kms-fundamentals', { wallNow: 3_000 });
-    const rated = rateLearningModule(completed.state, 'kms-fundamentals', 4, { wallNow: 4_000 });
+    const rated = rateLearningModule(completed.state, 'kms-fundamentals', 4, { wallNow: 4_000, comment: 'Materi mudah dipahami.' });
     const repeatedRating = rateLearningModule(rated.state, 'kms-fundamentals', 5, { wallNow: 5_000 });
 
     expect(earlyRating.reason).toBe('not-completed');
@@ -239,7 +239,7 @@ describe('gamification prototype logic', () => {
     mature.growthFertilizerUnits = 12;
     mature.completedLearningIds = ['kms-fundamentals'];
     mature.fruitsInStorage = 2;
-    const rated = rateLearningModule(mature, 'kms-fundamentals', 5, { wallNow: 2_000 });
+    const rated = rateLearningModule(mature, 'kms-fundamentals', 5, { wallNow: 2_000, comment: 'Materi membantu pekerjaan.' });
 
     expect(rated.state.history[0].title).toBe('Rating Learning: kms-fundamentals');
     expect(rated.state.history[0].rating).toBe(5);
