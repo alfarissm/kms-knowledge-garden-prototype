@@ -4,6 +4,7 @@ import {
   apiAdminActivity,
   apiAdminCondition,
   apiAdminCreateLearning,
+  apiAdminDeleteAccount,
   apiAdminDeleteContent,
   apiAdminDeleteLearning,
   apiAdminResetAccount,
