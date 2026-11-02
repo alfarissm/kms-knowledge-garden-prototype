@@ -1217,16 +1217,26 @@ body { color: #294b7d; background: #f0f3f7; }
 .learning-reviews-button { display: inline-flex; justify-content: center; align-items: center; min-height: 36px; margin-top: 12px; padding: 7px 11px; border: 1px solid #d7e4f0; border-radius: 8px; color: #286794; background: #fff; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
 .learning-reviews-button:hover { background: #eff6fc; }
 .learning-reviews-button:focus-visible { outline: 2px solid #1d64ad; outline-offset: 2px; }
-.learning-dialog.learning-reviews-dialog { width: min(560px, calc(100vw - 28px)); }
-.learning-reviews-body { min-height: 0; overflow-y: auto; padding-top: 12px; }
-.learning-reviews-summary { margin: 0 0 12px; color: #526e87; font-size: 12px; line-height: 1.6; }
-.learning-reviews-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
-.learning-review-item { min-width: 0; padding: 14px; border: 1px solid #e0e9f1; border-radius: 11px; background: #fbfdff; }
+.learning-reviews-section { min-width: 0; margin-top: 28px; padding-top: 24px; border-top: 1px solid #e0e9f1; scroll-margin-top: 96px; }
+.learning-reviews-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px 24px; margin-bottom: 18px; }
+.learning-reviews-heading > div { flex: 1 1 200px; min-width: 0; }
+.learning-reviews-heading h3 { margin: 5px 0 0; color: #244663; font-size: 18px; line-height: 1.45; overflow-wrap: anywhere; }
+.learning-reviews-select { display: grid; flex: 0 1 260px; min-width: 0; gap: 5px; color: #657c91; font-size: 11px; }
+.learning-reviews-select select { width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid #d5e2ed; border-radius: 8px; color: #365a7a; background: #fff; font: inherit; font-size: 12px; }
+.learning-reviews-overview { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 24px; padding: 18px; border: 1px solid #e1edf6; border-radius: 10px; background: #f5f9fd; }
+.learning-reviews-score { display: flex; align-items: baseline; flex: 0 0 auto; gap: 6px; color: #6d8194; font-size: 13px; }
+.learning-reviews-score strong { color: #28658f; font-size: 34px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.learning-overall-stars { display: flex; gap: 2px; font-size: 23px; line-height: 1.2; }
+.learning-overall-stars > span { color: transparent; background: linear-gradient(90deg, #eab134 var(--star-fill), #d2dce8 var(--star-fill)); background-clip: text; -webkit-background-clip: text; }
+.learning-reviews-summary { margin: 5px 0 0; color: #657d93; font-size: 12px; line-height: 1.6; }
+.learning-reviews-body { padding-top: 8px; }
+.learning-reviews-list { display: grid; list-style: none; margin: 0; padding: 0; }
+.learning-review-item { min-width: 0; padding: 20px 0; border-bottom: 1px solid #e6edf4; }
 .learning-review-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .learning-review-avatar { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e8f1fa; color: #28618a; font-size: 12px; font-weight: 700; }
 .learning-review-identity { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
 .learning-review-self { padding: 2px 7px; border-radius: 5px; color: #557490; background: #eaf2f9; font-size: 10px; }
-.learning-review-comment { margin: 8px 0 0; color: #435e76; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.learning-review-comment { margin: 8px 0 0; color: #435e76; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .learning-review-empty, .learning-review-legacy { margin: 8px 0 0; color: #718399; font-size: 11px; line-height: 1.6; }
 .learning-reviews-pagination { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e4ecf4; }
 .learning-reviews-pagination .admin-page-button { min-height: 36px; padding: 6px 10px; font-size: 11px; }
@@ -1362,6 +1372,13 @@ body { color: #294b7d; background: #f0f3f7; }
 .content-status-empty td { padding: 16px 10px; color: #8b9db1; text-align: center; line-height: 1.5; }
 .content-status-empty strong { display: block; margin-bottom: 2px; color: #55759c; }
 .content-status-footnote { margin: 8px 2px 0; color: #7b90a8; font-size: 7px; line-height: 1.5; }
+.fruit-status-guide { margin-top: 12px; border: 1px solid #dee8f1; border-radius: 10px; background: #f8fbfe; }
+.fruit-status-guide summary { padding: 12px 14px; color: #365b7c; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fruit-status-guide summary:focus-visible { outline: 2px solid #2876ac; outline-offset: -3px; border-radius: 10px; }
+.fruit-status-guide-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 12px 20px; margin: 0; padding: 0 14px 14px; }
+.fruit-status-guide-list dt { color: #365773; font-size: 12px; font-weight: 700; line-height: 1.5; }
+.fruit-status-guide-list dd { margin: 4px 0 0; color: #647d94; font-size: 11px; line-height: 1.7; }
+.fruit-status-guide > p { margin: 0 14px 12px; color: #647d94; font-size: 11px; line-height: 1.7; }
 
 /* Admin review: cross-account validation of shared content. */
 .admin-review-empty { margin: 0; border: 1px dashed #d5e2ee; border-left: 0; border-right: 0; color: #8b9db1; font-size: 12px; font-style: italic; text-align: center; }

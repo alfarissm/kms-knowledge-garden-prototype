@@ -226,7 +226,19 @@
                 <tbody id="contentStatusBody"></tbody>
               </table>
             </div>
-            <p class="content-status-footnote">Posisinya di pohon: merah matang menggantung (ACC) · coklat busuk rebah di tanah (basi) · kuning kusam diangkat — slotnya kosong dan tidak digeser buah lain.</p>
+            <p class="content-status-footnote">Buah merah = konten ACC · buah cokelat di tanah = konten basi · slot kosong = konten tidak relevan/duplikat.</p>
+            <details class="fruit-status-guide">
+              <summary>Panduan status konten &amp; buah</summary>
+              <dl class="fruit-status-guide-list">
+                <div><dt>Menunggu review</dt><dd>Konten sedang ditinjau admin. Belum ada buah atau reward ACC.</dd></div>
+                <div><dt>ACC / relevan</dt><dd>Satu konten menghasilkan satu buah merah di Storage. Pindahkan ke pohon yang sehat mulai Level 3 agar terlihat menggantung.</dd></div>
+                <div><dt>Basi</dt><dd>Buah menjadi cokelat busuk dan rebah di tanah dekat batang sebagai arsip konten. Buah rebah terlihat mulai Level 3.</dd></div>
+                <div><dt>Tidak relevan</dt><dd>Buah diangkat dari kebun. Slotnya kosong; bukan berubah menjadi buah kuning.</dd></div>
+                <div><dt>Duplikat</dt><dd>Buah konten duplikat diangkat. Slotnya kosong, sedangkan buah konten asli tetap ada.</dd></div>
+              </dl>
+              <p>Setiap buah punya slot tetap—buah lain tidak bergeser saat ada slot kosong. Jika konten di-ACC ulang, buah aktif kembali dengan slot semula, tanpa reward Air/Pupuk kedua kali.</p>
+              <p>Jika pohon menguning atau mati, buah yang menggantung kembali ke Storage. Sehatkan pohon untuk memindahkannya lagi; buah basi tetap menjadi arsip di tanah.</p>
+            </details>
           </article>
 
           <details class="demo-details">
@@ -272,6 +284,23 @@
                 </div>
                 <div class="learning-grid" id="learningCatalog" aria-live="polite"></div>
               </section>
+              <div id="learningReviewsHost">
+                <section class="learning-reviews-section" id="learningReviewsSection" aria-labelledby="learningReviewsTitle">
+                  <div class="learning-reviews-heading">
+                    <div><p class="eyebrow">PENGALAMAN BELAJAR</p><h3 id="learningReviewsTitle" tabindex="-1">Ulasan pengguna</h3></div>
+                    <label class="learning-reviews-select">Pilih materi<select id="learningReviewsModule" aria-label="Materi yang ulasannya ditampilkan"></select></label>
+                  </div>
+                  <div class="learning-reviews-overview">
+                    <div class="learning-reviews-score"><strong id="learningReviewsScore">—</strong><span>/ 5</span></div>
+                    <div><span class="learning-overall-stars" id="learningReviewsStars" role="img" aria-label="Belum ada rating"></span><p class="learning-reviews-summary" id="learningReviewsSummary" role="status" aria-live="polite">Memuat ulasan…</p></div>
+                  </div>
+                  <div class="learning-reviews-body">
+                    <ul class="learning-reviews-list" id="learningReviewsList" aria-busy="false"></ul>
+                    <button class="learning-reviews-button" id="learningReviewsRetry" type="button" hidden>Coba lagi</button>
+                  </div>
+                  <nav class="learning-reviews-pagination" id="learningReviewsPagination" aria-label="Halaman ulasan" hidden></nav>
+                </section>
+              </div>
             </section>
           </section>
 
@@ -425,6 +454,7 @@
                   <tbody id="learnAdminBody"></tbody>
                 </table>
               </div>
+              <div id="learnAdminReviewsHost"></div>
             </article>
           </section>
 
@@ -454,19 +484,6 @@
         <button class="learning-complete-button" id="completeLearningButton" type="submit" disabled>Selesaikan Learning</button>
       </form>
       </div>
-    </dialog>
-
-    <dialog class="learning-dialog learning-reviews-dialog" id="learningReviewsDialog" aria-labelledby="learningReviewsTitle">
-      <div class="learning-dialog-header">
-        <div><p class="eyebrow">ULASAN PENGGUNA</p><h2 id="learningReviewsTitle">Ulasan materi</h2></div>
-        <button class="dialog-close" id="learningReviewsClose" type="button" aria-label="Tutup ulasan">×</button>
-      </div>
-      <div class="learning-reviews-body">
-        <p class="learning-reviews-summary" id="learningReviewsSummary" role="status" aria-live="polite"></p>
-        <ul class="learning-reviews-list" id="learningReviewsList" aria-busy="false"></ul>
-        <button class="learning-reviews-button" id="learningReviewsRetry" type="button" hidden>Coba lagi</button>
-      </div>
-      <nav class="learning-reviews-pagination" id="learningReviewsPagination" aria-label="Halaman ulasan" hidden></nav>
     </dialog>
 
     <dialog class="learning-dialog learning-admin-dialog" id="learningAdminDialog" aria-labelledby="learnAdminDialogTitle">

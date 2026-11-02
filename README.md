@@ -68,8 +68,10 @@ Setelah Learning selesai, pengguna dapat mengirim ulasan **1–5 bintang dan
 komentar wajib (1–500 karakter)**. Ulasan lengkap memberi **total +1 Air** ke
 Storage sekali per modul (nilai reward mengikuti parameter admin). Mengirim
 ulang tidak memberi reward tambahan; rating lama tetap dipertahankan.
-Tombol **Lihat ulasan pengguna** membuka daftar nama akun, bintang, dan komentar
-semua pemberi ulasan, dengan pagination. Email dan data pohon tidak ikut dibagikan.
+Bagian **Ulasan pengguna** tampil langsung di bawah daftar materi, dengan pilihan
+materi, ringkasan rating, nama akun, bintang, komentar, dan pagination—tanpa popup.
+Tombol **Lihat ulasan pengguna** pada kartu mengarah ke bagian tersebut.
+Email dan data pohon tidak ikut dibagikan.
 Admin dapat membuka daftar yang sama lewat kolom Rating di **Kelola Learning**.
 
 ```powershell

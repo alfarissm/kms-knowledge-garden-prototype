@@ -419,8 +419,13 @@ function leaveApp(message = '') {
   currentAccount = null;
   state = null;
   learningReviewDrafts.clear();
-  const reviewsDialog = document.querySelector('#learningReviewsDialog');
-  if (reviewsDialog.open) reviewsDialog.close();
+  learningReviewsRequestId += 1;
+  delete document.querySelector('#learningReviewsSection').dataset.moduleId;
+  document.querySelector('#learningReviewsSection').hidden = true;
+  document.querySelector('#learningReviewsTitle').textContent = 'Ulasan pengguna';
+  setLearningReviewScore(null);
+  document.querySelector('#learningReviewsList').replaceChildren();
+  document.querySelector('#learningReviewsModule').replaceChildren();
   if (elements.learningDialog.open) {
     elements.learningDialog.close();
   }
@@ -789,17 +794,22 @@ function makeSvgIcon(symbolId, className = 'icon') {
 // Katalog Learning dari server: modul terkelola memenangkan katalog statis.
 // Admin melihat juga modul draft; pengguna hanya modul aktif.
 function refreshLearningCatalog() {
+  const account = currentAccount;
+  const role = currentRole();
   apiLearning()
     .then((modules) => {
+      if (currentAccount !== account || currentRole() !== role) return;
       if (Array.isArray(modules)) {
         learningModules = modules;
       }
       renderRewardLabels();
       renderLearningCatalog();
       buildLearnAdmin(latestAdminAccounts);
+      syncLearningReviewsSection();
     })
     .catch(() => {
       // Katalog statis tetap dipakai bila server gagal.
+      if (currentAccount === account && currentRole() === role) syncLearningReviewsSection();
     });
 }
 
@@ -911,8 +921,7 @@ function renderLearningCatalog() {
     reviewsButton.type = 'button';
     reviewsButton.dataset.learningReviews = module.id;
     reviewsButton.setAttribute('aria-label', `Lihat ulasan untuk ${module.title}`);
-    reviewsButton.setAttribute('aria-haspopup', 'dialog');
-    reviewsButton.setAttribute('aria-controls', 'learningReviewsDialog');
+    reviewsButton.setAttribute('aria-controls', 'learningReviewsSection');
     card.append(reviewsButton);
     elements.learningCatalog.append(card);
   });
@@ -948,13 +957,14 @@ function buildLearningReviews(items) {
 }
 
 async function loadLearningReviews(moduleId, page = 1) {
-  const dialog = document.querySelector('#learningReviewsDialog');
+  const section = document.querySelector('#learningReviewsSection');
   const summary = document.querySelector('#learningReviewsSummary');
   const list = document.querySelector('#learningReviewsList');
   const pagination = document.querySelector('#learningReviewsPagination');
   const retry = document.querySelector('#learningReviewsRetry');
   const requestId = ++learningReviewsRequestId;
-  dialog.dataset.page = String(page);
+  section.dataset.page = String(page);
+  setLearningReviewScore(null);
   summary.textContent = 'Memuat ulasan…';
   list.setAttribute('aria-busy', 'true');
   list.replaceChildren(makeElement('li', 'learning-review-empty', 'Mengambil ulasan pengguna…'));
@@ -962,16 +972,16 @@ async function loadLearningReviews(moduleId, page = 1) {
   pagination.hidden = true;
   try {
     const data = await apiLearningReviews(moduleId, page);
-    if (requestId !== learningReviewsRequestId || !dialog.open) return;
-    dialog.dataset.page = String(data.page);
+    if (requestId !== learningReviewsRequestId || !currentAccount || section.dataset.moduleId !== moduleId) return;
+    section.dataset.page = String(data.page);
+    setLearningReviewScore(data.average);
     summary.textContent = data.total
-      ? `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(data.average)} / 5 · ${data.total} ulasan`
+      ? `${data.total} ulasan pengguna`
       : 'Belum ada ulasan';
     buildLearningReviews(data.items);
     renderTablePagination(pagination, 'reviewPage', data.page, data.totalPages);
-    document.querySelector('.learning-reviews-body').scrollTop = 0;
   } catch (error) {
-    if (requestId !== learningReviewsRequestId || !dialog.open) return;
+    if (requestId !== learningReviewsRequestId || !currentAccount || section.dataset.moduleId !== moduleId) return;
     summary.textContent = error?.message || 'Ulasan belum dapat dimuat.';
     list.replaceChildren();
     retry.hidden = false;
@@ -980,31 +990,76 @@ async function loadLearningReviews(moduleId, page = 1) {
   }
 }
 
-function openLearningReviews(moduleId) {
-  const module = learningModules.find((item) => item.id === moduleId);
-  if (!module) return;
-  const dialog = document.querySelector('#learningReviewsDialog');
-  document.querySelector('#learningReviewsTitle').textContent = `Ulasan: ${module.title}`;
-  dialog.dataset.moduleId = moduleId;
-  if (!dialog.open) dialog.showModal();
-  loadLearningReviews(moduleId);
+function setLearningReviewScore(average) {
+  const score = document.querySelector('#learningReviewsScore');
+  const stars = document.querySelector('#learningReviewsStars');
+  const hasRating = Number.isFinite(average) && average >= 1 && average <= 5;
+  const formatted = hasRating ? new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(average) : '—';
+  score.textContent = formatted;
+  stars.setAttribute('aria-label', hasRating ? `${formatted} dari 5 bintang` : 'Belum ada rating');
+  stars.replaceChildren();
+  for (let value = 1; value <= 5; value += 1) {
+    const star = makeElement('span', '', '★');
+    star.setAttribute('aria-hidden', 'true');
+    star.style.setProperty('--star-fill', `${hasRating ? Math.max(0, Math.min(1, average - value + 1)) * 100 : 0}%`);
+    stars.append(star);
+  }
 }
 
-document.querySelector('#learningReviewsClose').addEventListener('click', () => document.querySelector('#learningReviewsDialog').close());
-document.querySelector('#learningReviewsDialog').addEventListener('close', () => {
-  learningReviewsRequestId += 1;
-  document.querySelector('#learningReviewsList').replaceChildren();
-  document.querySelector('#learningReviewsList').setAttribute('aria-busy', 'false');
+function syncLearningReviewsSection() {
+  if (!currentAccount) return;
+  const section = document.querySelector('#learningReviewsSection');
+  const host = document.querySelector(currentRole() === 'admin' ? '#learnAdminReviewsHost' : '#learningReviewsHost');
+  if (section.parentElement !== host) host.append(section);
+  const select = document.querySelector('#learningReviewsModule');
+  select.replaceChildren();
+  learningModules.forEach((module) => {
+    const option = makeElement('option', '', module.title);
+    option.value = module.id;
+    select.append(option);
+  });
+  section.hidden = learningModules.length === 0;
+  if (!learningModules.length) {
+    learningReviewsRequestId += 1;
+    delete section.dataset.moduleId;
+    document.querySelector('#learningReviewsList').replaceChildren();
+    return;
+  }
+  const selected = learningModules.find((module) => module.id === section.dataset.moduleId);
+  select.value = selected?.id ?? learningModules[0].id;
+  if (selected) document.querySelector('#learningReviewsTitle').textContent = `Ulasan: ${selected.title}`;
+  if (!selected) openLearningReviews(select.value, false);
+}
+
+function openLearningReviews(moduleId, scroll = true) {
+  const module = learningModules.find((item) => item.id === moduleId);
+  if (!module) return;
+  const section = document.querySelector('#learningReviewsSection');
+  const host = document.querySelector(currentRole() === 'admin' ? '#learnAdminReviewsHost' : '#learningReviewsHost');
+  if (section.parentElement !== host) host.append(section);
+  section.hidden = false;
+  document.querySelector('#learningReviewsTitle').textContent = `Ulasan: ${module.title}`;
+  section.dataset.moduleId = moduleId;
+  document.querySelector('#learningReviewsModule').value = moduleId;
+  loadLearningReviews(moduleId);
+  if (scroll) {
+    section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    document.querySelector('#learningReviewsTitle').focus({ preventScroll: true });
+  }
+}
+
+document.querySelector('#learningReviewsModule').addEventListener('change', (event) => {
+  openLearningReviews(event.target.value, false);
 });
 document.querySelector('#learningReviewsRetry').addEventListener('click', () => {
-  const dialog = document.querySelector('#learningReviewsDialog');
-  loadLearningReviews(dialog.dataset.moduleId, Number(dialog.dataset.page));
+  const section = document.querySelector('#learningReviewsSection');
+  loadLearningReviews(section.dataset.moduleId, Number(section.dataset.page));
 });
 document.querySelector('#learningReviewsPagination').addEventListener('click', (event) => {
   const button = event.target.closest('[data-review-page]');
   if (!button || button.disabled || button.getAttribute('aria-current') === 'page') return;
-  const dialog = document.querySelector('#learningReviewsDialog');
-  loadLearningReviews(dialog.dataset.moduleId, Number(button.dataset.reviewPage));
+  const section = document.querySelector('#learningReviewsSection');
+  loadLearningReviews(section.dataset.moduleId, Number(button.dataset.reviewPage));
 });
 
 function renderSharingQueue() {
@@ -1604,8 +1659,7 @@ function buildLearnAdmin(accounts) {
     reviewsButton.type = 'button';
     reviewsButton.dataset.learningReviews = module.id;
     reviewsButton.setAttribute('aria-label', `Lihat ulasan untuk ${module.title}`);
-    reviewsButton.setAttribute('aria-haspopup', 'dialog');
-    reviewsButton.setAttribute('aria-controls', 'learningReviewsDialog');
+    reviewsButton.setAttribute('aria-controls', 'learningReviewsSection');
     ratingCell.append(reviewsButton);
 
     const actionsCell = document.createElement('td');
@@ -1774,6 +1828,7 @@ elements.learningModuleForm.addEventListener('submit', async (event) => {
     }
     buildLearnAdmin(latestAdminAccounts);
     renderLearningCatalog();
+    syncLearningReviewsSection();
     closeLearningAdminDialog();
     showToast(learningAdminDialogMode === 'edit' ? `Modul "${savedModule.title}" diperbarui di server.` : `Modul "${savedModule.title}" tersimpan di server.`, 'success');
   } catch (error) {
@@ -1817,6 +1872,7 @@ elements.learnAdminBody.addEventListener('click', async (event) => {
       if (index >= 0) learningModules[index] = updated;
       buildLearnAdmin(latestAdminAccounts);
       renderLearningCatalog();
+      syncLearningReviewsSection();
       showToast(`Modul "${updated.title}" sekarang ${updated.active ? 'aktif untuk semua akun' : 'draft (disembunyikan)'}.`, 'success');
     } catch (error) {
       showToast(error?.message || 'Status modul gagal diubah.', 'notice');
@@ -1836,6 +1892,7 @@ elements.learnAdminBody.addEventListener('click', async (event) => {
       learningModules = learningModules.filter((entry) => entry.id !== moduleId);
       buildLearnAdmin(latestAdminAccounts);
       renderLearningCatalog();
+      syncLearningReviewsSection();
       showToast(`Modul "${module.title}" dihapus dari server.`, 'success');
     } catch (error) {
       showToast(error?.message || 'Hapus modul gagal.', 'notice');
@@ -3321,7 +3378,10 @@ elements.learningCatalog.addEventListener('submit', async (event) => {
     }
     button.disabled = true;
     const saved = await updateWith(result.state, `Ulasan ${rating}/5 dan komentar tersimpan. Total +${getGamificationSettings().learningRatingAir} Air masuk Storage.`, 'success', { action: { type: 'learning.rate', data: { moduleId: module.id, rating, comment } } });
-    if (saved) learningReviewDrafts.delete(module.id);
+    if (saved) {
+      learningReviewDrafts.delete(module.id);
+      if (document.querySelector('#learningReviewsSection').dataset.moduleId === module.id) loadLearningReviews(module.id);
+    }
   } catch (error) {
     showToast(error.message || 'Ulasan belum dapat disimpan.', 'notice');
   } finally {
