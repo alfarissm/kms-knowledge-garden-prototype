@@ -290,6 +290,9 @@
                       <div><label for="sharingMaterialType">Jenis materi</label><select id="sharingMaterialType" name="type" required><option value="video">Video</option><option value="article">Artikel</option><option value="document">Dokumen / panduan</option><option value="podcast">Podcast</option></select></div>
                       <div class="sharing-upload-field"><label for="sharingMaterialVideo">Video pendukung <span class="sharing-optional">(opsional)</span></label><input id="sharingMaterialVideo" name="attachment" type="file" accept="video/*" /><span class="sharing-file-name" id="sharingVideoSelection" aria-live="polite" hidden></span></div>
                     </div>
+                    <label for="sharingMaterialUrl">Tautan materi <span class="sharing-optional">(opsional)</span></label>
+                    <input id="sharingMaterialUrl" name="url" type="url" maxlength="2000" placeholder="https://… (video, artikel, dokumen, atau podcast)" />
+                    <small class="sharing-resource-help">Sertakan tautan agar rekan lain bisa membuka materi. Video yang diunggah hanya tersimpan di browser ini.</small>
                     <label for="sharingMaterialSummary">Ringkasan dan manfaat</label>
                     <textarea id="sharingMaterialSummary" name="summary" rows="3" maxlength="320" placeholder="Jelaskan isi materi dan siapa yang dapat memakainya." required></textarea>
                      <button class="sharing-submit" type="submit"><svg class="icon"><use href="#icon-share" /></svg> Submit</button>
@@ -442,6 +445,7 @@
         <div><p class="eyebrow">RUANG BELAJAR</p><h2 id="learningDialogTitle">Materi Learning</h2></div>
         <button class="dialog-close" id="learningDialogClose" type="button" aria-label="Tutup materi">×</button>
       </div>
+      <div class="learning-dialog-body">
       <div class="learning-dialog-scroll" id="learningLessonContent"></div>
       <form id="learningQuizForm" class="learning-quiz-form">
         <fieldset id="learningQuiz" class="learning-quiz"></fieldset>
@@ -449,6 +453,7 @@
         <p class="learning-feedback" id="learningFeedback" role="status" aria-live="polite">Pilih jawaban kuis dan konfirmasi materi untuk menyelesaikan Learning.</p>
         <button class="learning-complete-button" id="completeLearningButton" type="submit" disabled>Selesaikan Learning</button>
       </form>
+      </div>
     </dialog>
 
     <dialog class="learning-dialog learning-admin-dialog" id="learningAdminDialog" aria-labelledby="learnAdminDialogTitle">

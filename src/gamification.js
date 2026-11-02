@@ -624,6 +624,7 @@ export function submitSharingMaterial(currentState, material, options = {}) {
   if (title.length > 100 || summary.length > 320) {
     throw new Error('Judul atau ringkasan materi melebihi batas karakter.');
   }
+  if (url.length > 2000) throw new Error('Tautan materi maksimal 2000 karakter.');
   if (!SHARING_TYPES.has(type)) {
     throw new Error('Jenis materi Sharing tidak dikenal.');
   }
@@ -669,7 +670,7 @@ export function submitSharingMaterial(currentState, material, options = {}) {
       && Number(submission.attachment.size) === attachment.size;
   });
   const submission = {
-    id: `${state.clockMs}-${state.sharingSubmissions.length}`,
+    id: options.submissionId ?? `${state.clockMs}-${state.sharingSubmissions.length}`,
     title,
     type,
     url: parsedUrl?.toString() ?? '',

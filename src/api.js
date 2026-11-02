@@ -53,6 +53,10 @@ export async function apiSaveState(treeState) {
   });
 }
 
+export async function apiAction(action, id) {
+  return request('/api/actions', { method: 'POST', body: JSON.stringify({ action, id }) });
+}
+
 // Perpustakaan lintas-akun: bentukan menyerupai {account, submission} agar
 // komponen render lama tetap dipakai tanpa perubahan besar.
 export async function apiLibrary() {

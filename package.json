@@ -2,6 +2,9 @@
   "name": "kms-knowledge-garden-prototype",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
@@ -10,12 +13,13 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
-    "vite": "^8.0.0",
-    "vitest": "^5.0.2",
+    "@electric-sql/pglite": "^0.5.14",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
     "wrangler": "^4.153.0"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.15.3",
+    "@neondatabase/serverless": "^1.2.0",
     "hono": "^4.10.9"
   }
 }

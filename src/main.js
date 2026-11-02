@@ -1,5 +1,8 @@
 import './styles.css';
+import { normalizeLearningQuiz, safeResourceUrl } from './learning-model.js';
+import { createActionQueue } from './state-sync.js';
 import {
+  apiAction,
   apiAdminAccounts,
   apiAdminActivity,
   apiAdminCondition,
@@ -15,17 +18,14 @@ import {
   apiRegister,
   apiLearning,
   apiLibrary,
-  apiLoadState,
   apiLogout,
   apiMe,
   apiReport,
-  apiSaveState,
 } from './api.js';
 import {
   DEFAULT_GAMIFICATION_SETTINGS,
   advanceDemoDays,
   addDemoResource,
-  applyActivity,
   applyCare,
   applyDemoBoost,
   applyDemoLevelBoost,
@@ -350,41 +350,12 @@ function setMobileMenuOpen(isOpen) {
 
 setMobileMenuOpen(false);
 
-function saveState(replayFn = null) {
-  if (!currentAccount || !state) return;
+let serverActionQueue = null;
+let demoToolsEnabled = false;
 
-  // State disinkronkan ke backend; local state tetap sumber render. Server
-  // membalas dengan revisi terbaru supaya PUT berikutnya memakai revisi itu.
-  const adoptRevision = (saved) => {
-    const rev = Number(saved?.treeState?.stateRev ?? NaN);
-    if (Number.isFinite(rev)) state.stateRev = rev;
-  };
-
-  apiSaveState(state).then((saved) => {
-    adoptRevision(saved);
-  }).catch(async (error) => {
-    if (error?.status !== 409) {
-      showToast(error?.message || 'Pohon gagal tersimpan ke server.', 'notice');
-      return;
-    }
-
-    // Tab basi: keputusan admin (atau aksi sesi lain) tersimpan lebih dulu
-    // sehingga PUT ini tidak boleh menimpanya. Ambil state server terbaru,
-    // jalankan ulang aksi lokal di atasnya, lalu simpan sekali lagi.
-    try {
-      const fresh = await apiLoadState();
-      state = tickState(fresh.treeState ?? state);
-      if (typeof replayFn === 'function') {
-        const result = replayFn();
-        if (result?.state) state = result.state;
-      }
-      adoptRevision(await apiSaveState(state));
-      render(true);
-      showToast('Pohon diperbarui dari server; keputusan admin terbaru ikut diambil.', 'notice');
-    } catch {
-      showToast('Pohon gagal tersinkron dengan server; muat ulang halaman.', 'notice');
-    }
-  });
+function saveState(action = { type: 'sync' }) {
+  if (!currentAccount || !state || !serverActionQueue) return Promise.resolve(null);
+  return serverActionQueue.enqueue(action);
 }
 
 function setAuthMessage(message, tone = 'notice') {
@@ -400,34 +371,43 @@ function applyServerSettings(settings) {
   return normalized;
 }
 
-function enterApp(account, treeState = null, awardLogin = false, settings = null) {
+function enterApp(account, treeState = null, awardLogin = false, settings = null, demoEnabled = false) {
+  serverActionQueue?.cancel();
   currentAccount = account;
+  demoToolsEnabled = demoEnabled === true;
+  document.querySelectorAll('.demo-details, #advanceWeekButton, #boostLevelButton, #lowerLevelButton, #healthyButton').forEach((element) => { element.hidden = !demoToolsEnabled; });
   applyServerSettings(settings);
   state = tickState(treeState ?? createInitialState());
   let loginRewarded = false;
-  if (awardLogin) {
-    const airBeforeLogin = state.air;
-    state = applyActivity(state, 'access');
-    loginRewarded = state.air > airBeforeLogin;
-  }
+  serverActionQueue = createActionQueue({
+    send: apiAction,
+    apply: (result) => {
+      const previousLevel = state.level;
+      const previousCondition = getTreeCondition(state);
+      if (result.settings) applyServerSettings(result.settings);
+      state = tickState(result.treeState);
+      render(true, previousLevel, previousCondition);
+    },
+    onError: (error) => showToast(error?.message || 'Tindakan belum tersimpan. Coba lagi.', 'notice'),
+  });
   elements.currentUserName.textContent = account.name;
   elements.userAvatar.textContent = account.name.trim().charAt(0).toLocaleUpperCase('id-ID');
   applySidebarRole();
   elements.authScreen.hidden = true;
   elements.appShell.hidden = false;
-  saveState();
+  saveState({ type: awardLogin ? 'access' : 'sync' }).then((saved) => {
+    if (!saved || !awardLogin) return;
+    loginRewarded = saved.rewarded === true;
+    showToast(loginRewarded ? `Login valid: +${getGamificationSettings().activityRewards.access} Air masuk Storage.` : 'Login valid. Reward Air hari ini sudah diterima.');
+  });
   render();
   navigateToPage(pageFromLocationHash(), false);
   refreshLearningCatalog();
-  if (awardLogin) {
-    const accessAir = getGamificationSettings().activityRewards.access;
-    showToast(loginRewarded
-      ? `Login valid: +${accessAir} Air masuk Storage. Gunakan Air pada pohon untuk menambah progres.`
-      : 'Login valid. Reward Air hari ini sudah diterima; tidak ada Air tambahan.');
-  }
 }
 
 function leaveApp(message = '') {
+  serverActionQueue?.cancel();
+  serverActionQueue = null;
   sharingQueueRenderId += 1;
   clearSharingVideoPreviews();
   apiLogout().catch(() => {
@@ -805,7 +785,7 @@ function makeSvgIcon(symbolId, className = 'icon') {
 function refreshLearningCatalog() {
   apiLearning()
     .then((modules) => {
-      if (Array.isArray(modules) && modules.length > 0) {
+      if (Array.isArray(modules)) {
         learningModules = modules;
       }
       renderRewardLabels();
@@ -818,8 +798,9 @@ function refreshLearningCatalog() {
 }
 
 function renderLearningCatalog() {
-  elements.learningProgressCount.textContent = `${state.completedLearningIds.length} / ${learningModules.length} selesai`;
-  elements.learningProgressCount.setAttribute('aria-label', `${state.completedLearningIds.length} dari ${learningModules.length} modul tuntas`);
+  const completedCount = learningModules.filter((module) => state.completedLearningIds.includes(module.id)).length;
+  elements.learningProgressCount.textContent = `${completedCount} / ${learningModules.length} selesai`;
+  elements.learningProgressCount.setAttribute('aria-label', `${completedCount} dari ${learningModules.length} modul tuntas`);
   elements.learningModuleCount.textContent = `${learningModules.length} materi`;
   elements.learningCatalog.replaceChildren();
 
@@ -1392,9 +1373,10 @@ function renderAdminTab() {
 
 function renderAdminReview() {
   const renderId = ++adminReviewRenderId;
+  if (currentRole() !== 'admin') return;
   apiAdminAccounts()
     .then(({ accounts, activityWeek }) => {
-      if (renderId !== adminReviewRenderId) return;
+      if (renderId !== adminReviewRenderId || currentRole() !== 'admin') return;
       latestAdminAccounts = accounts;
       latestActivityWeek = activityWeek ?? [];
       buildAdminStats(accounts);
@@ -1402,7 +1384,7 @@ function renderAdminReview() {
       renderAdminTab();
     })
     .catch((error) => {
-      if (renderId !== adminReviewRenderId) return;
+      if (renderId !== adminReviewRenderId || currentRole() !== 'admin') return;
       adminActivityRequestId += 1;
       latestAdminAccounts = [];
       latestActivityWeek = [];
@@ -1414,7 +1396,11 @@ function renderAdminReview() {
       elements.adminActivityList.replaceChildren();
       elements.adminActivityCount.textContent = 'Aktivitas gagal dimuat.';
       elements.adminActivityPagination.hidden = true;
-      elements.adminReviewList.append(makeElement('div', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.'));
+      const errorRow = makeElement('tr', 'admin-review-empty-row');
+      const errorCell = makeElement('td', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.');
+      errorCell.colSpan = 5;
+      errorRow.append(errorCell);
+      elements.adminReviewList.append(errorRow);
       elements.adminActivityList.append(makeElement('li', 'admin-review-empty', error?.message || 'Konsol admin gagal dimuat dari server.'));
     });
 }
@@ -1538,7 +1524,7 @@ function openLearningAdminDialog(mode, moduleId = null) {
     elements.learnFieldSections.value = (module.sections ?? [])
       .map((section) => [section.heading, ...(section.paragraphs ?? [])].filter(Boolean).join(' | '))
       .join('\n');
-    elements.learnFieldQuiz.value = (module.quiz ?? []).map((item) => {
+    elements.learnFieldQuiz.value = normalizeLearningQuiz(module.quiz).map((item) => {
       const lines = [item.prompt];
       (item.answers ?? []).forEach((answer, index) => {
         lines.push(`${Number(item.correctAnswer) === index ? '*' : '-'} ${answer}`);
@@ -2259,7 +2245,6 @@ async function applyAdminCondition(button) {
   // Admin yang memutuskan kontennya sendiri: tampilkan pemberitahuannya segera.
   if (result.ownerState && result.owner?.email === currentAccount?.email) {
     state = tickState(result.ownerState);
-    saveState();
   }
 
   renderAdminReview();
@@ -2665,8 +2650,7 @@ function toggleNotifyPanel(open) {
   if (shouldOpen && state) {
     const notifications = state.notifications ?? [];
     if (notifications.some((entry) => !entry.read)) {
-      state.notifications = notifications.map((entry) => ({ ...entry, read: true }));
-      saveState();
+      saveState({ type: 'notifications.read', data: { ids: notifications.map((entry) => entry.id) } });
       renderNotifications();
     }
   }
@@ -2889,24 +2873,34 @@ function showToast(message, tone = 'success') {
   toastTimer = window.setTimeout(() => toast.remove(), 3200);
 }
 
-function updateWith(nextState, message, tone = 'success', { animateTree = true, replay = null } = {}) {
-  const previousLevel = state.level;
-  const previousCondition = getTreeCondition(state);
-  state = nextState;
-  saveState(replay);
-  render(animateTree, previousLevel, previousCondition);
-  if (message) showToast(message, tone);
+function updateWith(nextState, message, tone = 'success', { action = { type: 'sync' } } = {}) {
+  // nextState remains a local preview for messages/animation decisions only.
+  // Never persist it: the server calculates and returns the authoritative state.
+  return saveState(action).then((result) => {
+    if (!result) return null;
+    if (result.applied === false || result.awarded === false) {
+      const reasons = {
+        'progress-full': 'Progres resource ini sudah penuh. Saldo tetap di Storage sampai kebutuhan pasangannya terpenuhi.',
+        'tree-not-ready': 'Buah hanya dapat dipindahkan ke pohon sehat mulai Level 3. Buah tetap di Storage.',
+        'not-completed': 'Pelajari dan selesaikan materi sebelum memberi rating.',
+        'already-completed': 'Materi ini sudah selesai; reward tidak diberikan dua kali.',
+        'already-rated': 'Rating materi ini sudah tersimpan; reward tidak diberikan dua kali.',
+      };
+      showToast(reasons[result.reason] ?? 'Tindakan belum dapat diterapkan. Periksa saldo Storage dan kondisi pohon.', 'notice');
+    } else if (message) showToast(message, tone);
+    return result;
+  });
 }
 
 function updateLearningQuizState() {
   if (!activeLearningModule) return;
 
-  const selectedAnswer = elements.learningQuiz.querySelector('input[name="learningAnswer"]:checked');
-  const answerIsCorrect = Number(selectedAnswer?.value) === activeLearningModule.quiz.correctAnswer;
+  const answers = activeLearningModule.quiz.map((item, index) => elements.learningQuiz.querySelector(`input[name="learningAnswer-${index}"]:checked`));
+  const answerIsCorrect = answers.every((answer, index) => answer && Number(answer.value) === activeLearningModule.quiz[index].correctAnswer);
   const materialWasRead = elements.learningReadCheck.checked;
   elements.completeLearningButton.disabled = !answerIsCorrect || !materialWasRead;
 
-  if (selectedAnswer && !answerIsCorrect) {
+  if (answers.some((answer, index) => answer && Number(answer.value) !== activeLearningModule.quiz[index].correctAnswer)) {
     elements.learningFeedback.textContent = 'Jawaban belum tepat. Tinjau materi, lalu coba lagi.';
     elements.learningFeedback.className = 'learning-feedback is-error';
   } else if (answerIsCorrect && materialWasRead) {
@@ -2929,7 +2923,7 @@ function openLearningModule(moduleId) {
   }
   if (!module || state.completedLearningIds.includes(moduleId)) return;
 
-  activeLearningModule = module;
+  activeLearningModule = { ...module, quiz: normalizeLearningQuiz(module.quiz) };
   elements.learningDialogTitle.textContent = module.title;
   elements.learningLessonContent.replaceChildren();
   elements.learningLessonContent.append(makeElement('p', 'learning-lesson-intro', module.description));
@@ -2943,30 +2937,38 @@ function openLearningModule(moduleId) {
 
   const resource = document.createElement('a');
   resource.className = 'learning-resource-link';
-  resource.href = module.resourceUrl;
+  resource.href = safeResourceUrl(module.resourceUrl);
   resource.target = '_blank';
   resource.rel = 'noreferrer';
   resource.textContent = module.resourceLabel;
-  elements.learningLessonContent.append(resource);
+  if (safeResourceUrl(module.resourceUrl)) elements.learningLessonContent.append(resource);
 
   elements.learningQuiz.replaceChildren();
-  elements.learningQuiz.append(makeElement('legend', '', module.quiz.prompt));
-  module.quiz.answers.forEach((answer, index) => {
-    const answerId = `learning-answer-${module.id}-${index}`;
-    const label = makeElement('label', 'learning-answer');
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'learningAnswer';
-    input.value = String(index);
-    input.id = answerId;
-    label.htmlFor = answerId;
-    label.append(input, makeElement('span', '', answer));
-    elements.learningQuiz.append(label);
+  elements.learningQuiz.hidden = activeLearningModule.quiz.length === 0;
+  elements.learningQuiz.append(makeElement('legend', '', 'Kuis pemahaman'));
+  activeLearningModule.quiz.forEach((question, questionIndex) => {
+    const group = makeElement('fieldset', 'learning-question');
+    group.append(makeElement('legend', '', question.prompt));
+    question.answers.forEach((answer, index) => {
+      const answerId = `learning-answer-${module.id}-${questionIndex}-${index}`;
+      const label = makeElement('label', 'learning-answer');
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = `learningAnswer-${questionIndex}`;
+      input.value = String(index);
+      input.id = answerId;
+      label.htmlFor = answerId;
+      label.append(input, makeElement('span', '', answer));
+      group.append(label);
+    });
+    elements.learningQuiz.append(group);
   });
 
   elements.learningReadCheck.checked = false;
   elements.completeLearningButton.disabled = true;
-  elements.learningFeedback.textContent = 'Pilih jawaban kuis dan konfirmasi materi untuk menyelesaikan Learning.';
+  elements.learningFeedback.textContent = activeLearningModule.quiz.length
+    ? 'Pilih jawaban kuis dan konfirmasi materi untuk menyelesaikan Learning.'
+    : 'Baca materi lalu tandai konfirmasi untuk menyelesaikan Learning.';
   elements.learningFeedback.className = 'learning-feedback';
   elements.learningDialog.showModal();
 }
@@ -3023,11 +3025,11 @@ for (const [form, register] of [[elements.loginForm, false], [document.querySele
     form.setAttribute('aria-busy', 'true');
     setAuthMessage('');
     try {
-      const { account, treeState, settings } = await (register ? apiRegister(data) : apiLogin(data));
+      const { account, treeState, settings, demoEnabled } = await (register ? apiRegister(data) : apiLogin(data));
       elements.loginForm.reset();
       document.querySelector('#registerForm').reset();
       setAuthMode(false);
-      enterApp(account, treeState, true, settings);
+      enterApp(account, treeState, true, settings, demoEnabled);
       if (register) showToast('Akun dan kebun baru berhasil dibuat. Selamat menanam!', 'success');
     } catch (error) {
       setAuthMessage(error.message || 'Tidak dapat menghubungi server. Coba lagi.', 'error');
@@ -3129,14 +3131,21 @@ elements.learningCatalog.addEventListener('change', (event) => {
 
 elements.learningQuizForm.addEventListener('change', updateLearningQuizState);
 elements.learningReadCheck.addEventListener('change', updateLearningQuizState);
-elements.learningQuizForm.addEventListener('submit', (event) => {
+elements.learningQuizForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!activeLearningModule || elements.completeLearningButton.disabled) return;
 
   const result = completeLearningModule(state, activeLearningModule.id, { title: activeLearningModule.title });
+  const action = { type: 'learning.complete', data: {
+    moduleId: activeLearningModule.id, read: elements.learningReadCheck.checked,
+    answers: activeLearningModule.quiz.map((item, index) => Number(elements.learningQuiz.querySelector(`input[name="learningAnswer-${index}"]:checked`)?.value)),
+  } };
+  elements.completeLearningButton.disabled = true;
+  let saved = null;
   if (result.awarded) {
-    updateWith(result.state, `Learning selesai: ${activeLearningModule.title}. +${formatPupukDisplay(getGamificationSettings().learningRewardFertilizerUnits)} Pupuk masuk Storage; gunakan pada pohon untuk menambah progres.`);
+    saved = await updateWith(result.state, `Learning selesai: ${activeLearningModule.title}. +${formatPupukDisplay(getGamificationSettings().learningRewardFertilizerUnits)} Pupuk masuk Storage; gunakan pada pohon untuk menambah progres.`, 'success', { action });
   }
+  if (!saved) { updateLearningQuizState(); return; }
   elements.learningDialog.close();
   activeLearningModule = null;
 });
@@ -3155,35 +3164,49 @@ elements.learningCatalog.addEventListener('submit', (event) => {
     return;
   }
 
-  updateWith(result.state, `Rating ${rating}/5 tersimpan. +${getGamificationSettings().learningRatingAir} Air masuk Storage; gunakan pada pohon untuk menambah progres.`);
+  updateWith(result.state, `Rating ${rating}/5 tersimpan. +${getGamificationSettings().learningRatingAir} Air masuk Storage; gunakan pada pohon untuk menambah progres.`, 'success', { action: { type: 'learning.rate', data: { moduleId: module.id, rating } } });
 });
 
 elements.sharingForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const submitButton = elements.sharingForm.querySelector('[type="submit"]');
+  if (submitButton.disabled) return;
   const formData = new FormData(elements.sharingForm);
   const videoFile = elements.sharingVideoFile.files?.[0];
-
+  const accountEmail = currentAccount?.email;
+  submitButton.disabled = true;
   try {
-    const result = submitSharingMaterial(state, {
+    const material = {
       title: String(formData.get('title')),
       type: String(formData.get('type')),
+      url: String(formData.get('url') ?? ''),
       attachment: videoFile ? { name: videoFile.name, type: videoFile.type, size: videoFile.size } : null,
       summary: String(formData.get('summary')),
-    });
+    };
+    // Validate before sending; IDs, timestamps and status are assigned by server.
+    submitSharingMaterial(state, material);
+    const result = await saveState({ type: 'sharing', data: material });
+    if (!result?.submission) return;
+    let videoStored = true;
     if (videoFile) {
-      await saveSharingVideo(currentAccount.email, result.submission.id, videoFile);
+      try { await saveSharingVideo(accountEmail, result.submission.id, videoFile); }
+      catch { videoStored = false; }
     }
+    if (currentAccount?.email !== accountEmail) return;
+    if (videoFile) renderSharingQueue();
     elements.sharingForm.reset();
     renderSelectedVideo();
     const message = result.submission.status === 'duplicate'
       ? 'Materi ini sudah pernah dikirim. Sharing ditandai duplikat tanpa reward.'
       : 'Materi Sharing masuk antrean validasi demo.';
-    updateWith(result.state, message, result.submission.status === 'duplicate' ? 'notice' : 'success');
+    showToast(videoStored ? message : 'Materi tersimpan, tetapi salinan video lokal gagal disimpan. Gunakan tautan materi untuk berbagi video.', !videoStored || result.submission.status === 'duplicate' ? 'notice' : 'success');
   } catch (error) {
     const message = error?.name === 'QuotaExceededError'
       ? 'Penyimpanan browser penuh. Hapus video lama atau pilih video yang lebih kecil.'
       : error?.message || 'Video gagal disimpan di browser ini. Coba lagi dengan video yang lebih kecil.';
     showToast(message, 'notice');
+  } finally {
+    submitButton.disabled = false;
   }
 });
 
@@ -3413,36 +3436,33 @@ function playCareAnimation(resourceType) {
 function careForTree(resourceType) {
   const result = applyCare(state, resourceType);
   const resourceName = { air: 'Air', fertilizer: 'Pupuk', fruit: 'Buah' }[resourceType];
-  // Replay: bila PUT tertolak (tab basi), aksi yang sama dijalankan ulang
-  // di atas state server terbaru agar perawatan/pindah buah tidak hilang.
-  const replay = () => applyCare(state, resourceType);
+  const action = { type: 'care', data: { resource: resourceType } };
 
   if (result.applied) {
     if (resourceType === 'fruit') {
-      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon — menggantung di slot kontennya. Progres dan perawatan tidak berubah.', 'success', { animateTree: false, replay });
+      updateWith(result.state, '1 Buah dipindahkan dari Storage ke pohon — menggantung di slot kontennya. Progres dan perawatan tidak berubah.', 'success', { action });
       return;
     }
 
-    const levelChanged = result.state.level !== state.level;
     const effect = result.progressApplied
       ? 'Progres dan perawatan pohon bertambah.'
       : 'Perawatan pulih; progres level sudah penuh.';
-    updateWith(result.state, `Pohon menerima 1 ${resourceName} dari Storage. ${effect}`, 'success', { animateTree: levelChanged, replay });
+    updateWith(result.state, `Pohon menerima 1 ${resourceName} dari Storage. ${effect}`, 'success', { action });
     playCareAnimation(resourceType);
     return;
   }
 
   if (result.reason === 'progress-full') {
-    updateWith(result.state, `Progres ${resourceName} sudah penuh. Saldo ${resourceName} tetap di Storage hingga progres pasangannya terpenuhi.`, 'notice', { animateTree: false, replay });
+    updateWith(result.state, `Progres ${resourceName} sudah penuh. Saldo ${resourceName} tetap di Storage hingga progres pasangannya terpenuhi.`, 'notice', { action });
     return;
   }
 
   if (result.reason === 'tree-not-ready') {
-    updateWith(result.state, 'Buah hanya dapat dipindahkan ke pohon yang sehat mulai Level 3. Buah tetap di Storage.', 'notice', { animateTree: false, replay });
+    updateWith(result.state, 'Buah hanya dapat dipindahkan ke pohon yang sehat mulai Level 3. Buah tetap di Storage.', 'notice', { action });
     return;
   }
 
-  updateWith(result.state, `Saldo ${resourceName} di Storage tidak cukup.`, 'notice', { animateTree: false, replay });
+  updateWith(result.state, `Saldo ${resourceName} di Storage tidak cukup.`, 'notice', { action });
 }
 
 let careDragButton = null;
@@ -3568,7 +3588,6 @@ window.addEventListener('pointercancel', cancelCareDrag);
 window.addEventListener('blur', cancelCareDrag);
 
 elements.advanceWeekButton.addEventListener('click', () => {
-  const previousLevel = state.level;
   const previousCondition = getTreeCondition(state);
   const previousGrowthAir = state.growthAir;
   const previousGrowthFertilizerUnits = state.growthFertilizerUnits;
@@ -3582,32 +3601,29 @@ elements.advanceWeekButton.addEventListener('click', () => {
   if (lostGrowthFertilizer > 0) progressChanges.push(`Pupuk −${formatPupuk(lostGrowthFertilizer)}`);
   const previousConditionLabel = CONDITION_LABELS[previousCondition].title;
   const nextConditionLabel = CONDITION_LABELS[getTreeCondition(nextState)].title;
-  state = nextState;
-  saveState();
-  render(true, previousLevel, previousCondition);
   const message = decayApplied
     ? `Simulasi +7 hari: progres ${progressChanges.length ? progressChanges.join(' · ') : 'sudah minimum'}; ${previousConditionLabel} → ${nextConditionLabel}. Storage dan level tetap.`
     : 'Simulasi maju 7 hari; decay belum diterapkan.';
-  showToast(message, 'notice');
+  updateWith(nextState, message, 'notice', { action: { type: 'demo.advance' } });
 });
 
 elements.testYellowButton.addEventListener('click', () => {
   const nextState = simulateDemoTreeCondition(state, 'thirsty');
   updateWith(nextState, 'Uji demo: kondisi pohon menguning diterapkan.', 'notice', {
-    replay: () => simulateDemoTreeCondition(state, 'thirsty'),
+    action: { type: 'demo.condition', data: { condition: 'thirsty' } },
   });
 });
 
 elements.testDeadButton.addEventListener('click', () => {
   const nextState = simulateDemoTreeCondition(state, 'dead');
   updateWith(nextState, 'Uji demo: kondisi pohon mati diterapkan.', 'notice', {
-    replay: () => simulateDemoTreeCondition(state, 'dead'),
+    action: { type: 'demo.condition', data: { condition: 'dead' } },
   });
 });
 
 elements.boostButton.addEventListener('click', () => {
   const nextState = applyDemoBoost(state);
-  updateWith(nextState, 'Boost demo: resource ditambahkan ke Storage; gunakan Air/Pupuk pada pohon untuk mengisi progres.', 'notice');
+  updateWith(nextState, 'Boost demo: resource ditambahkan ke Storage; gunakan Air/Pupuk pada pohon untuk mengisi progres.', 'notice', { action: { type: 'demo.boost' } });
 });
 
 elements.boostLevelButton.addEventListener('click', () => {
@@ -3619,6 +3635,7 @@ elements.boostLevelButton.addEventListener('click', () => {
       ? `Boost level: pohon naik ke Level ${nextState.level}.`
       : 'Boost level: pohon sudah maksimal; perawatan dipulihkan.',
     'notice',
+    { action: { type: 'demo.level-up' } },
   );
 });
 
@@ -3631,6 +3648,7 @@ elements.lowerLevelButton.addEventListener('click', () => {
       ? `Turun level: pohon kembali ke Level ${nextState.level}.`
       : 'Turun level: pohon sudah paling awal.',
     'notice',
+    { action: { type: 'demo.level-down' } },
   );
 });
 
@@ -3641,6 +3659,7 @@ elements.healthyButton.addEventListener('click', () => {
     nextState,
     wasHealthy ? 'Pohon sudah sehat; perawatan dipulihkan.' : 'Demo: pohon dipulihkan menjadi sehat.',
     'notice',
+    { action: { type: 'demo.condition', data: { condition: 'healthy' } } },
   );
 });
 
@@ -3659,7 +3678,7 @@ elements.demoResourceForm.addEventListener('submit', (event) => {
     const message = fruitMovedToTree
       ? `Demo: +${amountLabel} Buah ditambahkan dan ditampilkan di pohon sehat.`
       : `Demo: +${amountLabel} ${resourceLabel} ditambahkan ke Storage.`;
-    updateWith(nextState, message, 'notice');
+    updateWith(nextState, message, 'notice', { action: { type: 'demo.resource', data: { resource: resourceType, amount } } });
   } catch (error) {
     showToast(error.message, 'notice');
   }
@@ -3669,10 +3688,7 @@ elements.resetButton.addEventListener('click', () => {
   const reset = window.confirm('Reset pohon dan seluruh riwayat demo?');
   if (!reset) return;
 
-  state = createInitialState();
-  saveState();
-  render(true);
-  showToast('Pohon demo kembali ke Level 0.', 'notice');
+  updateWith(null, 'Pohon demo kembali ke Level 0.', 'notice', { action: { type: 'demo.reset' } });
 });
 
 async function initialize() {
@@ -3689,8 +3705,8 @@ async function initialize() {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 15000);
   try {
-    const { account, treeState, settings } = await apiMe({ signal: controller.signal });
-    enterApp(account, treeState, false, settings);
+    const { account, treeState, settings, demoEnabled } = await apiMe({ signal: controller.signal });
+    enterApp(account, treeState, false, settings, demoEnabled);
     loading.hidden = true;
   } catch (error) {
     if (error?.status === 401) {
@@ -3714,9 +3730,6 @@ window.setInterval(() => {
   const previousCondition = getTreeCondition(state);
   const nextState = tickState(state);
   if (nextState.clockMs !== state.clockMs || getTreeCondition(nextState) !== previousCondition) {
-    const previousLevel = state.level;
-    state = nextState;
     saveState();
-    render(true, previousLevel, previousCondition);
   }
 }, 60_000);

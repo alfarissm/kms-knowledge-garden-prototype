@@ -21,7 +21,7 @@ function setup() {
     throw new Error(`Unexpected test SQL: ${query}`);
   };
   const app = makeApp(() => sql);
-  const post = (route, body) => app.request(`/api/auth/${route}`, {
+  const post = (route, body, origin = 'http://localhost') => app.request(`${origin}/api/auth/${route}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
   });
   return { users, sessions, post };
@@ -29,6 +29,13 @@ function setup() {
 const details = { name: 'Kebun Test', email: 'test@example.com', password: 'secret123', confirmPassword: 'secret123' };
 
 describe('separate registration and login', () => {
+  it('sets Secure on HTTPS cookies without breaking local HTTP development', async () => {
+    const https = await setup().post('register', details, 'https://garden.example');
+    expect(https.headers.get('set-cookie')).toContain('Secure');
+    expect(https.headers.get('set-cookie')).toContain('HttpOnly');
+    const http = await setup().post('register', details);
+    expect(http.headers.get('set-cookie')).not.toContain('Secure');
+  });
   it('registers a normal user, hashes the password and starts an HttpOnly session', async () => {
     const { post, users, sessions } = setup();
     const response = await post('register', details);

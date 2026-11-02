@@ -1,6 +1,6 @@
 # Kebunku — Prototipe KMS Knowledge Garden 🌱
 
-Prototipe sistem manajemen pengetahuan (KMS) bergamifikasi: setiap pengguna merawat sebuah **pohon apel**. Konten yang di-ACC menjadi **buah** yang dipetik ke **Storage**, konten basi jatuh ke tanah, dan konten tidak relevan diangkat hilang.
+Prototipe sistem manajemen pengetahuan (KMS) bergamifikasi: setiap pengguna merawat sebuah **pohon apel**. Setiap konten yang di-ACC menghasilkan satu **buah** unik di **Storage**, yang dapat dipindahkan ke pohon sehat mulai Level 3. Konten basi membuat buah rebah di tanah; konten tidak relevan mengosongkan slotnya.
 
 Demo tayang: **https://kms-knowledge-garden-prototype.testtry.workers.dev**
 
@@ -17,7 +17,7 @@ Satu Worker melayani semuanya: `/api/*` dieksekusi `server/index.js`, sisanya fi
 
 ## Prasyarat
 
-- **Node.js ≥ 20**
+- **Node.js 22.12+** (rekomendasi LTS; minimum alternatif: Node 20.19+)
 - Akun [Neon](https://neon.tech) gratis (database sendiri)
 - Akun [Cloudflare](https://dash.cloudflare.com) — hanya jika ingin deploy sendiri
 
@@ -99,4 +99,19 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
 
 - Kredensial (`DATABASE_URL`) **tidak pernah** disimpan di repo — hanya `secret` Cloudflare atau `.dev.vars` lokal.
 - Semua data (akun, pohon, konten) berada di database masing-masing; kloning kode ≠ kloning data.
-- Gunakan Node versi 20+ atau baru untuk kompatibilitas Wrangler dan `apply-schema`.
+- Gunakan Node 22.12+ (atau 20.19+) untuk kompatibilitas Vite dan Wrangler.
+
+## Penyimpanan aman dan mode demo
+
+- Browser mengirim tindakan ke `POST /api/actions`; server menghitung saldo,
+  level, reward dan hasil kuis. `PUT /api/state` lama ditolak agar snapshot
+  browser tidak dapat mengubah keputusan admin.
+- Penulisan pohon memakai revisi atomik; setiap tindakan memiliki ID untuk
+  mencegah reward/submit ganda saat request diulang karena gangguan jaringan.
+- Kontrol boost/reset/simulasi **nonaktif secara default**. Untuk pengujian lokal
+  saja, tambahkan `ALLOW_DEMO_TOOLS=true` di `.dev.vars`. Jangan aktifkan di
+  deployment publik dengan data sungguhan.
+- Sharing menyediakan tautan HTTP/HTTPS untuk dipelajari lintas akun. Video
+  unggahan masih berupa salinan lokal browser, bukan upload server; sertakan
+  tautan video agar pengguna lain dapat menontonnya.
+- Admin terakhir tidak dapat dihapus atau diturunkan menjadi user.

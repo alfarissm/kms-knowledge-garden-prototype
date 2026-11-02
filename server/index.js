@@ -15,6 +15,9 @@ import {
   SHARING_REPORT_REASONS,
 } from '../src/gamification.js';
 import { LEARNING_MODULES } from '../src/learning-catalog.js';
+import { normalizeLearningQuiz, safeResourceUrl } from '../src/learning-model.js';
+import { applyUserAction } from './user-actions.js';
+import { HTTPException } from 'hono/http-exception';
 
 const SESSION_COOKIE = 'kg_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -67,13 +70,9 @@ function publicUser(row) {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: row.role ?? resolveRoleForEmail(row.email),
+    role: row.role ?? 'user',
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
-}
-
-function resolveRoleForEmail(email) {
-  return String(email ?? '').toLowerCase().startsWith('admin@') ? 'admin' : 'user';
 }
 
 function clampInt(value, fallback, min, max) {
@@ -125,9 +124,9 @@ function toLearningModule(row) {
     duration: row.duration ?? '',
     description: row.description ?? '',
     resourceLabel: row.resource_label ?? '',
-    resourceUrl: row.resource_url ?? '',
+    resourceUrl: safeResourceUrl(row.resource_url),
     sections: Array.isArray(row.sections) ? row.sections : [],
-    quiz: Array.isArray(row.quiz) ? row.quiz : [],
+    quiz: normalizeLearningQuiz(row.quiz),
     active: row.active === undefined ? true : Boolean(row.active),
     orderIndex: row.order_index ?? 0,
   };
@@ -146,23 +145,13 @@ function normalizeLearningSections(input) {
     .slice(0, 8);
 }
 
-function normalizeLearningQuiz(input) {
-  if (!Array.isArray(input)) return [];
-  return input
-    .filter((item) => item && typeof item.prompt === 'string' && item.prompt.trim())
-    .slice(0, 6)
-    .map((item) => {
-      const answers = Array.isArray(item.answers)
-        ? item.answers.map((answer) => String(answer ?? '').trim()).filter(Boolean)
-        : [];
-      const correct = clampInt(item.correctAnswer, 0, 0, Math.max(answers.length - 1, 0));
-      return { prompt: item.prompt.trim(), answers, correctAnswer: correct };
-    })
-    .filter((item) => item.prompt && item.answers.length > 0);
-}
-
 export function makeApp(createSql) {
   const app = new Hono();
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) return c.json({ error: error.message }, error.status);
+    console.error(error);
+    return c.json({ error: 'Server belum dapat memproses permintaan.' }, 500);
+  });
 
   const getUserForToken = async (token) => {
     if (!token) return null;
@@ -188,7 +177,7 @@ export function makeApp(createSql) {
   const requireAdmin = async (c) => {
     const user = await requireUser(c);
     if (!user) return null;
-    if ((user.role ?? resolveRoleForEmail(user.email)) !== 'admin') {
+    if (user.role !== 'admin') {
       c.status(403);
       return null;
     }
@@ -203,6 +192,7 @@ export function makeApp(createSql) {
     `;
     setCookie(c, SESSION_COOKIE, token, {
       httpOnly: true,
+      secure: new URL(c.req.url).protocol === 'https:',
       sameSite: 'Lax',
       path: '/',
       maxAge: Math.floor(SESSION_TTL_MS / 1000),
@@ -218,14 +208,25 @@ export function makeApp(createSql) {
   };
 
   const saveState = async (userId, payload) => {
-    // Setiap penulisan menaikkan revisi: klien basi terdeteksi via stateRev.
-    payload.stateRev = Number(payload?.stateRev ?? 0) + 1;
-    await createSql()`
+    const expectedRev = Number(payload?.stateRev ?? 0);
+    const next = { ...payload, stateRev: expectedRev + 1 };
+    // Atomic compare-and-swap. Also used by review/report/reset, not only users.
+    const rows = await createSql()`
       INSERT INTO tree_states (user_id, payload, updated_at)
-      VALUES (${userId}, ${JSON.stringify(payload)}::jsonb, now())
+      VALUES (${userId}, ${JSON.stringify(next)}::jsonb, now())
       ON CONFLICT (user_id)
       DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()
+      WHERE COALESCE((tree_states.payload->>'stateRev')::bigint, 0) = ${expectedRev}
+      RETURNING payload
     `;
+    if (!rows[0]) throw new HTTPException(409, { message: 'Data sudah berubah. Coba lagi dengan data terbaru.' });
+    payload.stateRev = next.stateRev;
+    return payload;
+  };
+
+  const loadLearning = async () => {
+    const rows = await createSql()`SELECT * FROM learning_modules ORDER BY order_index, title`;
+    return (rows.length > 0 ? rows : FALLBACK_LEARNING_MODULES).map(toLearningModule);
   };
 
   // Mencari satu konten Sharing lintas-akun di dalam payload JSON.
@@ -305,6 +306,7 @@ export function makeApp(createSql) {
       account: { ...publicUser(userRow), isNew: register },
       treeState,
       settings,
+      demoEnabled: c.env?.ALLOW_DEMO_TOOLS === 'true',
     });
   };
   app.post('/api/auth/login', authenticate(false));
@@ -326,7 +328,7 @@ export function makeApp(createSql) {
     if (!user) return c.json({ error: 'Belum masuk.' }, 401);
     const treeState = await loadState(user.id);
     const settings = await loadSettings();
-    return c.json({ account: publicUser(user), treeState, settings });
+    return c.json({ account: publicUser(user), treeState, settings, demoEnabled: c.env?.ALLOW_DEMO_TOOLS === 'true' });
   });
 
   app.get('/api/settings', async (c) => {
@@ -356,29 +358,42 @@ export function makeApp(createSql) {
   app.put('/api/state', async (c) => {
     const user = await requireUser(c);
     if (!user) return c.json({ error: 'Belum masuk.' }, 401);
+    // Old clients must refresh instead of overwriting server-owned decisions.
+    return c.json({ error: 'Penyimpanan snapshot tidak didukung. Muat ulang halaman untuk memakai versi terbaru.' }, 400);
+  });
+
+  app.post('/api/actions', async (c) => {
+    const user = await requireUser(c);
+    if (!user) return c.json({ error: 'Belum masuk.' }, 401);
     const body = await c.req.json().catch(() => null);
-    const payload = body?.treeState;
-    if (!payload || typeof payload !== 'object' || !Number.isFinite(payload.clockMs)) {
-      return c.json({ error: 'Pohon tidak valid.' }, 400);
+    const id = body?.id;
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{8,80}$/.test(id) || !body.action || typeof body.action.type !== 'string' || body.treeState) {
+      return c.json({ error: 'Tindakan tidak valid.' }, 400);
     }
-
-    // Guard tab basi: klien harus menimpa dengan revisi yang masih terbaru,
-    // kalau tidak keputusan admin (atau aksi sesi lain) akan tersapu.
-    // Karve-out legacy: baris yang ditulis sebelum guard belum membawa
-    // stateRev — terima tulisan pertamanya agar tidak 409 selamanya; revisi
-    // mulai terbentuk sejak tulisan itu.
-    const current = await loadState(user.id);
-    const hasServerRev = Number.isFinite(Number(current?.stateRev));
-    const incomingRev = Number.isFinite(Number(payload.stateRev)) ? Number(payload.stateRev) : null;
-    if (hasServerRev && incomingRev !== Number(current.stateRev)) {
-      return c.json({
-        error: 'Pohon sudah berubah di server; data terbaru diambil otomatis.',
-        treeState: current,
-      }, 409);
+    const settings = await loadSettings();
+    const modules = body.action.type?.startsWith('learning.') ? await loadLearning() : [];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const current = await loadState(user.id);
+      const recent = Array.isArray(current?.recentActions) ? current.recentActions : [];
+      const previous = recent.find((entry) => entry.id === id);
+      if (previous) return c.json({ ok: true, replayed: true, treeState: current, settings,
+        submission: current.sharingSubmissions?.find((item) => item.id === previous.submissionId) });
+      let result;
+      try {
+        result = applyUserAction(current, body.action, { modules, demoEnabled: c.env?.ALLOW_DEMO_TOOLS === 'true' });
+      } catch (error) {
+        return c.json({ error: error.message || 'Tindakan tidak valid.' }, 400);
+      }
+      result.state.recentActions = [...recent, { id, submissionId: result.submission?.id }].slice(-100);
+      try {
+        await saveState(user.id, result.state);
+        const { state: treeState, ...details } = result;
+        return c.json({ ok: true, ...details, treeState, settings });
+      } catch (error) {
+        if (!(error instanceof HTTPException) || error.status !== 409) throw error;
+      }
     }
-
-    await saveState(user.id, payload);
-    return c.json({ ok: true, treeState: payload });
+    return c.json({ error: 'Kebun sedang diperbarui. Coba lagi.' }, 409);
   });
 
   // Perpustakaan: konten relevan (ACC) lintas-akun + jumlah laporan.
@@ -405,6 +420,7 @@ export function makeApp(createSql) {
           summary: row.submission.summary ?? '',
           submittedAt: row.submission.submittedAt ?? null,
           reviewedAt: row.submission.reviewedAt ?? null,
+          attachment: row.submission.attachment ?? null,
           reports: Array.isArray(row.submission.reports) ? row.submission.reports : [],
         },
       })),
@@ -574,11 +590,10 @@ export function makeApp(createSql) {
   app.get('/api/learning', async (c) => {
     const user = await requireUser(c);
     if (!user) return c.json({ error: 'Belum masuk.' }, 401);
-    const rows = await createSql()`SELECT * FROM learning_modules ORDER BY order_index, title`;
-    const source = rows.length > 0 ? rows : FALLBACK_LEARNING_MODULES;
-    const includeInactive = (user.role ?? resolveRoleForEmail(user.email)) === 'admin';
+    const source = await loadLearning();
+    const includeInactive = user.role === 'admin';
     return c.json({
-      modules: source.filter((module) => includeInactive || module.active).map(toLearningModule),
+      modules: source.filter((module) => includeInactive || module.active),
     });
   });
 
@@ -588,6 +603,7 @@ export function makeApp(createSql) {
     const body = await c.req.json().catch(() => null);
     const title = String(body?.title ?? '').trim().slice(0, 120);
     if (title.length < 3) return c.json({ error: 'Judul modul minimal 3 karakter.' }, 400);
+    if (body?.resourceUrl && !safeResourceUrl(body.resourceUrl)) return c.json({ error: 'Tautan modul harus menggunakan HTTP atau HTTPS.' }, 400);
 
     const slug = String(body?.id ?? '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/(^-|-$)/g, '');
     const id = (slug || `mod-${Date.now().toString(36)}`).slice(0, 60);
@@ -620,6 +636,7 @@ export function makeApp(createSql) {
     const body = await c.req.json().catch(() => null);
     const id = String(body?.id ?? '');
     if (!id) return c.json({ error: 'Modul tidak dikenal.' }, 400);
+    if (body?.resourceUrl && !safeResourceUrl(body.resourceUrl)) return c.json({ error: 'Tautan modul harus menggunakan HTTP atau HTTPS.' }, 400);
     const rows = await createSql()`SELECT * FROM learning_modules WHERE id = ${id} LIMIT 1`;
     const current = rows[0];
     if (!current) return c.json({ error: 'Modul tidak ditemukan.' }, 404);
@@ -668,9 +685,21 @@ export function makeApp(createSql) {
     const role = String(body?.role ?? '');
     if (!Number.isInteger(userId) || userId <= 0) return c.json({ error: 'Akun tidak dikenal.' }, 400);
     if (!['user', 'admin'].includes(role)) return c.json({ error: 'Peran tidak dikenal.' }, 400);
-    const rows = await createSql()
-      `UPDATE users SET role = ${role} WHERE id = ${userId} RETURNING *`;
-    if (!rows[0]) return c.json({ error: 'Akun tidak ditemukan.' }, 404);
+    const target = await createSql()`SELECT id, role FROM users WHERE id = ${userId} LIMIT 1`;
+    if (!target[0]) return c.json({ error: 'Akun tidak ditemukan.' }, 404);
+    // Lock the same ordered admin set for every role/delete operation. A second
+    // demotion sees the first committed role change instead of a stale count.
+    const rows = await createSql()`
+      WITH locked_admins AS MATERIALIZED (
+        SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE
+      )
+      UPDATE users SET role = ${role}
+      FROM (SELECT count(*) AS total FROM locked_admins) AS guard
+      WHERE users.id = ${userId}
+        AND (${role} = 'admin' OR users.role <> 'admin' OR guard.total > 1)
+      RETURNING users.*
+    `;
+    if (!rows[0]) return c.json({ error: 'Admin terakhir tidak boleh diturunkan perannya.' }, 409);
     return c.json({ ok: true, account: publicUser(rows[0]) });
   });
 
@@ -684,6 +713,9 @@ export function makeApp(createSql) {
     const target = await createSql()`SELECT id, email FROM users WHERE id = ${userId} LIMIT 1`;
     if (!target[0]) return c.json({ error: 'Akun tidak ditemukan.' }, 404);
     const freshState = createInitialState(Date.now());
+    const previousState = await loadState(userId);
+    freshState.stateRev = previousState?.stateRev ?? 0;
+    freshState.recentActions = previousState?.recentActions ?? [];
     appendNotification(
       freshState,
       buildNotification('reset', 'Pohon direset admin', 'Pohon kebunmu direset admin ke Level 0 — mulai tanam ulang dari awal.'),
@@ -702,7 +734,15 @@ export function makeApp(createSql) {
     if (admin.id === userId) return c.json({ error: 'Tidak bisa menghapus akun yang sedang dipakai.' }, 400);
     const target = await createSql()`SELECT id, email FROM users WHERE id = ${userId} LIMIT 1`;
     if (!target[0]) return c.json({ error: 'Akun tidak ditemukan.' }, 404);
-    await createSql()`DELETE FROM users WHERE id = ${userId}`;
+    const deleted = await createSql()`
+      WITH locked_admins AS MATERIALIZED (
+        SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE
+      )
+      DELETE FROM users USING (SELECT count(*) AS total FROM locked_admins) AS guard
+      WHERE users.id = ${userId} AND (users.role <> 'admin' OR guard.total > 1)
+      RETURNING users.id
+    `;
+    if (!deleted[0]) return c.json({ error: 'Admin terakhir tidak boleh dihapus.' }, 409);
     return c.json({ ok: true, owner: { id: target[0].id, email: target[0].email } });
   });
 

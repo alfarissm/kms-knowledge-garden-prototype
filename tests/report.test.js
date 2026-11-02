@@ -11,7 +11,7 @@ function setup(ownerId = 1) {
     const query = strings.join('?').replace(/\s+/g, ' ').trim();
     if (query.startsWith('SELECT u.*, s.token')) return [{ id: 2, email: 'reporter@example.com', role: 'user' }];
     if (query.startsWith('SELECT ts.user_id, ts.payload')) return [{ user_id: ownerId, payload: pending.state }];
-    if (query.startsWith('INSERT INTO tree_states')) { saved = JSON.parse(values[1]); return []; }
+    if (query.startsWith('INSERT INTO tree_states')) { saved = JSON.parse(values[1]); return [{ payload: saved }]; }
     throw new Error(`Unexpected SQL: ${query}`);
   };
   const app = makeApp(() => sql);
