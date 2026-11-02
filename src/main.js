@@ -2324,56 +2324,117 @@ function renderLibrary() {
 
 function buildLibrary(rows) {
   elements.libraryCount.textContent = String(rows.length);
+  closeReviewMenus();
   elements.libraryList.replaceChildren();
 
   if (rows.length === 0) {
-    elements.libraryList.append(makeElement('div', 'library-empty', 'Belum ada konten relevan yang di-ACC. Konten yang lulus review admin dari akun mana pun akan tampil di sini.'));
+    const emptyRow = document.createElement('tr');
+    emptyRow.className = 'admin-review-empty-row';
+    const emptyCell = document.createElement('td');
+    emptyCell.colSpan = 5;
+    emptyCell.className = 'admin-review-empty';
+    emptyCell.textContent = 'Belum ada konten relevan yang di-ACC. Konten yang lulus review admin dari akun mana pun akan tampil di sini.';
+    emptyRow.append(emptyCell);
+    elements.libraryList.append(emptyRow);
     return;
   }
 
   rows.forEach((row) => {
-    const item = makeElement('article', 'library-item');
     const reports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
     const isOwn = currentAccount?.email === row.account.email;
     const alreadyReported = reports.some((report) => report?.by === currentAccount?.email);
+    const tr = document.createElement('tr');
+    tr.className = 'admin-review-row';
 
-    const header = makeElement('div', 'library-item-header');
-    header.append(makeElement('span', 'library-owner', row.account.name));
-    header.append(makeElement('span', 'sharing-status-badge', 'ACC · relevan'));
-    item.append(header);
-
-    item.append(makeElement('h5', '', row.submission.title));
-    item.append(makeElement('div', 'sharing-item-meta', [
-      `${SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type}`,
-      `dikirim ${formatDate(row.submission.submittedAt)}`,
-      reports.length ? `${reports.length} laporan menunggu keputusan admin` : '',
-    ].filter(Boolean).join(' · ')));
-
+    // -- Konten: judul + jenis + ringkasan ringkas + tautan --
+    const contentCell = document.createElement('td');
+    contentCell.className = 'admin-review-content-cell';
+    contentCell.append(makeElement('strong', 'admin-review-title', row.submission.title));
+    contentCell.append(makeElement('div', 'sharing-item-meta', SHARING_TYPE_LABELS[row.submission.type] ?? row.submission.type));
+    if (row.submission.summary) contentCell.append(makeElement('p', 'admin-review-summary', row.submission.summary));
     if (row.submission.url) {
       const link = makeElement('a', 'sharing-material-link', row.submission.url);
       link.href = row.submission.url;
       link.target = '_blank';
       link.rel = 'noreferrer';
-      item.append(link);
-    }
-    if (row.submission.summary) {
-      item.append(makeElement('p', 'sharing-item-summary', row.submission.summary));
+      contentCell.append(link);
     }
 
-    const reportButton = makeElement('button', 'library-report-button', isOwn ? 'Konten milikmu' : (alreadyReported ? 'Sudah kamu laporkan' : 'Laporkan'));
-    reportButton.type = 'button';
-    reportButton.disabled = isOwn || alreadyReported || !currentAccount;
-    if (isOwn) {
-      reportButton.title = 'Tidak bisa melaporkan kontenmu sendiri.';
-    } else if (alreadyReported) {
-      reportButton.title = 'Satu akun satu laporan per konten.';
-    } else if (currentAccount) {
-      reportButton.dataset.libraryEmail = row.account.email;
-      reportButton.dataset.submissionId = row.submission.id;
-      reportButton.title = 'Laporanmu tampil untuk admin; admin yang memutuskan kondisinya.';
+    // -- Pemilik: avatar + nama + email (nilai visual konsol Akun & pohon) --
+    const ownerCell = document.createElement('td');
+    ownerCell.className = 'admin-review-owner-cell';
+    const avatar = makeElement('span', 'admin-account-avatar', (row.account.name || '?').trim().charAt(0).toLocaleUpperCase('id-ID'));
+    const owner = makeElement('div', 'admin-account-info');
+    owner.append(makeElement('strong', '', row.account.name), makeElement('small', '', row.account.email));
+    const ownerLine = makeElement('div', 'admin-account-line');
+    ownerLine.append(avatar, owner);
+    ownerCell.append(ownerLine);
+
+    // -- Status: chip ACC + jumlah laporan yang sudah masuk --
+    const statusCell = document.createElement('td');
+    statusCell.className = 'admin-review-status-cell';
+    statusCell.append(makeElement('span', 'admin-condition-chip is-validated', 'ACC · relevan'));
+    if (reports.length > 0) {
+      statusCell.append(makeElement('span', 'admin-report-badge', `${reports.length} laporan`));
     }
-    item.append(reportButton);
-    elements.libraryList.append(item);
+
+    // -- Dikirim: tanggal kirim + kapan lulus review --
+    const sentCell = document.createElement('td');
+    sentCell.className = 'admin-review-sent-cell';
+    sentCell.append(makeElement('strong', '', formatDate(row.submission.submittedAt)));
+    sentCell.append(makeElement('small', '', row.submission.reviewedAt ? `Diputus ${formatDate(row.submission.reviewedAt)}` : 'Diputus admin'));
+
+    // -- Tindakan: Buka konten sebagai ajuan belajar; laporan jadi opsi kecil --
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'admin-review-actions-cell';
+    const actions = makeElement('div', 'admin-condition-actions');
+    if (row.submission.url) {
+      const openLink = makeElement('a', 'admin-library-open', 'Buka konten');
+      openLink.href = row.submission.url;
+      openLink.target = '_blank';
+      openLink.rel = 'noreferrer';
+      actions.append(openLink);
+    } else if (row.submission.attachment?.name) {
+      actions.append(makeElement('span', 'admin-review-file', row.submission.attachment.name));
+    }
+
+    if (isOwn) {
+      actions.append(makeElement('span', 'library-own-note', 'Konten milikmu'));
+    } else {
+      const wrap = makeElement('div', 'admin-review-kebab-wrap');
+      const trigger = makeElement('button', 'admin-review-kebab admin-library-report', alreadyReported ? 'Sudah dilaporkan' : 'Opsi');
+      trigger.type = 'button';
+      trigger.setAttribute('aria-haspopup', 'menu');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-label', `Opsi untuk konten "${row.submission.title}" dari ${row.account.name}`);
+      trigger.title = alreadyReported ? 'Satu akun satu laporan per konten.' : 'Laporkan jika menurutmu konten ini tidak relevan atau duplikat.';
+      trigger.append(makeElement('span', 'admin-account-manage-caret', '⌄'));
+      const menu = makeElement('div', 'admin-review-menu');
+      menu.setAttribute('role', 'menu');
+      menu.setAttribute('popover', 'manual');
+      menu.setAttribute('aria-label', `Tindakan konten "${row.submission.title}"`);
+      if (!alreadyReported && currentAccount) {
+        const menuItem = makeElement('button', 'admin-row-action action-library-report', 'Laporkan konten');
+        menuItem.type = 'button';
+        menuItem.dataset.libraryEmail = row.account.email;
+        menuItem.dataset.submissionId = row.submission.id;
+        menuItem.setAttribute('role', 'menuitem');
+        menu.append(menuItem);
+      } else {
+        const note = makeElement('span', 'admin-menu-note', alreadyReported ? 'Sudah kamu laporkan' : 'Masuk untuk melaporkan');
+        menu.append(note);
+      }
+      wrap.append(trigger, menu);
+      actions.append(wrap);
+    }
+    actionsCell.append(actions);
+
+    [contentCell, ownerCell, statusCell, sentCell, actionsCell].forEach((cell, index) => {
+      cell.dataset.label = ['Konten', 'Pemilik', 'Status', 'Dikirim', 'Tindakan'][index];
+      tr.append(cell);
+    });
+
+    elements.libraryList.append(tr);
   });
 }
 

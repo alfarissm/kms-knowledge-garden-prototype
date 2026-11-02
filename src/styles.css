@@ -1693,7 +1693,7 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-app .admin-review-table .admin-review-content-cell::before, .admin-app .admin-review-table .admin-review-actions-cell::before { display: none; }
   .admin-app .admin-review-table .admin-review-actions-cell { display: flex; grid-column: 1 / -1; justify-content: space-between; border-top: 1px solid #edf1f6; }
   .admin-app .admin-review-table .admin-condition-actions { flex: 1; align-items: center; gap: 6px; margin: 0; }
-  .admin-app .admin-review-table .admin-condition-button, .admin-app .admin-review-table .admin-content-delete, .admin-app .admin-review-table .admin-content-decide { min-height: 40px; }
+  .admin-app .admin-review-table .admin-condition-button, .admin-app .admin-review-table .admin-content-delete, .admin-app .admin-review-table .admin-content-decide, .admin-app .admin-review-table .admin-library-open, .admin-app .admin-review-table .admin-library-report { min-height: 40px; }
   .admin-app .admin-review-table .admin-review-empty-row td { grid-column: 1 / -1; }
   .admin-app .admin-review-table .sharing-material-link { overflow-wrap: anywhere; white-space: normal; }
   .admin-dashboard-table .admin-accounts-empty td { grid-column: 1 / -1; }
@@ -1768,20 +1768,20 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-activity-when { white-space: normal; text-align: right; }
 }
 
-/* Perpustakaan: konten relevan (ACC) lintas-akun + tombol laporan pengguna. */
+/* Perpustakaan: tabel dengan bahasa visual konsol Akun & pohon (memakai kelas bersama)
+   — ajuan utamanya belajar (Buka konten), laporan menjadi opsi kecil. */
 .library-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; }
-.library-count-badge { display: inline-flex; min-width: 22px; justify-content: center; padding: 4px 9px; border-radius: 999px; color: #fff; background: linear-gradient(100deg, #189790, #1d64ad); font-size: 10px; font-weight: 800; }
 .library-count-label { color: #7f93a9; font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+.admin-app .library-count-badge { min-width: 26px; padding: 5px 11px; font-size: 12px; color: #fff; background: linear-gradient(100deg, #189790, #1d64ad); }
+.admin-app .library-count-label { font-size: 10.5px; color: #5f7896; }
 .library-pill { color: #5b6d84; background: #eef4f9; }
-.library-list { display: grid; gap: 9px; max-height: 640px; overflow-y: auto; padding-right: 2px; }
-.library-empty { padding: 28px 4px; color: #8b9db2; font-size: 9.5px; text-align: center; }
-.library-item { min-width: 0; padding: 11px; border: 1px solid #e2ebf3; border-radius: 11px; background: #fff; }
-.library-item-header { display: flex; align-items: center; gap: 7px; }
-.library-owner { color: #2c5b86; font-size: 8.5px; font-weight: 800; }
-.library-item h5 { margin: 4px 0 0; color: #36577f; font-size: 10.5px; font-weight: 700; line-height: 1.4; }
-.library-report-button { min-height: 27px; margin-top: 8px; padding: 0 10px; border: 1px solid #eec9c4; border-radius: 8px; color: #a63d33; background: #fdf4f2; font-size: 7.5px; font-weight: 800; letter-spacing: .3px; cursor: pointer; }
-.library-report-button:hover:enabled { transform: translateY(-1px); }
-.library-report-button:disabled { cursor: default; opacity: .55; border-color: #e3e8ee; color: #7d8fa4; background: #f6f9fb; }
+.admin-app .library-pill { padding: 6px 12px; font-size: 10.5px; font-weight: 700; }
+.admin-app .admin-review-table .admin-library-open { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 34px; padding: 6px 13px; border: 1px solid #1d64ad; border-radius: 8px; color: #fff; background: #1d64ad; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; text-decoration: none; cursor: pointer; }
+.admin-app .admin-review-table .admin-library-open:hover { background: #185897; }
+.admin-app .admin-review-kebab.admin-library-report { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #d8e3ef; border-radius: 8px; color: #395a7b; background: #fff; font: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.admin-review-menu [role="menuitem"].action-library-report { color: #a15c24; }
+.admin-menu-note { display: block; padding: 10px 12px; color: #71859b; font-size: 11px; font-weight: 700; }
+.library-own-note { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; color: #5d7286; background: #eef4fa; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
 
 /* Buah basi rebah busuk di bawah pohon + penanda kelebihan buah di tanah. */
 .fruit-ground-lying { transform-box: fill-box; transform-origin: center; filter: saturate(.92); }
@@ -1794,7 +1794,6 @@ body { color: #294b7d; background: #f0f3f7; }
   .admin-charts-grid { grid-template-columns: 1fr; }
   .admin-accounts-scroll { max-height: 420px; }
   .admin-activity-list { max-height: 420px; }
-  .library-list { max-height: 420px; }
 }
 .learning-dialog { display: flex; width: min(660px, calc(100vw - 28px)); max-width: none; max-height: min(90vh, 850px); flex-direction: column; padding: 21px; border: 1px solid #d7e5f2; border-radius: 17px; color: #35577f; background: #fff; box-shadow: 0 25px 80px rgba(35, 68, 122, .24); }
 .learning-dialog:not([open]) { display: none; }
