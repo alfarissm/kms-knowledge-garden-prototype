@@ -40,9 +40,9 @@ export function memoryApp({ modules = [], state, users: seedUsers } = {}) {
       states.delete(user.id);
       return [{ id: user.id }];
     }
-    if (q.startsWith('SELECT u.name AS owner_name')) {
+    if (q.startsWith('SELECT u.id AS owner_id, u.name AS owner_name')) {
       return users.flatMap((user) => (states.get(user.id)?.sharingSubmissions ?? []).filter((item) => item.status === 'validated')
-        .map((submission) => ({ owner_name: user.name, owner_email: user.email, submission: copy(submission) })));
+        .map((submission) => ({ owner_id: user.id, owner_name: user.name, submission: copy(submission) })));
     }
     if (q.startsWith('SELECT ts.user_id, ts.payload')) {
       const id = JSON.parse(values[0])[0].id;

@@ -751,7 +751,7 @@ h1, h2 { color: #214b82; }
 .progress-hud-bars .progress-label strong { font-size: 9px; white-space: nowrap; }
 .progress-hud-bars .progress-track { height: 7px; }
 .progress-hint { display: block; margin-top: 7px; color: #6d839a; font-size: 7px; text-align: center; }
-.tree-care-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.tree-care-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 10px; }
 .tree-care-row .decay-info { width: auto; flex: 0 0 auto; margin-top: 0; }
 .tree-care-row .inline-time-button { flex: 0 0 auto; margin-top: 0; }
 

@@ -401,7 +401,7 @@ export function makeApp(createSql) {
     const user = await requireUser(c);
     if (!user) return c.json({ error: 'Belum masuk.' }, 401);
     const rows = await createSql()`
-      SELECT u.name AS owner_name, u.email AS owner_email, j.value AS submission
+      SELECT u.id AS owner_id, u.name AS owner_name, j.value AS submission
       FROM tree_states ts
       JOIN users u ON u.id = ts.user_id
       CROSS JOIN LATERAL jsonb_array_elements(ts.payload->'sharingSubmissions') AS j(value)
@@ -411,7 +411,9 @@ export function makeApp(createSql) {
     return c.json({
       items: rows.map((row) => ({
         ownerName: row.owner_name,
-        ownerEmail: row.owner_email,
+        isOwn: row.owner_id === user.id,
+        hasReported: Array.isArray(row.submission.reports) && row.submission.reports.some((report) => report?.by === user.email),
+        reportCount: Array.isArray(row.submission.reports) ? row.submission.reports.length : 0,
         submission: {
           id: row.submission.id,
           title: row.submission.title,
@@ -421,7 +423,6 @@ export function makeApp(createSql) {
           submittedAt: row.submission.submittedAt ?? null,
           reviewedAt: row.submission.reviewedAt ?? null,
           attachment: row.submission.attachment ?? null,
-          reports: Array.isArray(row.submission.reports) ? row.submission.reports : [],
         },
       })),
     });

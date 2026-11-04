@@ -116,6 +116,9 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
 - Browser mengirim tindakan ke `POST /api/actions`; server menghitung saldo,
   level, reward dan hasil kuis. `PUT /api/state` lama ditolak agar snapshot
   browser tidak dapat mengubah keputusan admin.
+- API Perpustakaan mengirim nama kontributor, materi publik, jumlah laporan,
+  serta flag kepemilikan/sudah dilaporkan untuk viewer. Email dan rincian
+  laporan tidak dikirim ke pembaca lain; admin tetap dapat meninjau laporan.
 - Penulisan pohon memakai revisi atomik; setiap tindakan memiliki ID untuk
   mencegah reward/submit ganda saat request diulang karena gangguan jaringan.
 - Kontrol boost/reset/simulasi **aktif di prototype ini** (`ALLOW_DEMO_TOOLS`

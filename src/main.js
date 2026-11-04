@@ -2504,9 +2504,8 @@ function buildLibrary(rows) {
   }
 
   rows.forEach((row) => {
-    const reports = Array.isArray(row.submission.reports) ? row.submission.reports : [];
-    const isOwn = currentAccount?.email === row.account.email;
-    const alreadyReported = reports.some((report) => report?.by === currentAccount?.email);
+    const isOwn = row.isOwn === true;
+    const alreadyReported = row.hasReported === true;
     const item = makeElement('article', 'library-item');
 
     // Materi utama: judul dan isi tidak dipotong seperti baris tabel admin.
@@ -2560,7 +2559,7 @@ function buildLibrary(rows) {
       if (!alreadyReported && currentAccount) {
         const menuItem = makeElement('button', 'admin-row-action action-library-report', 'Laporkan konten');
         menuItem.type = 'button';
-        menuItem.dataset.libraryEmail = row.account.email;
+        menuItem.dataset.libraryReport = '';
         menuItem.dataset.submissionId = row.submission.id;
         menuItem.setAttribute('role', 'menuitem');
         menu.append(menuItem);
@@ -3532,7 +3531,7 @@ elements.libraryList.addEventListener('click', (event) => {
     toggleReviewMenu(trigger);
     return;
   }
-  const reportButton = event.target.closest('[data-library-email][data-submission-id]');
+  const reportButton = event.target.closest('[data-library-report][data-submission-id]');
   if (!reportButton) return;
   closeReviewMenus();
   applyLibraryReport(reportButton);

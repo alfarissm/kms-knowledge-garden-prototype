@@ -57,12 +57,15 @@ export async function apiAction(action, id) {
   return request('/api/actions', { method: 'POST', body: JSON.stringify({ action, id }) });
 }
 
-// Perpustakaan lintas-akun: bentukan menyerupai {account, submission} agar
-// komponen render lama tetap dipakai tanpa perubahan besar.
+// Perpustakaan lintas-akun: nama publik dan flag per viewer, tanpa email atau
+// rincian laporan. Keputusan kepemilikan/pelaporan tetap dihitung server.
 export async function apiLibrary() {
   const data = await request('/api/library');
   return data.items.map((item) => ({
-    account: { name: item.ownerName, email: item.ownerEmail },
+    account: { name: item.ownerName },
+    isOwn: item.isOwn === true,
+    hasReported: item.hasReported === true,
+    reportCount: item.reportCount,
     submission: item.submission,
   }));
 }

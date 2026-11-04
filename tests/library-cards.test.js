@@ -35,8 +35,8 @@ function setup(viewerEmail) {
 }
 
 const rows = [
-  { account: { name: 'Raka', email: 'raka@example.com' }, submission: { id: 'l1', status: 'validated', title: 'belajar problem solving', type: 'video', submittedAt: 1, reviewedAt: 2, summary: 'blablablabla', url: 'https://youtu.be/x', reports: [{ by: 'budi@example.com' }] } },
-  { account: { name: 'Budi', email: 'budi@example.com' }, submission: { id: 'l2', status: 'validated', title: 'materi lampiran', type: 'article', submittedAt: 3, summary: 'ringkas', attachment: { name: 'materi.pdf' } } },
+  { account: { name: 'Raka' }, isOwn: false, hasReported: false, reportCount: 1, submission: { id: 'l1', status: 'validated', title: 'belajar problem solving', type: 'video', submittedAt: 1, reviewedAt: 2, summary: 'blablablabla', url: 'https://youtu.be/x' } },
+  { account: { name: 'Budi' }, isOwn: false, hasReported: false, reportCount: 0, submission: { id: 'l2', status: 'validated', title: 'materi lampiran', type: 'article', submittedAt: 3, summary: 'ringkas', attachment: { name: 'materi.pdf' } } },
 ];
 
 it('renders learning cards, not administrative table rows', () => {
@@ -64,13 +64,14 @@ it('prioritises learning with an open action before the report option', () => {
   const item = menu.children[0];
   expect(item.textContent).toBe('Laporkan konten');
   expect(item.dataset.submissionId).toBe('l1');
-  expect(item.dataset.libraryEmail).toBe('raka@example.com');
+  expect(item.dataset.libraryReport).toBe('');
+  expect(item.dataset).not.toHaveProperty('libraryEmail');
   expect(item.attributes.role).toBe('menuitem');
 });
 
 it('blocks reporting your own content with a plain note', () => {
   const { build, tbody } = setup('raka@example.com');
-  build(rows);
+  build([{ ...rows[0], isOwn: true }]);
   const actions = tbody.children[0].children[0].children;
   expect(actions[1].className).toBe('library-own-note');
   expect(actions[1].textContent).toBe('Konten milikmu');
@@ -90,7 +91,7 @@ it('shows an attachment instead of an open link when there is no url', () => {
 
 it('shows the already reported state without a menu item', () => {
   const { build, tbody } = setup('budi@example.com');
-  build(rows);
+  build([{ ...rows[0], hasReported: true }]);
   const actions = tbody.children[0].children[0].children;
   const trigger = actions[1].children[0];
   expect(trigger.textContent).toBe('⋮');
