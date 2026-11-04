@@ -229,15 +229,25 @@
             <p class="content-status-footnote">Buah merah = konten ACC · buah cokelat di tanah = konten basi · slot kosong = konten tidak relevan/duplikat.</p>
             <details class="fruit-status-guide">
               <summary>Panduan status konten &amp; buah</summary>
-              <dl class="fruit-status-guide-list">
-                <div><dt>Menunggu review</dt><dd>Konten sedang ditinjau admin. Belum ada buah atau reward ACC.</dd></div>
-                <div><dt>ACC / relevan</dt><dd>Satu konten menghasilkan satu buah merah di Storage. Pindahkan ke pohon yang sehat mulai Level 3 agar terlihat menggantung.</dd></div>
-                <div><dt>Basi</dt><dd>Buah menjadi cokelat busuk dan rebah di tanah dekat batang sebagai arsip konten. Buah rebah terlihat mulai Level 3.</dd></div>
-                <div><dt>Tidak relevan</dt><dd>Buah diangkat dari kebun. Slotnya kosong; bukan berubah menjadi buah kuning.</dd></div>
-                <div><dt>Duplikat</dt><dd>Buah konten duplikat diangkat. Slotnya kosong, sedangkan buah konten asli tetap ada.</dd></div>
-              </dl>
-              <p>Setiap buah punya slot tetap—buah lain tidak bergeser saat ada slot kosong. Jika konten di-ACC ulang, buah aktif kembali dengan slot semula, tanpa reward Air/Pupuk kedua kali.</p>
-              <p>Jika pohon menguning atau mati, buah yang menggantung kembali ke Storage. Sehatkan pohon untuk memindahkannya lagi; buah basi tetap menjadi arsip di tanah.</p>
+              <p class="fruit-guide-scroll-hint" id="fruitGuideScrollHint">Geser tabel ke samping untuk melihat semua kolom.</p>
+              <div class="fruit-guide-table-scroll" role="region" aria-label="Tabel panduan status konten dan buah" aria-describedby="fruitGuideScrollHint" tabindex="0">
+                <table class="fruit-guide-table">
+                  <caption class="sr-only">Arti status konten Sharing, warna buah, dan posisi buah di kebun.</caption>
+                  <thead><tr><th scope="col">Status konten</th><th scope="col">Warna / kondisi buah</th><th scope="col">Posisi buah</th><th scope="col">Artinya</th></tr></thead>
+                  <tbody>
+                    <tr><th scope="row">Menunggu review</th><td><span class="fruit-guide-color"><span class="fruit-guide-swatch is-empty" aria-hidden="true"></span>Belum ada buah</span></td><td>Belum tersedia</td><td>Admin sedang meninjau konten. Belum ada buah atau reward ACC.</td></tr>
+                    <tr><th scope="row">ACC / relevan</th><td><span class="fruit-guide-color"><span class="fruit-guide-swatch is-ripe" aria-hidden="true"></span>Merah matang</span></td><td>Storage → pohon sehat<br><strong>Level 3+</strong></td><td>Satu konten ACC menghasilkan satu buah. Pindahkan dari Storage agar menggantung di pohon.</td></tr>
+                    <tr><th scope="row">Basi</th><td><span class="fruit-guide-color"><span class="fruit-guide-swatch is-rotten" aria-hidden="true"></span>Cokelat busuk</span></td><td>Rebah di tanah<br><strong>Level 3+</strong></td><td>Buah menjadi arsip konten basi di dekat batang, bukan lagi menggantung.</td></tr>
+                    <tr><th scope="row">Tidak relevan</th><td><span class="fruit-guide-color"><span class="fruit-guide-swatch is-empty" aria-hidden="true"></span>Diangkat / tidak ada</span></td><td>Slot kosong</td><td>Buah diangkat dari kebun. Bukan berubah menjadi buah kuning.</td></tr>
+                    <tr><th scope="row">Duplikat</th><td><span class="fruit-guide-color"><span class="fruit-guide-swatch is-empty" aria-hidden="true"></span>Diangkat / tidak ada</span></td><td>Slot kosong</td><td>Buah konten duplikat diangkat. Buah konten asli tetap ada.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul class="fruit-guide-notes">
+                <li><strong>Slot tetap.</strong> Buah lain tidak bergeser saat ada slot kosong.</li>
+                <li><strong>ACC ulang.</strong> Buah aktif kembali dengan slot semula, tanpa reward Air/Pupuk kedua kali.</li>
+                <li><strong>Pohon menguning atau mati.</strong> Buah yang menggantung kembali ke Storage. Sehatkan pohon untuk memindahkannya lagi; buah basi tetap di tanah.</li>
+              </ul>
             </details>
           </article>
 
