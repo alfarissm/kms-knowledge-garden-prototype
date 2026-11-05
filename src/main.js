@@ -198,9 +198,9 @@ const elements = {
 
 const STAGE_SHORT_NAMES = ['Tanah', 'Bibit', 'Daun', 'Berbuah', 'Besar', 'Kiri', 'Kanan', 'Penuh'];
 const CONDITION_LABELS = {
-  healthy: { title: 'Healthy', detail: 'Air dan Pupuk tersedia', className: 'is-healthy' },
-  thirsty: { title: 'Thirsty · Menguning', detail: 'Air habis · pohon perlu dipulihkan', className: 'is-thirsty' },
-  dead: { title: 'Mati · Merah', detail: 'Pupuk habis · pohon perlu dipulihkan', className: 'is-dead' },
+  healthy: { title: 'Healthy', detail: 'Air perawatan masih tersedia', className: 'is-healthy' },
+  thirsty: { title: 'Thirsty · Menguning', detail: 'Air perawatan habis · Pupuk masih ada', className: 'is-thirsty' },
+  dead: { title: 'Mati · Merah', detail: 'Air dan Pupuk perawatan habis · pohon perlu dipulihkan', className: 'is-dead' },
 };
 const PAGE_LABELS = {
   tree: 'Pohon',

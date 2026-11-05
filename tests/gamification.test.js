@@ -399,7 +399,8 @@ describe('gamification prototype logic', () => {
     expect(getTreeCondition(dead)).toBe('dead');
     expect(watered.applied).toBe(true);
     expect(watered.progressApplied).toBe(false);
-    expect(getTreeCondition(watered.state)).toBe('dead');
+    expect(getTreeCondition(watered.state)).toBe('healthy');
+    expect(watered.state.careFertilizerUnits).toBe(0);
     expect(fertilized.applied).toBe(true);
     expect(fertilized.progressApplied).toBe(false);
     expect(getTreeCondition(fertilized.state)).toBe('healthy');

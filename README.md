@@ -113,6 +113,10 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
 
 ## Penyimpanan aman dan mode demo
 
+- Kondisi pohon memakai nilai perawatan, bukan saldo Storage: Air habis dengan
+  Pupuk tersisa → menguning; Air dan Pupuk sama-sama habis → mati.
+  Pupuk habis sendirian tidak mematikan pohon jika Air masih ada.
+
 - Browser mengirim tindakan ke `POST /api/actions`; server menghitung saldo,
   level, reward dan hasil kuis. `PUT /api/state` lama ditolak agar snapshot
   browser tidak dapat mengubah keputusan admin.
@@ -129,3 +133,15 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
   unggahan masih berupa salinan lokal browser, bukan upload server; sertakan
   tautan video agar pengguna lain dapat menontonnya.
 - Admin terakhir tidak dapat dihapus atau diturunkan menjadi user.
+
+## Simulator pohon terpisah
+
+Source simulator kini ada di [`simulator-pohon/`](simulator-pohon/README.md) dalam
+repo yang sama, dengan Worker dan deployment terpisah. Simulator tidak memakai
+akun, API KMS, atau database Neon.
+
+- KMS: https://kms-knowledge-garden-prototype.testtry.workers.dev
+- Simulator: https://kebunku-tree-simulator.testtry.workers.dev
+- Dari folder `simulator-pohon/`, jalankan `npm ci`, `npm test`, lalu
+  `npm run deploy` untuk merilis simulator saja.
+- `npm run deploy` dari root repo tetap hanya merilis KMS.

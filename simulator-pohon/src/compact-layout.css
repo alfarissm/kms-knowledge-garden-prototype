@@ -1,0 +1,74 @@
+/* Progressive disclosure: one action group at a time, rules on request. */
+.site-header { min-height: 66px; padding-top: 14px; padding-bottom: 14px; }
+main { padding-top: 20px; }
+.page-heading { margin-bottom: 18px; }
+.page-heading h1 { font-size: 26px; margin: 0; letter-spacing: -.7px; }
+.workspace { grid-template-columns: minmax(0,1.6fr) minmax(320px,1fr); align-items: start; gap: 20px; }
+.garden-heading { padding: 18px 22px; }
+.garden-heading h2 { margin: 0; font-size: 18px; }
+.scene { height: 350px; min-height: 350px; flex: 0 0 350px; }
+.scene-caption { display: none; }
+.progress-section { padding: 18px 22px; }
+.storage-section { padding: 16px 22px; }
+.storage-item { padding: 10px 14px; }
+.storage-item dd { font-size: 24px; }
+.controls-panel { display: block; padding: 20px; }
+.controls-heading h2 { margin: 0 0 16px; font-size: 18px; }
+.control-tabs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px; padding: 4px; border-radius: 10px; background: #f0f3ec; margin-bottom: 18px; }
+.control-tabs button { min-width: 0; min-height: 42px; padding: 8px 5px; border: 0; border-radius: 7px; color: #697e61; background: transparent; font-size: 12px; font-weight: 600; }
+.control-tabs button[aria-selected="true"] { background: white; box-shadow: 0 2px 6px #23451c0c; color: #285e3d; }
+.control-page { min-width: 0; }
+.action-caption { font-size: 12px; color: #738268; line-height: 1.6; margin-bottom: 12px; }
+.care-actions { grid-template-columns: 1fr; gap: 10px; }
+.care-actions .action-button { flex-direction: row; justify-content: space-between; align-items: center; min-height: 64px; padding: 16px; }
+.care-actions .action-button strong { font-size: 14px; }
+.care-actions .action-button > span { margin: 0; font-size: 11px; }
+.control-page .button-grid:not(.care-actions) .action-button { min-height: 70px; }
+.demo-subheading { margin: 20px 0 10px; font-size: 11px; font-weight: 600; color: #728368; }
+.demo-subheading:first-child { margin-top: 0; }
+.content-toolbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px; color: #728368; font-size: 10px; margin-bottom: 12px; }
+.controls-panel .content-list { grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 190px; }
+.controls-panel .content-chip { padding: 10px; gap: 4px; }
+.controls-panel .selected-content { margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid #e5ebdf; font-size: 11px; }
+.feedback { margin-top: 18px; min-height: 44px; padding: 11px 12px; font-size: 12px; background: #f4f7ef; border-color: #e2eada; }
+.compact-disclosure { padding: 0; margin-top: 14px; box-shadow: none; background: #fff; }
+.compact-disclosure > summary { padding: 17px 22px; font-size: 13px; font-weight: 700; color: #446241; cursor: pointer; }
+.compact-disclosure > summary > span { margin-left: 12px; color: #85917b; font-weight: 400; font-size: 11px; }
+.compact-disclosure > summary:focus-visible { outline-offset: -4px; border-radius: 12px; }
+.compact-disclosure[open] > summary { border-bottom: 1px solid #e5eadf; }
+.disclosure-body { padding: 18px 22px; }
+.history-list { margin-top: 0; }
+.history-list li:first-child { border-top: 0; }
+footer { padding-top: 16px; }
+@media (max-width: 950px) {
+  .workspace { grid-template-columns: minmax(0,1.4fr) minmax(290px,1fr); gap: 16px; }
+  .garden-heading { padding: 16px; }
+  .garden-heading h2 { font-size: 16px; }
+  .controls-panel { padding: 16px; }
+  .scene { min-height: 300px; height: 300px; flex-basis: 300px; }
+  .progress-section,.storage-section { padding: 16px; }
+  .care-strip > span:last-child { flex-basis: 100%; margin-left: 0; }
+}
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: minmax(0,1fr); }
+  .garden-heading h2 { font-size: 18px; }
+  .scene { height: 285px; min-height: 285px; flex-basis: 285px; }
+  .page-heading { flex-direction: row; align-items: center; gap: 10px; }
+  .page-heading h1 { font-size: 23px; }
+  .control-tabs button { font-size: 12px; }
+  .compact-disclosure > summary { padding: 15px 16px; }
+  .compact-disclosure > summary > span { display: none; }
+  .disclosure-body { padding: 16px; }
+}
+@media (max-width: 480px) {
+  .brand-sub,.brand-divider { display: none; }
+  .site-header { flex-wrap: nowrap; }
+  .sandbox-badge { font-size: 10px; }
+  .page-heading h1 { font-size: 21px; }
+  .page-heading > .button { padding: 8px 11px; }
+  .garden-heading h2 { font-size: 16px; }
+  .scene { height: 245px; min-height: 245px; flex-basis: 245px; }
+  .storage-item { padding: 10px; }
+  .care-strip { font-size: 10px; }
+  .control-tabs button { font-size: 11px; }
+}

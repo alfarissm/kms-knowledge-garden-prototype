@@ -274,7 +274,7 @@ export function getTreeCondition(state) {
   const careAir = state.careAir ?? state.air;
   const careFertilizerUnits = state.careFertilizerUnits ?? state.fertilizerUnits;
 
-  if (careFertilizerUnits <= 0) {
+  if (careAir <= 0 && careFertilizerUnits <= 0) {
     return 'dead';
   }
 
