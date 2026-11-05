@@ -110,3 +110,20 @@ Screenshot: `standalone-tree-desktop.png` dan `standalone-tree-mobile.png`.
   tersisa kuning; saat keduanya nol mati. Storage dan Level 3 tidak berubah.
 - Tidak ada reset/migrasi state akun produksi. Akun lama mengikuti nilai
   perawatannya sendiri, bukan dipaksa memakai nilai contoh L3.
+
+## Dua sudut pandang — 5 November 2026
+
+- Pengguna dan Admin dipisahkan dengan tombol sudut pandang yang menjaga state.
+- Pengguna memiliki Rawat/Aktivitas/Konten saya tanpa keputusan admin.
+- Admin memiliki pilihan konten dan keputusan, tanpa tombol aktivitas user.
+- Alat demo dipindahkan ke disclosure terpisah; aturan/riwayat tetap tertutup.
+- Guard UI menolak pemanggilan tombol role lain; ini simulasi, bukan autentikasi.
+- Handoff Sharing → Admin → ACC → Storage pengguna diuji dengan klik browser.
+- Flow step, badge antrean, keputusan ulang, slot buah, dan +7 hari tetap bekerja.
+- Di HP admin melihat review dahulu; pengguna melihat pohon dahulu.
+- 47 tes simulator lulus. 114 cek browser lokal lulus termasuk kedua role,
+  semua tab aturan, kontrol demo, dan viewport 320/390/680/900/1024/1440 px.
+- 155 tes aplikasi utama tetap lulus; tidak ada perubahan source KMS utama.
+- Bukti: `qa-tree-roles.mjs` dan `qa-tree-roles-results.json` di folder temporary
+  OpenCode. Screenshot admin: `tree-roles-admin-desktop.png` dan
+  `tree-roles-admin-mobile.png`.

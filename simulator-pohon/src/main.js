@@ -3,12 +3,16 @@ import './compact-layout.css';
 import { LEVELS, STAGES, getNextLevelRequirement, getTreeCondition, getFruitView } from './engine/gamification.js';
 import { makeTreeSvg } from './engine/tree-svg.js';
 import { createSimulation, performAction, canLogin } from './simulation.js';
+import { ADMIN_ACTIONS, DEMO_ACTIONS, isActionAllowed } from './roles.js';
 
 const $ = (selector) => document.querySelector(selector);
 const fmt = (value) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(value);
 const names = { healthy: 'Sehat', thirsty: 'Menguning', dead: 'Mati' };
 const statuses = { pending: 'Menunggu review', validated: 'ACC / relevan', stale: 'Basi', rejected: 'Tidak relevan', duplicate: 'Duplikat' };
 let sim = performAction(createSimulation(), 'example').sim;
+let viewRole = 'user';
+let userTab = 'care';
+let flowStep = '4';
 
 function element(tag, cls, text) {
   const node = document.createElement(tag); node.className = cls; node.textContent = text; return node;
@@ -25,6 +29,9 @@ function updateBar(id, value, max) {
 function renderContents() {
   const list = $('#contentList'); list.replaceChildren();
   $('#contentCount').textContent = `${sim.state.sharingSubmissions.length} konten`;
+  const pending = sim.state.sharingSubmissions.filter(item => item.status === 'pending').length;
+  $('#pendingCount').textContent = pending;
+  $('button[data-view-role="admin"]').setAttribute('aria-label', `Sisi admin, ${pending} konten menunggu review`);
   $('#contentEmpty').hidden = sim.state.sharingSubmissions.length > 0;
   for (const content of [...sim.state.sharingSubmissions].reverse()) {
     const button = element('button', `content-chip ${content.status}`, '');
@@ -36,6 +43,8 @@ function renderContents() {
     list.append(button);
   }
   const selected = sim.state.sharingSubmissions.find(x => x.id === sim.selectedId);
+  $('#reviewAsAdmin').hidden = viewRole !== 'user' || selected?.status !== 'pending';
+  $('#returnToUser').hidden = viewRole !== 'admin' || !selected || selected.status === 'pending';
   $('#selectedContent').textContent = selected ? `${selected.title} · ${statuses[selected.status]}` : 'Belum ada konten dipilih';
   for (const action of ['acc','stale','rejected','duplicate']) {
     disabled(action, !selected || (action === 'stale' && !sim.state.fruitLedger.some(x => x.submissionId === sim.selectedId)), !selected ? 'Pilih konten terlebih dahulu.' : '');
@@ -69,6 +78,9 @@ function render() {
 }
 function run(action) {
   try {
+    if (!isActionAllowed(viewRole, action, $('#demoDisclosure').open)) {
+      throw new Error(ADMIN_ACTIONS.includes(action) ? 'Keputusan konten ada di sisi Admin.' : 'Aksi ini ada di sisi Pengguna atau Alat demo.');
+    }
     const previous = sim.state;
     const result = performAction(sim,action); sim = result.sim;
     render();
@@ -86,7 +98,16 @@ function run(action) {
     };
     $('#feedback').textContent = result.tone === 'notice' ? result.message : (brief[action] || result.message);
     $('#feedback').dataset.tone = result.tone;
-    if (['share','example','reset'].includes(action)) activateControl(action==='share'?'content':'care');
+    if (DEMO_ACTIONS.includes(action)) $('#demoFeedback').textContent = $('#feedback').textContent;
+    if (action==='share') flowStep='2';
+    else if (action==='acc' && sim.state.air>previous.air) flowStep='3';
+    else if (action.startsWith('care-') || action==='example') flowStep='4';
+    else if (action==='reset') flowStep='1';
+    if (['share','example','reset'].includes(action)) {
+      userTab=action==='share'?'content':'care';
+      activateControl(viewRole==='admin'?'content':userTab);
+    }
+    renderFlow();
   } catch (error) { $('#feedback').textContent = error.message; $('#feedback').dataset.tone = 'notice'; }
 }
 document.addEventListener('click',(event) => {
@@ -112,13 +133,41 @@ $('#confirmReset').addEventListener('click',()=>{ run('reset'); $('#resetConfirm
 
 const controlTabs=[...document.querySelectorAll('[data-control-tab]')];
 function activateControl(name, focus=false) {
+  if (viewRole==='admin') name='content';
+  else userTab=name;
   for (const tab of controlTabs) {
     const selected=tab.dataset.controlTab===name;
     tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1;
     $(`#actions-${tab.dataset.controlTab}`).hidden=!selected;
     if(selected && focus)tab.focus();
   }
+  const contentPanel=$('#actions-content');
+  contentPanel.setAttribute('role',viewRole==='admin'?'region':'tabpanel');
+  contentPanel.setAttribute('aria-labelledby',viewRole==='admin'?'controlsTitle':'control-content');
 }
+function renderFlow() {
+  for (const step of document.querySelectorAll('[data-flow-step]')) {
+    if (step.dataset.flowStep===flowStep) step.setAttribute('aria-current','step');
+    else step.removeAttribute('aria-current');
+  }
+}
+function setViewRole(role, focus=false) {
+  viewRole=role;
+  document.body.dataset.viewRole=role;
+  for (const button of document.querySelectorAll('button[data-view-role]')) button.setAttribute('aria-pressed',String(button.dataset.viewRole===role));
+  $('.control-tabs').hidden=role==='admin';
+  $('#viewLabel').textContent=role==='admin'?'SISI ADMIN':'SISI PENGGUNA';
+  $('#controlsTitle').textContent=role==='admin'?'Review konten pengguna':'Aktivitas & perawatan';
+  $('#contentHint').textContent=role==='admin'?'Pilih → tentukan status':'Status konten milik pengguna';
+  $('#adminDecisions').hidden=role!=='admin';
+  $('#contentEmpty').textContent=role==='admin'?'Belum ada konten. Pengguna perlu mengirim Sharing.':'Buat Sharing baru di tab Aktivitas.';
+  activateControl(role==='admin'?'content':userTab);
+  renderContents();
+  if (focus) $('button[data-view-role="'+role+'"]').focus();
+}
+for (const button of document.querySelectorAll('button[data-view-role]')) button.addEventListener('click',()=>setViewRole(button.dataset.viewRole));
+$('#reviewAsAdmin').addEventListener('click',()=>setViewRole('admin',true));
+$('#returnToUser').addEventListener('click',()=>{userTab='care';setViewRole('user',true);});
 for(const tab of controlTabs) {
   tab.addEventListener('click',()=>activateControl(tab.dataset.controlTab));
   tab.addEventListener('keydown',event=>{
@@ -147,4 +196,5 @@ for (const level of LEVELS) {
   $('#levelRulesBody').append(row);
 }
 render();
+setViewRole('user');renderFlow();
 $('#feedback').textContent = 'Contoh: Level 3 · 3 buah';

@@ -35,9 +35,22 @@ tidak menulis ke sana dan tidak dijalankan otomatis saat deploy.
 
 ## Aksi
 
-Tampilan awal hanya menampilkan pohon, angka progres/Storage, dan tiga tombol
-perawatan. Aksi lain dikelompokkan dalam tab **Aktivitas**, **Konten**, dan
-**Uji demo**. Tabel aturan dan riwayat ditutup secara default; buka bila perlu.
+Pilih sudut pandang **Pengguna** atau **Admin** tanpa meninggalkan halaman.
+State pohon tetap sama ketika berganti peran.
+
+- **Pengguna:** tab Rawat, Aktivitas, dan Konten saya (status saja, tanpa keputusan).
+- **Admin:** pilih konten dan ACC/basi/tidak relevan/duplikat; tidak menjalankan
+  reward/perawatan pengguna.
+- **Alat demo:** +7 hari, kondisi, Boost, dan contoh disimpan dalam disclosure
+  tersendiri, tertutup secara default seperti aturan dan riwayat.
+- Sharing menampilkan tombol Lanjut ke admin; keputusan admin menyediakan
+  tombol kembali untuk melihat Storage pengguna. Indikator alur menjelaskan
+  Kirim → Review → Reward → Rawat.
+- Di HP, pengguna melihat pohon dahulu; admin melihat panel review dahulu.
+
+Peran ini untuk menjelaskan alur simulasi, bukan autentikasi atau pengganti
+otorisasi backend KMS. Guard UI mencegah tombol role lain mengubah simulasi,
+tetapi tidak dimaksudkan sebagai batas keamanan terhadap developer console.
 
 - Login harian, penuntasan materi baru, ulasan contoh, Sharing baru.
 - Siram, pupuk, pasang satu buah.
