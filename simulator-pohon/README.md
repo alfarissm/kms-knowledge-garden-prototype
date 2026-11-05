@@ -57,5 +57,11 @@ pohon jika Air masih ada. Saldo Storage berbeda dari nilai perawatan.
 `sync-engine` mempertahankan koreksi kondisi ini saat mengambil ulang snapshot.
 Aplikasi KMS utama tidak ikut diubah oleh sinkronisasi atau deploy simulator.
 
+Contoh L3 dimulai dengan 9 Air / 6 Pupuk di pohon (bukan nilai tersembunyi 1/1).
+Setiap +7 hari: Air pohon −1 dan Pupuk −0,5, minimum nol. Contoh tersebut tetap
+hijau setelah dua klik (7 Air / 5 Pupuk), menguning saat Air mencapai nol, dan
+mati hanya saat keduanya nol. Storage dan level tetap. Tombol uji Menguning/Mati
+tetap tersedia sebagai override demo yang terpisah dari tombol waktu.
+
 Pohon berasal dari kode SVG, bukan gambar raster. Slot 1–7 terlihat langsung;
 kelebihan jumlah mengikuti penanda +n seperti aplikasi utama.

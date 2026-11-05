@@ -12,6 +12,9 @@ main { padding-top: 20px; }
 .storage-section { padding: 16px 22px; }
 .storage-item { padding: 10px 14px; }
 .storage-item dd { font-size: 24px; }
+.care-strip { padding: 10px 12px; border-radius: 8px; background: #f0f5e9; font-size: 12px; color: #536e47; }
+.care-strip strong { font-size: 12px; }
+.care-strip > span:last-child { font-size: 10px; }
 .controls-panel { display: block; padding: 20px; }
 .controls-heading h2 { margin: 0 0 16px; font-size: 18px; }
 .control-tabs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px; padding: 4px; border-radius: 10px; background: #f0f3ec; margin-bottom: 18px; }
@@ -69,6 +72,6 @@ footer { padding-top: 16px; }
   .garden-heading h2 { font-size: 16px; }
   .scene { height: 245px; min-height: 245px; flex-basis: 245px; }
   .storage-item { padding: 10px; }
-  .care-strip { font-size: 10px; }
+  .care-strip { font-size: 11px; }
   .control-tabs button { font-size: 11px; }
 }

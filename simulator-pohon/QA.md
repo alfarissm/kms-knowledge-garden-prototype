@@ -95,3 +95,18 @@ Screenshot: `standalone-tree-desktop.png` dan `standalone-tree-mobile.png`.
 - 90 cek browser live lulus, termasuk hijau setelah diberi Air saat Pupuk nol,
   menguning setelah diberi Pupuk saat Air nol, lalu mati setelah kedua nilai
   habis melalui decay. Tidak ada exception JavaScript atau request API KMS.
+
+## Koreksi contoh awal dan +7 hari — 5 November 2026
+
+- Ditemukan contoh L3 memiliki progres 9/6 tetapi perawatan tersembunyi 1/1.
+  Pengurangan sudah benar, namun cadangan awal demo tidak representatif.
+- Boost Level sekarang mengisi perawatan sesuai ambang level, sehingga contoh
+  L3 memiliki 9 Air dan 6 Pupuk di pohon.
+- +7 hari tetap hanya mengurangi 1 Air dan 0,5 Pupuk per periode, minimum nol.
+  Tidak menambahkan aturan kuning/mati berdasarkan jumlah klik.
+- Label Sisa di pohon diperjelas; feedback menunjukkan nilai sebelum → sesudah.
+- 42 tes simulator dan 155 tes KMS lulus; 100 cek browser simulator lokal lulus.
+- Uji berulang 12 klik dari contoh L3: klik 1–8 hijau; saat Air nol dan Pupuk
+  tersisa kuning; saat keduanya nol mati. Storage dan Level 3 tidak berubah.
+- Tidak ada reset/migrasi state akun produksi. Akun lama mengikuti nilai
+  perawatannya sendiri, bukan dipaksa memakai nilai contoh L3.

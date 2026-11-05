@@ -32,6 +32,21 @@ it('keeps the achieved level while condition changes', () => {
   const after = advanceDemoDays(start, 14, now);
   expect(after.level).toBe(start.level);
 });
+it('demo L3 seeds 9 Air and 6 Pupuk care instead of hidden near-empty reserves', () => {
+  let state = createInitialState(now);
+  for (let i = 0; i < 3; i++) state = applyDemoLevelBoost(state, now);
+  expect(state.careAir).toBe(9);
+  expect(state.careFertilizerUnits).toBe(12);
+  const once = advanceDemoDays(state, 7, now);
+  const twice = advanceDemoDays(once, 7, now);
+  expect(once.careAir).toBe(8);
+  expect(once.careFertilizerUnits).toBe(11);
+  expect(twice.careAir).toBe(7);
+  expect(twice.careFertilizerUnits).toBe(10);
+  expect(getTreeCondition(twice)).toBe('healthy');
+  expect(getTreeCondition(advanceDemoDays(state, 9 * 7, now))).toBe('thirsty');
+  expect(getTreeCondition(advanceDemoDays(state, 12 * 7, now))).toBe('dead');
+});
 it('applies the corrected rule through server-owned care actions', async () => {
   const f = memoryApp({ state: { ...createInitialState(), careAir: 0, careFertilizerUnits: 0 } });
   const response = await f.action('care', { resource: 'air' });

@@ -79,7 +79,7 @@ function run(action) {
       'care-fruit': '+1 buah di pohon',
       acc: sim.state.air > previous.air ? 'ACC · +3 Air · +2 Pupuk · +1 Buah' : 'ACC ulang · slot sama · tanpa reward tambahan',
       stale: 'Basi · buah cokelat di tanah', rejected: 'Tidak relevan · slot kosong', duplicate: 'Duplikat · slot kosong',
-      advance: '+7 hari · progres & perawatan berkurang; level tetap',
+      advance: `+7 hari · Air pohon ${fmt(previous.careAir)} → ${fmt(sim.state.careAir)} · Pupuk ${fmt(previous.careFertilizerUnits/2)} → ${fmt(sim.state.careFertilizerUnits/2)}`,
       healthy: 'Pohon sehat · buah bisa dipasang lagi', thirsty: 'Menguning · buah kembali ke Storage', dead: 'Mati · buah kembali ke Storage',
       boost: 'Khusus demo: +10 Air · +6 Pupuk · +1 Buah', 'level-up': `Level ${sim.state.level}`, 'level-down': `Level ${sim.state.level}`,
       example: 'Contoh: Level 3 · 3 buah', reset: 'Level 0 · 1 Air · 1 Pupuk',

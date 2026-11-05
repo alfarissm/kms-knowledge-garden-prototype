@@ -72,9 +72,13 @@ export function performAction(current, action) {
     }
     case 'care-air': case 'care-fertilizer': case 'care-fruit':
       take(applyCare(sim.state, action.slice(5), options)); break;
-    case 'advance':
+    case 'advance': {
+      const before = sim.state;
       sim.state = advanceDemoDays(sim.state, 7, sim.wallNow);
-      message = '+7 hari: progres dan perawatan −1 Air / −0,5 Pupuk. Storage dan level tetap.'; break;
+      const fmt = value => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(value);
+      message = `+7 hari: Air di pohon ${fmt(before.careAir)} → ${fmt(sim.state.careAir)}; Pupuk ${fmt(before.careFertilizerUnits/2)} → ${fmt(sim.state.careFertilizerUnits/2)}. Storage dan level tetap.`;
+      break;
+    }
     case 'healthy': case 'thirsty': case 'dead':
       sim.state = simulateDemoTreeCondition(sim.state, action);
       message = action === 'healthy' ? 'Pohon dipulihkan sehat. Progres yang hilang tidak dikembalikan; pasang ulang buah dari Storage.'

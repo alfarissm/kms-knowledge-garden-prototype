@@ -116,6 +116,9 @@ wrangler.jsonc         Konfigurasi Worker Cloudflare
 - Kondisi pohon memakai nilai perawatan, bukan saldo Storage: Air habis dengan
   Pupuk tersisa → menguning; Air dan Pupuk sama-sama habis → mati.
   Pupuk habis sendirian tidak mematikan pohon jika Air masih ada.
+- Boost Level demo mengisi progres dan cadangan perawatan sesuai ambang level.
+  +7 hari hanya menerapkan pengurangan per periode, tidak memaksa kondisi
+  berdasarkan jumlah klik. Data perawatan akun yang sudah ada tidak direset.
 
 - Browser mengirim tindakan ke `POST /api/actions`; server menghitung saldo,
   level, reward dan hasil kuis. `PUT /api/state` lama ditolak agar snapshot

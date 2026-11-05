@@ -1200,8 +1200,10 @@ export function applyDemoLevelBoost(currentState, wallNow = Date.now()) {
     && state.growthFertilizerUnits >= requirement.fertilizerUnits;
   state.growthAir = Math.max(state.growthAir, requirement.air);
   state.growthFertilizerUnits = Math.max(state.growthFertilizerUnits, requirement.fertilizerUnits);
-  state.careAir = Math.max(state.careAir, 1);
-  state.careFertilizerUnits = Math.max(state.careFertilizerUnits, 2);
+  // A demo level must start with matching care reserves, not a hidden 1/1.
+  // Weekly decay still subtracts normally; condition depends on the remainder.
+  state.careAir = Math.max(state.careAir, requirement.air, 1);
+  state.careFertilizerUnits = Math.max(state.careFertilizerUnits, requirement.fertilizerUnits, 2);
   const leveledUp = updateTreeLevel(state, state.clockMs);
   recordCareActivity(state);
   recordActivity(state, {

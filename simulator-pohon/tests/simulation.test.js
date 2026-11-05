@@ -64,6 +64,18 @@ test('first ACC gives 3 Air, 2 Pupuk and one content-bound fruit',()=>{
 });
 test('example loads a healthy Level 3 tree with 3 bound fruit',()=>{
   const sim=step(fresh(),'example');assert.equal(sim.state.level,3);assert.equal(getTreeCondition(sim.state),'healthy');assert.equal(sim.state.fruitsOnTree,3);assert.equal(sim.state.sharingSubmissions.length,3);assert.equal(sim.events.length,1);
+  assert.equal(sim.state.careAir,9);assert.equal(sim.state.careFertilizerUnits,12);
+});
+test('repeated +7 clicks only subtract reserves and never force early yellow or death',()=>{
+  let sim=step(fresh(),'example');
+  const air=sim.state.air,pupuk=sim.state.fertilizerUnits;
+  for(let week=1;week<=12;week++) {
+    sim=step(sim,'advance');
+    assert.equal(sim.state.careAir,Math.max(0,9-week));
+    assert.equal(sim.state.careFertilizerUnits,Math.max(0,12-week));
+    assert.equal(getTreeCondition(sim.state),week<9?'healthy':week<12?'thirsty':'dead');
+    assert.equal(sim.state.air,air);assert.equal(sim.state.fertilizerUnits,pupuk);assert.equal(sim.state.level,3);
+  }
 });
 test('stale fruit rests on ground and renders brown',()=>{
   const sim=step(step(fresh(),'example'),'stale');assert.equal(sim.state.fruitsOnTree,2);assert.equal(getFruitView(sim.state).ground.length,1);
