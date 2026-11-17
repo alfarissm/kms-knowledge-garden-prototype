@@ -18,7 +18,7 @@ test('demo overrides must be opened separately and are not ordinary role actions
 });
 test('roles cover every simulation action once without changing gamification rules',()=>{
   const all=[...USER_ACTIONS,...ADMIN_ACTIONS,...DEMO_ACTIONS];
-  assert.equal(all.length,19);assert.equal(new Set(all).size,19);
+  assert.equal(all.length,21);assert.equal(new Set(all).size,21);
   assert.equal(isActionAllowed('user','reset'),true);assert.equal(isActionAllowed('admin','reset'),true);
   assert.equal(isActionAllowed('user','unknown',true),false);
 });

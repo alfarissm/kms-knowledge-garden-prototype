@@ -1,9 +1,10 @@
 import {
   createInitialState, applyActivity, applyCare, completeLearningModule,
-  rateLearningModule, submitSharingMaterial, setSharingCondition,
+  submitSharingMaterial, setSharingCondition,
   advanceDemoDays, applyDemoBoost, applyDemoLevelBoost, applyDemoLevelDecrease,
-  simulateDemoTreeCondition,
+  simulateDemoTreeCondition, addDemoResource, getGamificationSettings,
 } from './engine/gamification.js';
+import { rateLearningStars } from './learning-rating.js';
 
 export function createSimulation(now = Date.now()) {
   return { state: createInitialState(now), wallNow: now, startClock: now,
@@ -27,8 +28,8 @@ export function performAction(current, action) {
       message = ({ 'insufficient': 'Storage tidak cukup. Kumpulkan resource terlebih dahulu.',
         'progress-full': 'Target resource sudah penuh. Lengkapi resource pasangannya.',
         'tree-not-ready': 'Buah hanya bisa dipasang di pohon sehat Level 3+.',
-        'already-rated': 'Materi ini sudah diulas. Tidak ada reward kedua kali.',
-        'not-completed': 'Tuntaskan materi sebelum memberi ulasan.',
+        'already-rated': 'Materi ini sudah diberi bintang. Tidak ada reward kedua kali.',
+        'not-completed': 'Tuntaskan materi sebelum memberi bintang.',
         'condition-unchanged': 'Status konten sudah sama. Tidak ada reward tambahan.' })[result.reason] || 'Aksi belum dapat diterapkan.';
     } else message = success || sim.state.history[0]?.detail || 'Aksi diterapkan.';
   };
@@ -48,7 +49,7 @@ export function performAction(current, action) {
     }
     case 'rate': {
       if (!sim.lastModuleId) throw new Error('Tuntaskan satu materi terlebih dahulu.');
-      take(rateLearningModule(sim.state, sim.lastModuleId, 5, { ...options, comment: 'Ulasan contoh dari tombol simulasi.' }), 'Bintang + komentar contoh tersimpan: +1 Air masuk Storage.');
+      take(rateLearningStars(sim.state, sim.lastModuleId, 5, options), 'Penilaian 5 bintang tersimpan: +1 Air masuk Storage.');
       break;
     }
     case 'share': {
@@ -64,7 +65,8 @@ export function performAction(current, action) {
       const result = setSharingCondition(sim.state, sim.selectedId, action === 'acc' ? 'validated' : action, options);
       take(result);
       if (result.applied !== false) {
-        message = action === 'acc' ? (result.rewarded ? 'ACC pertama: +3 Air, +2 Pupuk, +1 Buah masuk Storage.' : 'ACC ulang: buah aktif di slot semula, tanpa tambahan Air/Pupuk.')
+        const reward = getGamificationSettings().accReward;
+        message = action === 'acc' ? (result.rewarded ? `ACC pertama: +${reward.air} Air, +${reward.fertilizerUnits/2} Pupuk, +1 Buah masuk Storage.` : 'ACC ulang: buah aktif di slot semula, tanpa tambahan Air/Pupuk.')
           : action === 'stale' ? 'Konten basi: buah cokelat rebah di tanah; terlihat mulai Level 3.'
           : 'Buah konten diangkat. Slotnya kosong; buah lain tidak bergeser.';
       }
@@ -84,6 +86,12 @@ export function performAction(current, action) {
       message = action === 'healthy' ? 'Pohon dipulihkan sehat. Progres yang hilang tidak dikembalikan; pasang ulang buah dari Storage.'
         : `${action === 'thirsty' ? 'Menguning' : 'Mati'}: buah menggantung kembali ke Storage. Buah basi tetap di tanah.`;
       break;
+    case 'add-air': case 'add-fertilizer': {
+      const resource = action === 'add-air' ? 'air' : 'fertilizer';
+      sim.state = addDemoResource(sim.state, resource, 1, options);
+      message = `Khusus demo: +1 ${resource === 'air' ? 'Air' : 'Pupuk'} ke Storage. Progres tidak berubah.`;
+      break;
+    }
     case 'boost':
       sim.state = applyDemoBoost(sim.state, sim.wallNow);
       message = 'Khusus demo: +10 Air, +6 Pupuk, +1 Buah ke Storage. Progres tidak berubah.'; break;

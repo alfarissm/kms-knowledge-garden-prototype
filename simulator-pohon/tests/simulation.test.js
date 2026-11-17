@@ -41,6 +41,40 @@ test('actions do not mutate their inputs',()=>{
 test('resource reward alone never raises level',()=>{
   const sim=step(fresh(),'boost');assert.equal(sim.state.level,0);assert.equal(sim.state.air,11);assert.equal(sim.state.fertilizerUnits,14);assert.equal(sim.state.growthAir,0);
 });
+for(const [action,key,delta] of [['add-air','air',1],['add-fertilizer','fertilizerUnits',2]]) {
+  test(`${action} adds exactly one resource without changing tree, rewards, or input`,()=>{
+    const before=step(fresh(),'example'),copy=structuredClone(before);
+    const result=performAction(before,action),after=result.sim;
+    assert.deepEqual(before,copy);
+    const expected=structuredClone(before.state);
+    expected[key]+=delta;
+    expected.history=after.state.history;
+    assert.deepEqual(after.state,expected);
+    assert.equal(after.state.history[0].type,'demo');
+    assert.equal(after.events[0].action,action);
+    assert.equal(after.events[0].day,0);
+    assert.match(result.message,/Khusus demo: \+1 .* ke Storage/);
+    assert.equal(after.selectedId,before.selectedId);
+    assert.equal(after.lastModuleId,before.lastModuleId);
+  });
+  test(`${action} can be repeated without claiming login or Learning rewards`,()=>{
+    const before=fresh();let after=before;
+    for(let i=0;i<3;i++)after=step(after,action);
+    assert.equal(after.state[key],before.state[key]+3*delta);
+    assert.equal(canLogin(after.state),true);
+    assert.deepEqual(after.state.completedLearningIds,[]);
+    assert.deepEqual(after.state.learningRatings,{});
+    assert.equal(after.state.level,0);
+    assert.equal(after.state.growthAir,0);
+    assert.equal(after.state.growthFertilizerUnits,0);
+  });
+  test(`${action} does not revive an unhealthy tree or place fruit`,()=>{
+    const before=step(step(fresh(),'example'),'dead'),after=step(before,action);
+    assert.equal(getTreeCondition(after.state),'dead');
+    assert.equal(after.state.fruitsOnTree,0);
+    assert.equal(after.state.fruitsInStorage,before.state.fruitsInStorage);
+  });
+}
 test('Air AND Pupuk need to be applied to reach Level 1',()=>{
   let sim=step(fresh(),'care-air');assert.equal(sim.state.level,0);sim=step(sim,'care-fertilizer');assert.equal(sim.state.level,1);assert.equal(sim.state.air,0);assert.equal(sim.state.fertilizerUnits,0);
 });
@@ -58,22 +92,37 @@ test('rating requires completion and rewards only once',()=>{
 test('Sharing pending grants no reward and no fruit',()=>{
   const sim=step(fresh(),'share');assert.equal(sim.state.air,1);assert.equal(sim.state.fruitsInStorage,0);assert.equal(sim.selectedId,'content-1');assert.equal(sim.state.sharingSubmissions[0].status,'pending');
 });
-test('first ACC gives 3 Air, 2 Pupuk and one content-bound fruit',()=>{
-  let sim=step(step(fresh(),'share'),'acc');assert.equal(sim.state.air,4);assert.equal(sim.state.fertilizerUnits,6);assert.equal(sim.state.fruitsInStorage,1);assert.equal(sim.state.fruitLedger[0].submissionId,'content-1');
-  sim=step(sim,'acc');assert.equal(sim.state.air,4);assert.equal(sim.state.fruitLedger.length,1);
+test('first ACC gives 6 Air, 4 Pupuk and one content-bound fruit',()=>{
+  let sim=step(step(fresh(),'share'),'acc');assert.equal(sim.state.air,7);assert.equal(sim.state.fertilizerUnits,10);assert.equal(sim.state.fruitsInStorage,1);assert.equal(sim.state.fruitLedger[0].submissionId,'content-1');
+  sim=step(sim,'acc');assert.equal(sim.state.air,7);assert.equal(sim.state.fruitLedger.length,1);
+});
+test('one accepted Sharing plus welcome stock reaches L3 at 7 Air and 5 Pupuk through care',()=>{
+  let sim=step(step(fresh(),'share'),'acc');
+  assert.equal(sim.state.level,0);assert.equal(sim.state.fruitsInStorage,1);
+  for(const target of LEVELS.slice(0,3)) {
+    while(sim.state.growthAir<target.air)sim=step(sim,'care-air');
+    while(sim.state.growthFertilizerUnits<target.fertilizerUnits)sim=step(sim,'care-fertilizer');
+    assert.equal(sim.state.level,target.level);
+  }
+  assert.equal(sim.state.growthAir,7);assert.equal(sim.state.growthFertilizerUnits,10);
+  assert.equal(sim.state.air,0);assert.equal(sim.state.fertilizerUnits,0);
+  sim=step(sim,'care-fruit');assert.equal(sim.state.fruitsOnTree,1);
+  assert.deepEqual(sim.state.completedLearningIds,[]);
+  sim=step(sim,'acc');assert.equal(sim.state.air,0);assert.equal(sim.state.fertilizerUnits,0);
 });
 test('example loads a healthy Level 3 tree with 3 bound fruit',()=>{
   const sim=step(fresh(),'example');assert.equal(sim.state.level,3);assert.equal(getTreeCondition(sim.state),'healthy');assert.equal(sim.state.fruitsOnTree,3);assert.equal(sim.state.sharingSubmissions.length,3);assert.equal(sim.events.length,1);
-  assert.equal(sim.state.careAir,9);assert.equal(sim.state.careFertilizerUnits,12);
+  assert.equal(sim.state.careAir,7);assert.equal(sim.state.careFertilizerUnits,10);
+  assert.equal(sim.state.air,19);assert.equal(sim.state.fertilizerUnits,26);
 });
 test('repeated +7 clicks only subtract reserves and never force early yellow or death',()=>{
   let sim=step(fresh(),'example');
   const air=sim.state.air,pupuk=sim.state.fertilizerUnits;
   for(let week=1;week<=12;week++) {
     sim=step(sim,'advance');
-    assert.equal(sim.state.careAir,Math.max(0,9-week));
-    assert.equal(sim.state.careFertilizerUnits,Math.max(0,12-week));
-    assert.equal(getTreeCondition(sim.state),week<9?'healthy':week<12?'thirsty':'dead');
+    assert.equal(sim.state.careAir,Math.max(0,7-week));
+    assert.equal(sim.state.careFertilizerUnits,Math.max(0,10-week));
+    assert.equal(getTreeCondition(sim.state),week<7?'healthy':week<10?'thirsty':'dead');
     assert.equal(sim.state.air,air);assert.equal(sim.state.fertilizerUnits,pupuk);assert.equal(sim.state.level,3);
   }
 });

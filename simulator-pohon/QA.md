@@ -1,5 +1,63 @@
 # QA simulator pohon
 
+## Revisi bintang saja — 17 November 2026
+
+- Sesuai permintaan, perubahan hanya pada simulator, flowchart final, dan
+  dokumentasinya. Source/backend/deployment KMS utama tidak diubah oleh revisi ini.
+- Tombol **Beri bintang** memberi contoh 5 bintang setelah materi terakhir
+  tuntas. Tidak mewajibkan atau membuat komentar contoh tersembunyi. Reward
+  tetap +1 Air sekali per materi, tanpa reward kedua kali.
+- `src/learning-rating.js` adalah kebijakan khusus simulator; snapshot mesin
+  tetap identik dengan KMS. Validasi komentar pada mesin KMS tidak dilonggarkan.
+- Flowchart KMS memakai **Pusat Pengetahuan** dan penilaian bintang saja.
+  Karena KMS utama belum menerapkan kedua perubahan ini, judul PDF diberi
+  catatan revisi tersebut. Review Admin (ACC/Basi/Tidak relevan/Duplikat) tetap.
+- **75 tes simulator, 165 tes regresi KMS, 147 pemeriksaan browser lokal, dan
+  147 pemeriksaan browser live lulus.** Tidak ada exception JS atau request
+  `/api/`/domain KMS dari pengujian simulator.
+- Seluruh enam viewport 320/390/680/900/1024/1440 px diperiksa, termasuk label
+  rating dan kontrol yang tetap dapat diakses dengan keyboard.
+- **57 pemeriksaan flowchart KMS dan 32 pemeriksaan flowchart simulator lulus.**
+  Kedua PDF tetap satu halaman; geometri, font/style kotak, konektor, dan angka
+  reward/level tetap. Hanya label yang diminta serta catatan cakupan berubah.
+- Source kanonis, salinan paket pembimbing 13 November, dan isi ZIP terverifikasi
+  identik. Arsip paket 9 November dan bukti KP 16 November tidak diubah.
+- Worker simulator: `8a64a090-41a2-47e9-9da2-97e59536139a`; JS
+  `index-BgHE7G3k.js`; CSS tetap `index-eZu8lpWs.css`. HTML/JS/CSS live HTTP 200
+  dan identik dengan build lokal. KMS live tetap `index-BKq-NQA2.js`.
+- Log/screenshot pemeriksaan disimpan terpisah di
+  `C:\Users\ASUS\AppData\Local\Temp\opencode\simulator-stars-20261117\`;
+  tidak menimpa bukti pengujian terdahulu.
+
+Bagian-bagian di bawah merupakan catatan versi terdahulu.
+
+## Revisi Probis — 13 November 2026 (acuan terbaru)
+
+- Sumber: notulensi rapat Probis internal 13 November 2026. ACC pertama diubah
+  menjadi +6 Air/+4 Pupuk; target kumulatif L3 diubah menjadi 7 Air/5 Pupuk.
+- Satu Buah per konten ACC, validasi admin, login sekali per hari, perawatan
+  manual, decay, serta angka L1/L2/L4–L7 dipertahankan.
+- 160 tes KMS lokal dan 65 tes simulator lulus. Skenario normal L1–L7 dijalankan
+  di kedua mesin tanpa boost; snapshot mesin identik.
+- 137 cek browser lokal dan 137 cek browser live lulus, termasuk satu Sharing
+  ACC + bonus awal → Siram/Pupuk → L3 7/5 → pasang buah.
+- +1 Air/+1 Pupuk tetap khusus demo; dapat diulang, hanya menambah Storage,
+  tidak mengklaim reward login/Learning, dan dapat dipakai lewat keyboard.
+- Viewport 320/390/680/900/1024/1440 px tetap tanpa overflow horizontal root;
+  susunan, Poppins, dan CSS tidak diubah oleh revisi aturan ini.
+- Tidak ada exception JavaScript atau request ke API/domain akun KMS.
+- Contoh L3 sekarang memiliki Storage 19/13, progres 7/5, perawatan 7/5, dan
+  tiga buah terpasang. Dua kali +7 hari menyisakan 5 Air/4 Pupuk, tetap sehat.
+- 21 pemeriksaan diagram KMS dan 30 pemeriksaan diagram simulator lulus;
+  seluruh 22 aksi simulator dipetakan. PDF final masing-masing satu halaman,
+  tanpa tabrakan kotak/panah/label atau teks terpotong.
+- Worker simulator: `ee15df60-a96a-42b2-9451-d74e2969a730`, bundle
+  `index-Ck5JTsc3.js` / `index-eZu8lpWs.css`.
+- KMS utama hanya diubah/dibangun/diuji secara lokal, **tidak di-deploy ulang**.
+  Tidak ada penulisan konfigurasi admin, migrasi/reset akun, atau reward lama.
+
+Bagian di bawah merupakan catatan versi terdahulu, bukan angka aturan terbaru.
+
 Tanggal: 4 November 2026.
 
 ## Hasil lokal sebelum deploy

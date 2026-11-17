@@ -1,6 +1,7 @@
 import './styles.css';
 import './compact-layout.css';
-import { LEVELS, STAGES, getNextLevelRequirement, getTreeCondition, getFruitView } from './engine/gamification.js';
+import './field-theme.css';
+import { LEVELS, STAGES, getNextLevelRequirement, getTreeCondition, getFruitView, getGamificationSettings } from './engine/gamification.js';
 import { makeTreeSvg } from './engine/tree-svg.js';
 import { createSimulation, performAction, canLogin } from './simulation.js';
 import { ADMIN_ACTIONS, DEMO_ACTIONS, isActionAllowed } from './roles.js';
@@ -68,7 +69,7 @@ function render() {
   disabled('care-air',s.air<1,'Butuh 1 Air di Storage.'); disabled('care-fertilizer',s.fertilizerUnits<2,'Butuh 1 Pupuk di Storage.');
   disabled('care-fruit',s.fruitsInStorage<1 || s.level<3 || condition!=='healthy','Butuh buah di Storage, pohon sehat, dan Level 3+.');
   disabled('login',!canLogin(s),'Reward login hanya sekali per hari simulasi.');
-  disabled('rate',!sim.lastModuleId || Object.hasOwn(s.learningRatings,sim.lastModuleId),'Setelah materi tuntas, satu ulasan per materi.');
+  disabled('rate',!sim.lastModuleId || Object.hasOwn(s.learningRatings,sim.lastModuleId),'Setelah materi tuntas, satu penilaian bintang per materi.');
   $('#learnButtonLabel').textContent = `Materi #${s.completedLearningIds.length+1}`;
   renderContents();
   $('#historyList').replaceChildren(...sim.events.map(e => {
@@ -85,14 +86,15 @@ function run(action) {
     const result = performAction(sim,action); sim = result.sim;
     render();
     const brief = {
-      login: '+1 Air → Storage', learn: '+1 Pupuk → Storage', rate: '+1 Air → Storage',
+      login: '+1 Air → Storage', learn: '+1 Pupuk → Storage', rate: '5 bintang · +1 Air → Storage',
       share: `${sim.state.sharingSubmissions[0]?.title} · menunggu ACC`,
       'care-air': '−1 Air Storage · pohon disiram', 'care-fertilizer': '−1 Pupuk Storage · pohon dipupuk',
       'care-fruit': '+1 buah di pohon',
-      acc: sim.state.air > previous.air ? 'ACC · +3 Air · +2 Pupuk · +1 Buah' : 'ACC ulang · slot sama · tanpa reward tambahan',
+      acc: sim.state.air > previous.air ? `ACC · +${getGamificationSettings().accReward.air} Air · +${fmt(getGamificationSettings().accReward.fertilizerUnits/2)} Pupuk · +1 Buah` : 'ACC ulang · slot sama · tanpa reward tambahan',
       stale: 'Basi · buah cokelat di tanah', rejected: 'Tidak relevan · slot kosong', duplicate: 'Duplikat · slot kosong',
       advance: `+7 hari · Air pohon ${fmt(previous.careAir)} → ${fmt(sim.state.careAir)} · Pupuk ${fmt(previous.careFertilizerUnits/2)} → ${fmt(sim.state.careFertilizerUnits/2)}`,
       healthy: 'Pohon sehat · buah bisa dipasang lagi', thirsty: 'Menguning · buah kembali ke Storage', dead: 'Mati · buah kembali ke Storage',
+      'add-air': 'Khusus demo: +1 Air → Storage · progres tetap', 'add-fertilizer': 'Khusus demo: +1 Pupuk → Storage · progres tetap',
       boost: 'Khusus demo: +10 Air · +6 Pupuk · +1 Buah', 'level-up': `Level ${sim.state.level}`, 'level-down': `Level ${sim.state.level}`,
       example: 'Contoh: Level 3 · 3 buah', reset: 'Level 0 · 1 Air · 1 Pupuk',
     };

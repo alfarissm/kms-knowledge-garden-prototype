@@ -4,7 +4,7 @@ const LEVEL_SYSTEM_VERSION = 2;
 export const LEVELS = [
   { level: 1, name: 'Bibit', air: 1, fertilizerUnits: 2 },
   { level: 2, name: 'Pertumbuhan daun', air: 3, fertilizerUnits: 4 },
-  { level: 3, name: 'Buah mulai muncul', air: 9, fertilizerUnits: 12 },
+  { level: 3, name: 'Buah mulai muncul', air: 7, fertilizerUnits: 10 },
   { level: 4, name: 'Pohon besar', air: 27, fertilizerUnits: 36 },
   { level: 5, name: 'Cabang kiri', air: 52, fertilizerUnits: 60 },
   { level: 6, name: 'Cabang kanan', air: 77, fertilizerUnits: 84 },
@@ -12,10 +12,10 @@ export const LEVELS = [
 ];
 
 // Parameter gamifikasi yang boleh diubah admin (tersimpan di DB · tabel
-// app_settings). Nilai bawaan identik dengan konstanta lama sehingga perilaku
-// dan seluruh pengujian mesin tidak berubah sampai admin menyesuaikannya.
+// app_settings). Revisi Probis 13 November 2026: ACC +6 Air/+4 Pupuk,
+// L3 kumulatif 7 Air/5 Pupuk. Pengaturan admin tersimpan tidak ditimpa otomatis.
 export const DEFAULT_GAMIFICATION_SETTINGS = Object.freeze({
-  accReward: Object.freeze({ air: 3, fertilizerUnits: 4 }),
+  accReward: Object.freeze({ air: 6, fertilizerUnits: 8 }),
   activityRewards: Object.freeze({ access: 1, review: 1 }),
   learningRewardFertilizerUnits: 2,
   learningRatingAir: 1,
